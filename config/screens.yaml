@@ -1,0 +1,27 @@
+detection:
+  minimum_confidence: 0.55
+  squadAttributes:
+    keywords:
+      - Squad
+      - Attributes
+      - Name
+      - Position
+
+workflow:
+  required_screens:
+    - type: SQUAD_ATTRIBUTES
+      title: Squad Attributes
+      instructions: Open the Squad Attributes screen with the full player table and column headers visible.
+
+validation:
+  confidence_threshold: 0.95
+
+preprocessing:
+  crop_borders: true
+  border_fraction: 0.005
+  increase_contrast: true
+  contrast_clip_limit: 2.0
+  deskew: false
+  denoise: true
+  sharpen: true
+  threshold: false

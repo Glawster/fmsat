@@ -1,0 +1,20 @@
+reference_resolution:
+  width: 1920
+  height: 1080
+
+squadAttributes:
+  table:
+    x: 0.02
+    y: 0.18
+    width: 0.96
+    height: 0.76
+  header_height: 0.055
+  row_height: 0.034
+  columns:
+    name: {x: 0.000, width: 0.135}
+    positions: {x: 0.135, width: 0.075}
+    ca: {x: 0.210, width: 0.035}
+    pa: {x: 0.245, width: 0.035}
+  attribute_area:
+    x: 0.280
+    width: 0.720
