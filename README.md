@@ -1,32 +1,43 @@
 # Football Manager Squad Assessment Tool
 
-FMSAT is a local desktop application that extracts structured player data from Football
-Manager screenshots. Phase 1 supports only the **Squad Attributes** screen. It does not
-modify Football Manager, automate it, or read save files.
+FMSAT is a local desktop application that imports a tactic and extracts structured player
+data from Football Manager screenshots. It does not modify Football Manager, automate it,
+or read save files.
 
 The package also absorbs the repository's earlier `.fmf` parser. Those inspection and
-comparison commands remain available as `fmsat-parser`, while `fmsat` launches the desktop
+comparison commands are available under `fmsat parser`, while `fmsat` launches the desktop
 application.
 
 ## Documentation
 
-- [Architecture](docs/architecture.md)
-- [Sample screenshot guidance](docs/sampleScreenshots.md)
+- [Architecture](documentation/architecture.md)
+- [Sample screenshot guidance](documentation/sampleScreenshots.md)
+- [Football Manager file transfer requirement](project/requirements/features/001-footballManagerFileTransfer.md)
 
 ## Phase 1 workflow
 
-1. Launch FMSAT and select **Import Screenshot** (`Ctrl+I`).
-2. Select a recognised tactic or enter a new tactic name.
-3. FMSAT lists the screenshots still needed and tells you how to prepare the next screen.
-4. Copy the screenshot to the clipboard or save it as PNG/JPEG.
-5. FMSAT prefers an image already on the clipboard; otherwise it opens a file picker.
-6. Review the spreadsheet-style result. Rows below 95% OCR confidence are highlighted.
+1. Launch FMSAT and select **Import Tactic** (`Ctrl+T`).
+2. Import the Formation screenshot. FMSAT extracts the tactic name and asks you to confirm
+   or correct it.
+3. Select **Import Tactic** again for the In Possession screenshot, then once more for the
+   Out of Possession screenshot. FMSAT tracks the next missing capture for each tactic.
+4. Select **Import Squad** (`Ctrl+I`) and name or select the squad independently.
+5. Copy the requested screenshot to the clipboard or save it as PNG/JPEG. FMSAT prefers an
+   image already on the clipboard; otherwise it opens a file picker.
+6. Review the spreadsheet-style squad result. Rows below 95% OCR confidence are highlighted.
 7. Correct any cell and select **Save Confirmed Data** (`Ctrl+S`).
-8. The confirmed import is stored in `data/fmsat.sqlite3` at the repository root.
+8. Confirmed imports are stored in `data/fmsat.sqlite3` at the repository root.
+9. Choose **Apply Tactic to Squad** to pair any completed tactic with any stored squad.
 
-When a tactic already has every configured screenshot, FMSAT says that no new capture is
-needed. Choose **Use Existing** to stop, or **Update Screenshot** to deliberately import a
-newer capture while retaining the previous import history.
+When a tactic already has all three tactic screenshots, FMSAT offers to import an updated
+Formation screenshot while retaining the previous import history. Squads are stored
+independently rather than owned by a tactic, allowing the same squad to be assessed against
+multiple tactics. Applying a tactic creates a reusable many-to-many pairing; it does not
+move the squad or prevent another tactic from being applied.
+
+An applied pairing is not yet an automatic suitability rating. A defensible calculated
+score requires formation positions, roles and team instructions to be extracted into typed
+data rather than inferred from screenshot presence alone.
 
 ## Requirements and installation
 
@@ -82,7 +93,7 @@ python -m fmsat.app.main
 To inspect or compare `.fmf` files with the integrated parser toolkit:
 
 ```bash
-fmsat-parser --help
+fmsat parser --help
 ```
 
 Logs rotate at 5 MB and are kept in `logs/application.log` at the repository root.
@@ -90,13 +101,14 @@ Logs rotate at 5 MB and are kept in `logs/application.log` at the repository roo
 ## Configuration
 
 - `config/screens.yaml` — detection, validation threshold and preprocessing
-- `config/regions.yaml` — normalized table and column coordinates
+- `config/regions.yaml` — normalized tactic-name, table and column coordinates
 - `config/attributes.yaml` — ordered visible attribute definitions
 
 Coordinates are normalized from zero to one, allowing the same configuration to scale to
-different screenshot resolutions. Football Manager skins and custom views can move
-columns, so tune these YAML files against representative screenshots without changing
-parser code.
+different screenshot resolutions. The initial tactic-name region targets the default FM26
+skin and must be checked against a representative screenshot. Football Manager skins and
+custom views can move names and columns, so tune these YAML files without changing parser
+code.
 
 ## Project structure
 
@@ -111,7 +123,7 @@ fmsat/
 │   ├── parser/          Squad Attributes parser and extracted models
 │   └── validation/      Confidence and value validation
 ├── database/            SQLAlchemy models and SQLite gateway
-├── docs/                Design and screenshot documentation
+├── documentation/       Design and screenshot documentation
 ├── parser.py            Existing .fmf parsing implementation
 ├── samples/             Controlled .fmf samples and local screenshots
 └── tests/               Unit tests with mocked OCR

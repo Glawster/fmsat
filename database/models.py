@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, relationship
 from sqlalchemy.orm import mapped_column as mappedColumn
 
@@ -25,7 +25,8 @@ class ImportSession(Base):
     players: Mapped[list[Player]] = relationship(
         back_populates="importSession", cascade="all, delete-orphan"
     )
-    capture: Mapped[TacticScreenshot | None] = relationship(back_populates="importSession")
+    tacticCapture: Mapped[TacticScreenshot | None] = relationship(back_populates="importSession")
+    squadCapture: Mapped[SquadScreenshot | None] = relationship(back_populates="importSession")
 
 
 class Tactic(Base):
@@ -39,6 +40,9 @@ class Tactic(Base):
         "normalized_name", String(255), unique=True, nullable=False
     )
     screenshots: Mapped[list[TacticScreenshot]] = relationship(
+        back_populates="tactic", cascade="all, delete-orphan"
+    )
+    squadApplications: Mapped[list[SquadTacticApplication]] = relationship(
         back_populates="tactic", cascade="all, delete-orphan"
     )
 
@@ -57,7 +61,61 @@ class TacticScreenshot(Base):
     )
     screenType: Mapped[str] = mappedColumn("screen_type", String(64), nullable=False, index=True)
     tactic: Mapped[Tactic] = relationship(back_populates="screenshots")
-    importSession: Mapped[ImportSession] = relationship(back_populates="capture")
+    importSession: Mapped[ImportSession] = relationship(back_populates="tacticCapture")
+
+
+class Squad(Base):
+    """A named playing squad that can be assessed against multiple tactics."""
+
+    __tablename__ = "squads"
+
+    id: Mapped[int] = mappedColumn(primary_key=True)
+    name: Mapped[str] = mappedColumn(String(255), nullable=False)
+    normalizedName: Mapped[str] = mappedColumn(
+        "normalized_name", String(255), unique=True, nullable=False
+    )
+    screenshots: Mapped[list[SquadScreenshot]] = relationship(
+        back_populates="squad", cascade="all, delete-orphan"
+    )
+    tacticApplications: Mapped[list[SquadTacticApplication]] = relationship(
+        back_populates="squad", cascade="all, delete-orphan"
+    )
+
+
+class SquadScreenshot(Base):
+    """Links a Squad Attributes import to its independently named squad."""
+
+    __tablename__ = "squad_screenshots"
+
+    id: Mapped[int] = mappedColumn(primary_key=True)
+    squadId: Mapped[int] = mappedColumn(
+        "squad_id", ForeignKey("squads.id"), nullable=False, index=True
+    )
+    importSessionId: Mapped[int] = mappedColumn(
+        "import_session_id", ForeignKey("import_sessions.id"), unique=True, nullable=False
+    )
+    squad: Mapped[Squad] = relationship(back_populates="screenshots")
+    importSession: Mapped[ImportSession] = relationship(back_populates="squadCapture")
+
+
+class SquadTacticApplication(Base):
+    """A deliberate pairing of one independently stored squad and tactic."""
+
+    __tablename__ = "squad_tactic_applications"
+    __table_args__ = (UniqueConstraint("squad_id", "tactic_id"),)
+
+    id: Mapped[int] = mappedColumn(primary_key=True)
+    squadId: Mapped[int] = mappedColumn(
+        "squad_id", ForeignKey("squads.id"), nullable=False, index=True
+    )
+    tacticId: Mapped[int] = mappedColumn(
+        "tactic_id", ForeignKey("tactics.id"), nullable=False, index=True
+    )
+    dateApplied: Mapped[datetime] = mappedColumn(
+        "date_applied", DateTime, default=datetime.now, nullable=False
+    )
+    squad: Mapped[Squad] = relationship(back_populates="tacticApplications")
+    tactic: Mapped[Tactic] = relationship(back_populates="squadApplications")
 
 
 class Player(Base):

@@ -11,7 +11,7 @@ import numpy as np
 
 from .detection import ScreenDetector, ScreenType
 from .images import ImagePreprocessor, imageLoad
-from .parser import ExtractedPlayer, SquadAttributesParser
+from .parser import ExtractedPlayer, SquadAttributesParser, TacticParser
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +27,8 @@ class ImportResult:
     source: str
     screenType: ScreenType
     players: list[ExtractedPlayer]
+    tacticName: str | None = None
+    confidence: float = 0.0
 
 
 class ScreenshotImportService:
@@ -36,18 +38,25 @@ class ScreenshotImportService:
         self,
         preprocessor: ImagePreprocessor,
         detector: ScreenDetector,
-        parser: SquadAttributesParser,
+        squadParser: SquadAttributesParser,
+        tacticParser: TacticParser,
     ) -> None:
         self.preprocessor = preprocessor
         self.detector = detector
-        self.parser = parser
+        self.squadParser = squadParser
+        self.tacticParser = tacticParser
 
-    def fileImport(self, path: Path) -> ImportResult:
+    def fileImport(self, path: Path, expectedType: ScreenType) -> ImportResult:
         """Import a supported screenshot from disk."""
 
-        return self.imageImport(imageLoad(path), str(path))
+        return self.imageImport(imageLoad(path), expectedType, str(path))
 
-    def imageImport(self, image: np.ndarray, source: str = "clipboard") -> ImportResult:
+    def imageImport(
+        self,
+        image: np.ndarray,
+        expectedType: ScreenType,
+        source: str = "clipboard",
+    ) -> ImportResult:
         """Import a decoded screenshot from any source."""
 
         started = time.perf_counter()
@@ -55,9 +64,38 @@ class ScreenshotImportService:
             processed = self.preprocessor.process(image)
             screenType = self.detector.detect(processed)
             logger.info("Detected screen type %s for %s", screenType.value, source)
-            if screenType is not ScreenType.SQUAD_ATTRIBUTES:
-                raise ImportError("The screenshot is not a supported Squad Attributes screen")
-            players = self.parser.parse(processed)
+            if screenType is not expectedType:
+                instructionTypes = {
+                    ScreenType.TACTIC_IN_POSSESSION,
+                    ScreenType.TACTIC_OUT_OF_POSSESSION,
+                }
+                if {screenType, expectedType}.issubset(instructionTypes):
+                    logger.warning(
+                        "Instruction screen detection was ambiguous (%s); using requested type %s",
+                        screenType.value,
+                        expectedType.value,
+                    )
+                    screenType = expectedType
+                else:
+                    raise ImportError(
+                        f"Expected a {expectedType.value} screenshot but detected "
+                        f"{screenType.value}"
+                    )
+            if screenType is ScreenType.TACTIC_FORMATION:
+                tactic = self.tacticParser.parse(processed)
+                return ImportResult(
+                    source,
+                    screenType,
+                    [],
+                    tacticName=tactic.name,
+                    confidence=tactic.confidence,
+                )
+            if screenType in {
+                ScreenType.TACTIC_IN_POSSESSION,
+                ScreenType.TACTIC_OUT_OF_POSSESSION,
+            }:
+                return ImportResult(source, screenType, [])
+            players = self.squadParser.parse(processed)
             if not players:
                 raise ImportError("No player rows could be extracted from the screenshot")
             return ImportResult(source, screenType, players)

@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
 from pathlib import Path
 
-from organiseMyProjects.logUtils import getLogger, setApplication
-
-thisApplication = "myHandbook"
-setApplication(thisApplication)
-logger = getLogger(includeConsole=False)
+logger = logging.getLogger(__name__)
 
 from fmsat.diff import filesDiff  # noqa: E402
 from fmsat.parser import FMFParser, FMFTactic  # noqa: E402
@@ -20,7 +17,7 @@ from fmsat.structuresDiscovery import structuresRepeated  # noqa: E402
 
 
 def parserBuild() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="fmsat")
+    parser = argparse.ArgumentParser(prog="fmsat parser")
     parser.add_argument("-v", "--verbose", action="count", default=0)
     parser.add_argument(
         "-y",
@@ -60,51 +57,48 @@ def parserBuild() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    global logger
-
     args = parserBuild().parse_args(argv)
     dryRun = not args.confirm
-    logger = getLogger(includeConsole=args.verbose > 0, dryRun=dryRun)
-    logger.doing("fmsat command")
-    logger.value("command", args.command)
-    logger.value("dryRun", dryRun)
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG if args.verbose > 1 else logging.INFO)
+    logger.info("Running fmsat parser command=%s dryRun=%s", args.command, dryRun)
 
     try:
         if args.command == "inspect":
             filePath = pathValidateFile(args.file)
             print(inspectionReport(FMFParser().inspect(filePath)), end="")
-            logger.done("fmsat command")
+            logger.info("FMSAT parser command completed")
             return 0
         if args.command == "diff":
             oldPath = pathValidateFile(args.old)
             newPath = pathValidateFile(args.new)
             print(diffReport(oldPath, newPath, filesDiff(oldPath, newPath)), end="")
-            logger.done("fmsat command")
+            logger.info("FMSAT parser command completed")
             return 0
         if args.command == "report":
             tactic = FMFTactic.read(pathValidateFile(args.file))
             print(_tacticReport(tactic), end="")
-            logger.done("fmsat command")
+            logger.info("FMSAT parser command completed")
             return 0
         if args.command == "dump":
             print(FMFTactic.read(pathValidateFile(args.file)))
-            logger.done("fmsat command")
+            logger.info("FMSAT parser command completed")
             return 0
         if args.command == "strings":
             filePath = pathValidateFile(args.file)
             for item in asciiStrings(filePath.read_bytes(), minimum=args.minimum):
                 print(f"{item.offset}: {item.value}")
-            logger.done("fmsat command")
+            logger.info("FMSAT parser command completed")
             return 0
         if args.command == "hex":
             filePath = pathValidateFile(args.file)
             print(_hexFormat(filePath.read_bytes(), offset=args.offset, length=args.length), end="")
-            logger.done("fmsat command")
+            logger.info("FMSAT parser command completed")
             return 0
         if args.command == "structures":
             filePath = pathValidateFile(args.file)
             print(structuresReport(structuresRepeated(filePath.read_bytes())), end="")
-            logger.done("fmsat command")
+            logger.info("FMSAT parser command completed")
             return 0
     except Exception as error:
         logger.error("fmsat command failed: %s", error)

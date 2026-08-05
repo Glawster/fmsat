@@ -1,7 +1,17 @@
 """SQLite persistence using SQLAlchemy."""
 
 from .database import Database, DatabaseError
-from .models import AttributeSnapshot, Base, ImportSession, Player, Tactic, TacticScreenshot
+from .models import (
+    AttributeSnapshot,
+    Base,
+    ImportSession,
+    Player,
+    Squad,
+    SquadScreenshot,
+    SquadTacticApplication,
+    Tactic,
+    TacticScreenshot,
+)
 
 __all__ = [
     "AttributeSnapshot",
@@ -10,6 +20,9 @@ __all__ = [
     "DatabaseError",
     "ImportSession",
     "Player",
+    "Squad",
+    "SquadScreenshot",
+    "SquadTacticApplication",
     "Tactic",
     "TacticScreenshot",
 ]

@@ -13,4 +13,4 @@ Example sequence:
 - `sample06-4-3-3.fmf`
 
 FMSAT screenshot samples are user-supplied images and are ignored by Git. See the
-[screenshot guidance](../docs/sampleScreenshots.md) before adding one here locally.
+[screenshot guidance](../documentation/sampleScreenshots.md) before adding one here locally.

@@ -7,15 +7,17 @@ from pathlib import Path
 
 import numpy as np
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QColor, QImage
+from PySide6.QtGui import QAction, QColor, QImage, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
+    QHBoxLayout,
     QHeaderView,
     QInputDialog,
     QLabel,
     QMainWindow,
     QMessageBox,
+    QPushButton,
     QTableWidget,
     QTableWidgetItem,
     QToolBar,
@@ -24,8 +26,9 @@ from PySide6.QtWidgets import (
 )
 
 from fmsat.core.config import AttributeDefinition
+from fmsat.core.detection import ScreenType
 from fmsat.core.parser import ExtractedPlayer
-from fmsat.core.requirements import ScreenshotPlan, TacticScreenshotPlanner
+from fmsat.core.requirements import ScreenshotRequirement, TacticScreenshotPlanner
 from fmsat.core.services import ImportError, ImportResult, ScreenshotImportService
 from fmsat.core.validation import PlayerValidator
 from fmsat.database import Database, DatabaseError
@@ -54,57 +57,216 @@ class MainWindow(QMainWindow):
         self.screenshotPlanner = screenshotPlanner
         self.currentResult: ImportResult | None = None
         self.currentTactic: str | None = None
+        self.currentSquad: str | None = None
+        self.currentSquadExistingNames: set[str] = set()
+        self.currentSquadPlayerOffset = 0
         self.setWindowTitle("Football Manager Squad Assessment Tool")
         self.resize(1500, 800)
         self._actionsCreate()
         self._menuCreate()
         self._toolbarCreate()
         self._contentCreate()
-        self.statusBar().showMessage("Ready — copy a screenshot or choose Import Screenshot")
+        self.statusBar().showMessage("Ready — choose Import Tactic or Import Squad")
 
-    def clipboardImport(self) -> bool:
-        """Import the current clipboard image, returning whether one was present."""
+    def squadImport(self) -> None:
+        """Import a Squad Attributes screenshot independently of tactics."""
 
-        image = QApplication.clipboard().image()
-        if image.isNull():
-            return False
-        self._imageImport(self._qImageConvert(image), "clipboard")
-        return True
-
-    def fileImport(self) -> None:
-        """Use a clipboard image when available, otherwise ask for a file."""
-
-        tacticName = self._tacticSelect()
-        if tacticName is None:
+        squadName = self._squadSelect()
+        if squadName is None:
             return
         try:
-            captured = self.database.screenTypesForTactic(tacticName)
+            existingNames = {
+                self._playerNameNormalize(name)
+                for name in self.database.playerNamesForSquad(squadName)
+            }
         except DatabaseError as exc:
             self._errorShow("Database error", str(exc))
             return
-        plan = self.screenshotPlanner.plan(tacticName, captured)
-        if not self._screenshotPrompt(plan):
-            return
-        self.currentTactic = tacticName
-        if self.clipboardImport():
-            return
-        filename, _ = QFileDialog.getOpenFileName(
-            self,
+        result = self._screenshotAcquire(
+            ScreenType.SQUAD_ATTRIBUTES,
             "Import Squad Attributes Screenshot",
-            str(Path.home()),
-            "Screenshots (*.png *.jpg *.jpeg)",
         )
-        if not filename:
+        if result is None:
             return
-        self.statusBar().showMessage(f"Importing {Path(filename).name}…")
-        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        newPlayers: list[ExtractedPlayer] = []
+        seenNames = set(existingNames)
+        for player in result.players:
+            normalizedName = self._playerNameNormalize(player.name)
+            if normalizedName and normalizedName not in seenNames:
+                newPlayers.append(player)
+                seenNames.add(normalizedName)
+        skipped = len(result.players) - len(newPlayers)
+        result.players = newPlayers
+        if not result.players:
+            QMessageBox.information(
+                self,
+                "No new squad members",
+                f"Every recognised player is already stored for {squadName}.",
+            )
+            return
+        self.currentSquad = squadName
+        self.currentSquadExistingNames = existingNames
+        self.currentSquadPlayerOffset = len(existingNames)
+        self._resultShow(result)
+        if skipped:
+            self.statusBar().showMessage(
+                f"Found {len(newPlayers)} new player(s) for {squadName}; "
+                f"skipped {skipped} existing or duplicate row(s). "
+                "Correct the editable fields before saving.",
+                12000,
+            )
+
+    def tacticImport(self) -> None:
+        """Import all outstanding screenshots for a new or existing tactic."""
+
+        tacticName = self._tacticSelect(existingOnly=False, includeNew=True)
+        if tacticName is None:
+            return
+        isNewTactic = not tacticName
+        captured: set[ScreenType] = set()
+        if tacticName:
+            try:
+                captured = self.database.screenTypesForTactic(tacticName)
+            except DatabaseError as exc:
+                self._errorShow("Database error", str(exc))
+                return
+        tacticRequirements = tuple(
+            requirement
+            for requirement in self.screenshotPlanner.requirements
+            if requirement.screenType
+            in {
+                ScreenType.TACTIC_FORMATION,
+                ScreenType.TACTIC_IN_POSSESSION,
+                ScreenType.TACTIC_OUT_OF_POSSESSION,
+            }
+        )
+        missing = [item for item in tacticRequirements if item.screenType not in captured]
+        if isNewTactic:
+            requirementsToImport = missing
+        else:
+            requirementsToImport = self._tacticCaptureSelect(
+                tacticName,
+                tacticRequirements,
+                missing,
+            )
+            if requirementsToImport is None:
+                return
+        for index, requirement in enumerate(requirementsToImport):
+            QMessageBox.information(self, requirement.title, requirement.instructions)
+            result = self._screenshotAcquire(
+                requirement.screenType,
+                f"Import {requirement.title}",
+            )
+            if result is None:
+                return
+            if requirement.screenType is ScreenType.TACTIC_FORMATION and isNewTactic:
+                extractedName = result.tacticName or ""
+                confirmedName, accepted = QInputDialog.getText(
+                    self,
+                    "Confirm tactic name",
+                    f"Name extracted at {result.confidence:.1%} confidence:",
+                    text=extractedName,
+                )
+                if not accepted:
+                    return
+                tacticName = confirmedName.strip()
+                if not tacticName:
+                    QMessageBox.warning(
+                        self,
+                        "Tactic name required",
+                        "Enter a tactic name to save.",
+                    )
+                    return
+            if not tacticName:
+                self._errorShow("Cannot save", "Import the Formation screenshot first")
+                return
+            self.currentTactic = tacticName
+            try:
+                session = self.database.tacticImportSave(
+                    result.source,
+                    result.screenType,
+                    tacticName,
+                )
+            except DatabaseError as exc:
+                self._errorShow("Database error", str(exc))
+                return
+            captured.add(result.screenType)
+            remaining = requirementsToImport[index + 1 :]
+            outstanding = [
+                item for item in tacticRequirements if item.screenType not in captured
+            ]
+            if remaining:
+                nextMessage = f" Next: {remaining[0].title}."
+            elif outstanding:
+                nextMessage = " Still missing: " + ", ".join(
+                    item.title for item in outstanding
+                )
+                nextMessage += "."
+            else:
+                nextMessage = " Tactic import is complete."
+            self.statusBar().showMessage(
+                f"Saved {requirement.title} for {tacticName} "
+                f"as import {session.id}.{nextMessage}",
+                10000,
+            )
+
+    def _tacticCaptureSelect(
+        self,
+        tacticName: str,
+        requirements: tuple[ScreenshotRequirement, ...],
+        missing: list[ScreenshotRequirement],
+    ) -> list[ScreenshotRequirement] | None:
+        """Choose a targeted update or all missing captures for a known tactic."""
+
+        choices: list[tuple[str, list[ScreenshotRequirement]]] = []
+        if missing:
+            choices.append((f"Complete missing screenshots ({len(missing)})", missing))
+        choices.extend((f"Capture {item.title}", [item]) for item in requirements)
+        label, accepted = QInputDialog.getItem(
+            self,
+            "Choose tactic screenshot",
+            f"Which screenshot do you want to capture for {tacticName}?",
+            [item[0] for item in choices],
+            0,
+            False,
+        )
+        if not accepted:
+            return None
+        return next(items for choiceLabel, items in choices if choiceLabel == label)
+
+    def tacticApplyToSquad(self) -> None:
+        """Pair an independently stored squad with a completed tactic."""
+
+        squadName = self._squadSelect(existingOnly=True)
+        if squadName is None:
+            return
+        tacticName = self._tacticSelect(existingOnly=True)
+        if tacticName is None:
+            return
+        requiredTypes = {
+            ScreenType.TACTIC_FORMATION,
+            ScreenType.TACTIC_IN_POSSESSION,
+            ScreenType.TACTIC_OUT_OF_POSSESSION,
+        }
         try:
-            result = self.importService.fileImport(Path(filename))
-            self._resultShow(result)
-        except (ImportError, OSError) as exc:
-            self._errorShow("Import failed", str(exc))
-        finally:
-            QApplication.restoreOverrideCursor()
+            captured = self.database.screenTypesForTactic(tacticName)
+            if not requiredTypes.issubset(captured):
+                QMessageBox.information(
+                    self,
+                    "Complete tactic import first",
+                    f"Import all three tactic screenshots for {tacticName} before applying it.",
+                )
+                return
+            application = self.database.tacticApplyToSquad(squadName, tacticName)
+        except DatabaseError as exc:
+            self._errorShow("Database error", str(exc))
+            return
+        self.currentSquad = squadName
+        self.currentTactic = tacticName
+        self.statusBar().showMessage(
+            f"Applied {tacticName} to {squadName} (application {application.id})",
+            10000,
+        )
 
     def playersShow(self) -> None:
         """Show a concise list of player records stored locally."""
@@ -129,8 +291,8 @@ class MainWindow(QMainWindow):
 
         if self.currentResult is None:
             return
-        if self.currentTactic is None:
-            self._errorShow("Cannot save", "Select a tactic before saving this screenshot")
+        if self.currentSquad is None:
+            self._errorShow("Cannot save", "Name the squad before saving this screenshot")
             return
         players = self._tablePlayersRead()
         missingNames = [
@@ -143,19 +305,35 @@ class MainWindow(QMainWindow):
                 f"Player name is required on row(s): {', '.join(map(str, missingNames))}",
             )
             return
+        uniquePlayers: list[ExtractedPlayer] = []
+        seenNames = set(self.currentSquadExistingNames)
+        for player in players:
+            normalizedName = self._playerNameNormalize(player.name)
+            if normalizedName not in seenNames:
+                uniquePlayers.append(player)
+                seenNames.add(normalizedName)
+        skipped = len(players) - len(uniquePlayers)
+        players = uniquePlayers
+        if not players:
+            QMessageBox.information(
+                self,
+                "No new squad members",
+                f"Every corrected player is already stored for {self.currentSquad}.",
+            )
+            return
         try:
-            session = self.database.importSave(
+            session = self.database.squadImportSave(
                 self.currentResult.source,
-                self.currentResult.screenType,
                 players,
-                self.currentTactic,
+                self.currentSquad,
             )
         except DatabaseError as exc:
             self._errorShow("Database error", str(exc))
             return
         self.saveAction.setEnabled(False)
         self.statusBar().showMessage(
-            f"Saved {self.currentTactic}: import {session.id} with {len(players)} player(s)",
+            f"Saved {self.currentSquad}: import {session.id} with {len(players)} new player(s)"
+            + (f"; skipped {skipped} existing or duplicate row(s)" if skipped else ""),
             8000,
         )
 
@@ -170,9 +348,14 @@ class MainWindow(QMainWindow):
         )
 
     def _actionsCreate(self) -> None:
-        self.importAction = QAction("Import Screenshot", self)
-        self.importAction.setShortcut("Ctrl+I")
-        self.importAction.triggered.connect(self.fileImport)
+        self.importTacticAction = QAction("Import Tactic", self)
+        self.importTacticAction.setShortcut("Ctrl+T")
+        self.importTacticAction.triggered.connect(self.tacticImport)
+        self.importSquadAction = QAction("Import Squad", self)
+        self.importSquadAction.setShortcut("Ctrl+I")
+        self.importSquadAction.triggered.connect(self.squadImport)
+        self.applyTacticAction = QAction("Apply Tactic to Squad", self)
+        self.applyTacticAction.triggered.connect(self.tacticApplyToSquad)
         self.databaseAction = QAction("Database", self)
         self.databaseAction.triggered.connect(self.playersShow)
         self.playersAction = QAction("Players", self)
@@ -190,7 +373,10 @@ class MainWindow(QMainWindow):
         widget = QWidget(self)
         layout = QVBoxLayout(widget)
         self.instructions = QLabel(
-            "Import a Squad Attributes screenshot. Extracted cells remain editable until saved."
+            "Import three tactic screenshots, then import a Squad Attributes screenshot. "
+            "For each step, take the requested screenshot and leave it on the clipboard; "
+            "FMSAT collects it when you continue. Extracted squad cells remain editable "
+            "until saved."
         )
         layout.addWidget(self.instructions)
         self.table = QTableWidget(0, len(self.baseColumns) + len(self.attributes) + 1)
@@ -206,6 +392,16 @@ class MainWindow(QMainWindow):
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         layout.addWidget(self.table)
+        buttonLayout = QHBoxLayout()
+        buttonLayout.addStretch()
+        self.saveButton = QPushButton("Save Confirmed Data", self)
+        self.saveButton.setEnabled(self.saveAction.isEnabled())
+        self.saveButton.clicked.connect(self.saveAction.trigger)
+        self.saveAction.changed.connect(
+            lambda: self.saveButton.setEnabled(self.saveAction.isEnabled())
+        )
+        buttonLayout.addWidget(self.saveButton)
+        layout.addLayout(buttonLayout)
         self.setCentralWidget(widget)
 
     def _errorShow(self, title: str, message: str) -> None:
@@ -213,19 +409,74 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(message, 10000)
         QMessageBox.critical(self, title, message)
 
-    def _imageImport(self, image: np.ndarray, source: str) -> None:
-        self.statusBar().showMessage("Importing clipboard screenshot…")
+    def _screenshotAcquire(
+        self,
+        expectedType: ScreenType,
+        dialogTitle: str,
+    ) -> ImportResult | None:
+        """Use a clipboard image when available, otherwise ask for a screenshot file."""
+
+        clipboardImage = QApplication.clipboard().image()
+        image: np.ndarray | None = None
+        previewImage = clipboardImage
+        source = "clipboard"
+        if not clipboardImage.isNull():
+            image = self._qImageConvert(clipboardImage)
+        else:
+            filename, _ = QFileDialog.getOpenFileName(
+                self,
+                dialogTitle,
+                str(Path.home()),
+                "Screenshots (*.png *.jpg *.jpeg)",
+            )
+            if not filename:
+                return None
+            source = filename
+            previewImage = QImage(filename)
+            if previewImage.isNull():
+                self._errorShow("Import failed", f"Unable to read screenshot: {filename}")
+                return None
+        if not self._screenshotPreview(previewImage, dialogTitle):
+            return None
+        self.statusBar().showMessage(f"Importing {expectedType.value} screenshot…")
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
-            self._resultShow(self.importService.imageImport(image, source))
-        except ImportError as exc:
+            if image is not None:
+                return self.importService.imageImport(image, expectedType, source)
+            return self.importService.fileImport(Path(source), expectedType)
+        except (ImportError, OSError) as exc:
             self._errorShow("Import failed", str(exc))
+            return None
         finally:
             QApplication.restoreOverrideCursor()
 
+    def _screenshotPreview(self, image: QImage, dialogTitle: str) -> bool:
+        """Ask the user to confirm the screenshot FMSAT is about to import."""
+
+        preview = QPixmap.fromImage(image).scaled(
+            480,
+            270,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        dialog = QMessageBox(self)
+        dialog.setWindowTitle(f"Confirm {dialogTitle}")
+        dialog.setText("FMSAT sees this screenshot:")
+        dialog.setInformativeText("Continue only if this is the requested Football Manager screen.")
+        dialog.setIconPixmap(preview)
+        dialog.setStandardButtons(
+            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel
+        )
+        useButton = dialog.button(QMessageBox.StandardButton.Ok)
+        useButton.setText("Use screenshot")
+        dialog.setDefaultButton(QMessageBox.StandardButton.Ok)
+        return dialog.exec() == QMessageBox.StandardButton.Ok
+
     def _menuCreate(self) -> None:
         fileMenu = self.menuBar().addMenu("&File")
-        fileMenu.addAction(self.importAction)
+        fileMenu.addAction(self.importTacticAction)
+        fileMenu.addAction(self.importSquadAction)
+        fileMenu.addAction(self.applyTacticAction)
         fileMenu.addAction(self.saveAction)
         fileMenu.addSeparator()
         fileMenu.addAction(self.exitAction)
@@ -245,6 +496,12 @@ class MainWindow(QMainWindow):
     def _resultShow(self, result: ImportResult) -> None:
         self.currentResult = result
         self.table.setRowCount(len(result.players))
+        self.table.setVerticalHeaderLabels(
+            [
+                str(self.currentSquadPlayerOffset + row + 1)
+                for row in range(len(result.players))
+            ]
+        )
         for row, player in enumerate(result.players):
             values = [
                 player.name,
@@ -272,37 +529,16 @@ class MainWindow(QMainWindow):
                 self.table.setItem(row, column, item)
         self.saveAction.setEnabled(True)
         self.statusBar().showMessage(
-            f"Extracted {len(result.players)} player(s) for {self.currentTactic} — "
+            f"Extracted {len(result.players)} player(s) for {self.currentSquad} — "
             "review highlighted rows before saving"
         )
 
-    def _screenshotPrompt(self, plan: ScreenshotPlan) -> bool:
-        """Explain the next required capture or offer an update override."""
-
-        if plan.isComplete:
-            message = QMessageBox(self)
-            message.setWindowTitle("Tactic already recognised")
-            message.setIcon(QMessageBox.Icon.Information)
-            message.setText(
-                f"{plan.tacticName} is already recognised. All required screenshots "
-                "are stored, so you do not need to take them again."
-            )
-            updateButton = message.addButton("Update Screenshot", QMessageBox.ButtonRole.AcceptRole)
-            message.addButton("Use Existing", QMessageBox.ButtonRole.RejectRole)
-            message.exec()
-            return message.clickedButton() is updateButton
-
-        checklist = "\n\n".join(
-            f"• {requirement.title}\n  {requirement.instructions}" for requirement in plan.missing
-        )
-        QMessageBox.information(
-            self,
-            f"Screenshots needed for {plan.tacticName}",
-            "Please take the following screenshot before continuing:\n\n" + checklist,
-        )
-        return True
-
-    def _tacticSelect(self) -> str | None:
+    def _tacticSelect(
+        self,
+        *,
+        existingOnly: bool,
+        includeNew: bool = False,
+    ) -> str | None:
         """Ask for a tactic while reusing locally recognised names where possible."""
 
         try:
@@ -310,28 +546,86 @@ class MainWindow(QMainWindow):
         except DatabaseError as exc:
             self._errorShow("Database error", str(exc))
             return None
+        if existingOnly and not tactics:
+            QMessageBox.information(
+                self,
+                "Import a tactic first",
+                "No tactics are stored. Import the three tactic screenshots before the squad.",
+            )
+            return None
         if tactics:
+            choices = (["Import new tactic…"] if includeNew else []) + tactics
+            selectedIndex = 0
+            if self.currentTactic in choices:
+                selectedIndex = choices.index(self.currentTactic)
             name, accepted = QInputDialog.getItem(
                 self,
                 "Select tactic",
-                "Choose a recognised tactic or enter a new tactic name:",
-                tactics,
-                0,
-                True,
+                "Choose a recognised tactic:",
+                choices,
+                selectedIndex,
+                False,
             )
         else:
-            name, accepted = QInputDialog.getText(
-                self,
-                "Name tactic",
-                "Enter the tactic name used for this screenshot:",
-            )
+            return None if existingOnly else ""
         cleanName = name.strip()
         if not accepted:
             return None
+        if cleanName == "Import new tactic…":
+            return ""
+        return cleanName
+
+    def _squadSelect(self, *, existingOnly: bool = False) -> str | None:
+        """Select an existing squad name or enter a new one."""
+
+        try:
+            squads = self.database.squadsList()
+        except DatabaseError as exc:
+            self._errorShow("Database error", str(exc))
+            return None
+        if existingOnly and not squads:
+            QMessageBox.information(
+                self,
+                "Import a squad first",
+                "No squads are stored. Choose Import Squad before applying a tactic.",
+            )
+            return None
+        if squads:
+            choices = squads if existingOnly else ["Create new squad…", *squads]
+            selectedIndex = choices.index(self.currentSquad) if self.currentSquad in choices else 0
+            name, accepted = QInputDialog.getItem(
+                self,
+                "Select squad",
+                "Choose an existing squad or create a new one:",
+                choices,
+                selectedIndex,
+                False,
+            )
+            if accepted and name == "Create new squad…":
+                name, accepted = QInputDialog.getText(
+                    self,
+                    "Name squad",
+                    "Enter a name for the new squad:",
+                )
+        else:
+            name, accepted = QInputDialog.getText(
+                self,
+                "Name squad",
+                "Enter a name for this squad:",
+            )
+        if not accepted:
+            return None
+        cleanName = name.strip()
         if not cleanName:
-            QMessageBox.warning(self, "Tactic name required", "Enter a tactic name to continue.")
+            QMessageBox.warning(self, "Squad name required", "Enter a squad name to continue.")
             return None
         return cleanName
+
+    @staticmethod
+    def _playerNameNormalize(name: str) -> str:
+        """Normalize a player name for overlap comparisons."""
+
+        return " ".join(name.split()).casefold()
 
     def _tablePlayersRead(self) -> list[ExtractedPlayer]:
         if self.currentResult is None:
@@ -359,7 +653,9 @@ class MainWindow(QMainWindow):
         toolbar = QToolBar("Main", self)
         toolbar.setMovable(False)
         for action in (
-            self.importAction,
+            self.importTacticAction,
+            self.importSquadAction,
+            self.applyTacticAction,
             self.databaseAction,
             self.playersAction,
             self.settingsAction,

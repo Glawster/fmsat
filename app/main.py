@@ -10,10 +10,10 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 
 from fmsat.app.window import MainWindow
 from fmsat.core.config import Configuration, ConfigurationError
-from fmsat.core.detection import KeywordScreenDetector
+from fmsat.core.detection import KeywordScreenDetector, ScreenType
 from fmsat.core.images import ImagePreprocessor, PreprocessingOptions
 from fmsat.core.ocr import PaddleOcrEngine
-from fmsat.core.parser import SquadAttributesParser
+from fmsat.core.parser import SquadAttributesParser, TacticParser
 from fmsat.core.requirements import TacticScreenshotPlanner
 from fmsat.core.services import ScreenshotImportService
 from fmsat.core.validation import PlayerValidator
@@ -35,16 +35,25 @@ def main() -> int:
         config = Configuration()
         ocr = PaddleOcrEngine()
         detection = config.screens.get("detection", {})
+        keywordGroups = {
+            ScreenType.TACTIC_FORMATION: detection.get("tacticFormation", {}).get("keywords", []),
+            ScreenType.TACTIC_IN_POSSESSION: detection.get("tacticInPossession", {}).get(
+                "keywords", []
+            ),
+            ScreenType.TACTIC_OUT_OF_POSSESSION: detection.get("tacticOutOfPossession", {}).get(
+                "keywords", []
+            ),
+            ScreenType.SQUAD_ATTRIBUTES: detection.get("squadAttributes", {}).get("keywords", []),
+        }
         detector = KeywordScreenDetector(
-            ocr,
-            detection.get("squadAttributes", {}).get("keywords", []),
-            float(detection.get("minimum_confidence", 0.55)),
+            ocr, keywordGroups, float(detection.get("minimum_confidence", 0.55))
         )
         preprocessor = ImagePreprocessor(
             PreprocessingOptions.fromMapping(config.screens.get("preprocessing", {}))
         )
-        parser = SquadAttributesParser(ocr, config.regions, config.attributes)
-        service = ScreenshotImportService(preprocessor, detector, parser)
+        squadParser = SquadAttributesParser(ocr, config.regions, config.attributes)
+        tacticParser = TacticParser(ocr, config.regions)
+        service = ScreenshotImportService(preprocessor, detector, squadParser, tacticParser)
         database = Database(projectRoot / "data" / "fmsat.sqlite3")
         database.initialize()
         window = MainWindow(

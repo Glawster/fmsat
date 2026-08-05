@@ -5,7 +5,14 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-allowedIdentifiers = {"_", "SQUAD_ATTRIBUTES", "tmp_path"}
+allowedIdentifiers = {
+    "_",
+    "SQUAD_ATTRIBUTES",
+    "TACTIC_FORMATION",
+    "TACTIC_IN_POSSESSION",
+    "TACTIC_OUT_OF_POSSESSION",
+    "tmp_path",
+}
 allowedFileNames = {"__init__.py", "conftest.py"}
 
 

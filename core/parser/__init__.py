@@ -2,5 +2,6 @@
 
 from .models import ExtractedPlayer
 from .squadAttributes import SquadAttributesParser
+from .tactic import ExtractedTactic, TacticParser
 
-__all__ = ["ExtractedPlayer", "SquadAttributesParser"]
+__all__ = ["ExtractedPlayer", "ExtractedTactic", "SquadAttributesParser", "TacticParser"]

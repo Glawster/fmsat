@@ -1,0 +1,21 @@
+# Architecture
+
+FMSAT keeps Qt at the outer edge. `MainWindow` invokes `ScreenshotImportService`, which
+coordinates preprocessing, screen detection, OCR, tactic-name extraction and Squad
+Attributes parsing. Parsers receive an `OcrEngine` interface, so PaddleOCR can be replaced
+without UI or database changes.
+
+YAML owns screen regions, preprocessing switches, detection keywords and attribute
+definitions. SQLite writes are performed through a transactional SQLAlchemy gateway.
+The tactic name is confirmed or corrected before persistence. The review table converts
+squad OCR output back into core data objects only after user edits.
+
+Tactics own their three tactic captures. Squads own Squad Attributes imports and player
+snapshots independently; no single-tactic foreign key constrains a squad. Later assessment
+features can therefore pair one squad with multiple tactics without duplicating imports.
+`SquadTacticApplication` records those explicit many-to-many pairings. It deliberately has
+no arbitrary score until tactic positions, roles and instructions have typed parsers.
+
+The supported workflow captures Formation, In Possession, Out of Possession and Squad
+Attributes screens. It intentionally reads screenshots only. It neither reads Football
+Manager save files nor communicates with or modifies a running Football Manager process.

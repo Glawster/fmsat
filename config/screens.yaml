@@ -1,5 +1,25 @@
 detection:
   minimum_confidence: 0.55
+  tacticFormation:
+    keywords:
+      - Planner
+      - Shape
+      - Combined
+      - Both
+  tacticInPossession:
+    keywords:
+      - In
+      - Possession
+      - Attacking
+      - Width
+      - Passing
+  tacticOutOfPossession:
+    keywords:
+      - Out
+      - Possession
+      - Defensive
+      - Line
+      - Press
   squadAttributes:
     keywords:
       - Squad
@@ -9,9 +29,18 @@ detection:
 
 workflow:
   required_screens:
+    - type: TACTIC_FORMATION
+      title: Tactic Formation
+      instructions: Take a screenshot of the Formation screen in the Tactics Planner Both view. Leave it on the clipboard, then return to FMSAT and continue.
+    - type: TACTIC_IN_POSSESSION
+      title: In Possession Team Instructions
+      instructions: Take a screenshot of the In Possession Team Instructions screen with every instruction visible. Leave it on the clipboard, then return to FMSAT and continue.
+    - type: TACTIC_OUT_OF_POSSESSION
+      title: Out of Possession Team Instructions
+      instructions: Take a screenshot of the Out of Possession Team Instructions screen with every instruction visible. Leave it on the clipboard, then return to FMSAT and continue.
     - type: SQUAD_ATTRIBUTES
       title: Squad Attributes
-      instructions: Open the Squad Attributes screen with the full player table and column headers visible.
+      instructions: Take a screenshot of the Squad Attributes screen with the full player table and column headers visible. Leave it on the clipboard, then return to FMSAT and continue.
 
 validation:
   confidence_threshold: 0.95

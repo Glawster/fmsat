@@ -9,6 +9,7 @@ import numpy as np
 
 from ..config import AttributeDefinition
 from ..ocr import OcrEngine
+from ..textCleanup import ocrTextClean
 from .models import ExtractedPlayer
 
 
@@ -75,7 +76,7 @@ class SquadAttributesParser:
         if not results:
             return _Cell("", 0.0)
         return _Cell(
-            " ".join(result.text for result in results),
+            ocrTextClean(" ".join(result.text for result in results)),
             sum(result.confidence for result in results) / len(results),
         )
 

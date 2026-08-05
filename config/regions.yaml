@@ -2,6 +2,14 @@ reference_resolution:
   width: 1920
   height: 1080
 
+tactic:
+  # Tactic selector in the FM26 Tactics Planner header.
+  name:
+    x: 0.025
+    y: 0.030
+    width: 0.250
+    height: 0.055
+
 squadAttributes:
   table:
     x: 0.02

@@ -12,8 +12,8 @@ def testParserMapsAttributesByYamlDefinitionNotHardcodedOrder() -> None:
     # One row has name, positions, CA, PA, and one attribute. Three empty rows end parsing.
     ocr = FakeOcr(
         [
-            [OcrResult("Ada Keeper", 0.99)],
-            [OcrResult("GK", 0.98)],
+            [OcrResult(" .- Ada Keeper", 0.99)],
+            [OcrResult("- GK", 0.98)],
             [OcrResult("3.5", 0.97)],
             [OcrResult("4", 0.96)],
             [OcrResult("17", 0.95)],
@@ -44,5 +44,6 @@ def testParserMapsAttributesByYamlDefinitionNotHardcodedOrder() -> None:
 
     assert len(players) == 1
     assert players[0].name == "Ada Keeper"
+    assert players[0].positions == "GK"
     assert players[0].attributes == {"reflexes": 17}
     assert players[0].confidence == 0.97
