@@ -18,6 +18,15 @@ def testDetectsSquadAttributesFromConfiguredKeywords() -> None:
     assert detector.detect(np.zeros((100, 100, 3), dtype=np.uint8)) is ScreenType.SQUAD_ATTRIBUTES
 
 
+def testDetectsCroppedSquadTableFromStableColumnHeaders() -> None:
+    detector = KeywordScreenDetector(
+        FakeOcr([[OcrResult("Position CA PA", 0.99)]]),
+        ["Squad", "Attributes", "Name", "Position", "CA", "PA"],
+    )
+
+    assert detector.detect(np.zeros((100, 100, 3), dtype=np.uint8)) is ScreenType.SQUAD_ATTRIBUTES
+
+
 def testUnknownWhenKeywordEvidenceIsInsufficient() -> None:
     detector = KeywordScreenDetector(
         FakeOcr([[OcrResult("Tactics", 0.99)]]),

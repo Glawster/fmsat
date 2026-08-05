@@ -34,8 +34,27 @@ class PaddleOcrEngine(OcrEngine):
             for line in page or []:
                 if len(line) >= 2 and isinstance(line[1], (tuple, list)):
                     text, confidence = line[1][:2]
-                    results.append(OcrResult(str(text).strip(), float(confidence)))
+                    bounds = self._boundsRead(line[0])
+                    results.append(OcrResult(str(text).strip(), float(confidence), bounds))
         return [result for result in results if result.text]
+
+    @property
+    def suppliesGeometry(self) -> bool:
+        """PaddleOCR supplies a quadrilateral for every recognized fragment."""
+
+        return True
+
+    @staticmethod
+    def _boundsRead(value: Any) -> tuple[float, float, float, float] | None:
+        try:
+            points = [(float(point[0]), float(point[1])) for point in value]
+        except (TypeError, ValueError, IndexError):
+            return None
+        if not points:
+            return None
+        horizontal = [point[0] for point in points]
+        vertical = [point[1] for point in points]
+        return min(horizontal), min(vertical), max(horizontal), max(vertical)
 
     def _engineGet(self) -> Any:
         if self._engine is not None:

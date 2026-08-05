@@ -26,6 +26,8 @@ detection:
       - Attributes
       - Name
       - Position
+      - CA
+      - PA
 
 workflow:
   required_screens:

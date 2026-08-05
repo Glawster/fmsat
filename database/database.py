@@ -8,7 +8,7 @@ from pathlib import Path
 from sqlalchemy import create_engine as createEngine
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session, selectinload, sessionmaker
 
 from fmsat.core.detection import ScreenType
 from fmsat.core.parser import ExtractedPlayer
@@ -24,6 +24,7 @@ from .models import (
     Tactic,
     TacticScreenshot,
 )
+from .records import DeletionRecord, SquadPlayerRecord, SquadRecord, TacticRecord
 
 logger = logging.getLogger(__name__)
 
@@ -214,6 +215,43 @@ class Database:
         except SQLAlchemyError as exc:
             raise DatabaseError(f"Unable to list tactics: {exc}") from exc
 
+    def tacticRecords(self) -> list[TacticRecord]:
+        """Return tactic-management records with latest Formation images."""
+
+        try:
+            with Session(self.engine) as session:
+                tactics = session.scalars(
+                    select(Tactic)
+                    .options(
+                        selectinload(Tactic.screenshots).selectinload(
+                            TacticScreenshot.importSession
+                        )
+                    )
+                    .order_by(Tactic.name)
+                ).all()
+                records = []
+                for tactic in tactics:
+                    formations = [
+                        screenshot.importSession
+                        for screenshot in tactic.screenshots
+                        if screenshot.screenType == ScreenType.TACTIC_FORMATION.value
+                    ]
+                    latest = (
+                        max(formations, key=lambda item: (item.date, item.id))
+                        if formations
+                        else None
+                    )
+                    records.append(
+                        TacticRecord(
+                            tactic.name,
+                            len(tactic.screenshots),
+                            latest.imageFilename if latest else None,
+                        )
+                    )
+                return records
+        except SQLAlchemyError as exc:
+            raise DatabaseError(f"Unable to list tactic records: {exc}") from exc
+
     def squadsList(self) -> list[str]:
         """Return recognised squad names alphabetically."""
 
@@ -222,6 +260,126 @@ class Database:
                 return list(session.scalars(select(Squad.name).order_by(Squad.name)).all())
         except SQLAlchemyError as exc:
             raise DatabaseError(f"Unable to list squads: {exc}") from exc
+
+    def squadRecords(self) -> list[SquadRecord]:
+        """Return squad-management records with capture and player counts."""
+
+        try:
+            with Session(self.engine) as session:
+                squads = session.scalars(
+                    select(Squad)
+                    .options(
+                        selectinload(Squad.screenshots)
+                        .selectinload(SquadScreenshot.importSession)
+                        .selectinload(ImportSession.players)
+                    )
+                    .order_by(Squad.name)
+                ).all()
+                return [
+                    SquadRecord(
+                        squad.name,
+                        len(squad.screenshots),
+                        sum(
+                            len(screenshot.importSession.players)
+                            for screenshot in squad.screenshots
+                        ),
+                    )
+                    for squad in squads
+                ]
+        except SQLAlchemyError as exc:
+            raise DatabaseError(f"Unable to list squad records: {exc}") from exc
+
+    def squadPlayerRecords(self, squadName: str) -> list[SquadPlayerRecord]:
+        """Return stored players and their source screenshots for one squad."""
+
+        normalizedName = squadName.strip().casefold()
+        try:
+            with Session(self.engine) as session:
+                rows = session.execute(
+                    select(Player, ImportSession)
+                    .join(ImportSession, Player.importSessionId == ImportSession.id)
+                    .join(
+                        SquadScreenshot,
+                        SquadScreenshot.importSessionId == ImportSession.id,
+                    )
+                    .join(Squad, SquadScreenshot.squadId == Squad.id)
+                    .where(Squad.normalizedName == normalizedName)
+                    .order_by(Player.name, ImportSession.date.desc())
+                ).all()
+                return [
+                    SquadPlayerRecord(
+                        player.name,
+                        player.positions,
+                        player.ca,
+                        player.pa,
+                        player.confidence,
+                        importSession.date,
+                        importSession.imageFilename,
+                    )
+                    for player, importSession in rows
+                ]
+        except SQLAlchemyError as exc:
+            raise DatabaseError(f"Unable to list squad players: {exc}") from exc
+
+    def tacticsDelete(self, tacticNames: list[str]) -> DeletionRecord:
+        """Delete selected tactics and their owned import sessions atomically."""
+
+        normalizedNames = {name.strip().casefold() for name in tacticNames if name.strip()}
+        try:
+            with self._sessionFactory.begin() as session:
+                tactics = session.scalars(
+                    select(Tactic)
+                    .where(Tactic.normalizedName.in_(normalizedNames))
+                    .options(
+                        selectinload(Tactic.screenshots).selectinload(
+                            TacticScreenshot.importSession
+                        )
+                    )
+                ).all()
+                imports = [
+                    screenshot.importSession
+                    for tactic in tactics
+                    for screenshot in tactic.screenshots
+                ]
+                paths = tuple(item.imageFilename for item in imports)
+                for tactic in tactics:
+                    session.delete(tactic)
+                session.flush()
+                for importSession in imports:
+                    session.delete(importSession)
+            return DeletionRecord(len(tactics), paths)
+        except SQLAlchemyError as exc:
+            raise DatabaseError(f"Unable to delete tactics: {exc}") from exc
+
+    def squadsDelete(self, squadNames: list[str]) -> DeletionRecord:
+        """Delete selected squads and their owned import sessions atomically."""
+
+        normalizedNames = {name.strip().casefold() for name in squadNames if name.strip()}
+        try:
+            with self._sessionFactory.begin() as session:
+                squads = session.scalars(
+                    select(Squad)
+                    .where(Squad.normalizedName.in_(normalizedNames))
+                    .options(
+                        selectinload(Squad.screenshots).selectinload(
+                            SquadScreenshot.importSession
+                        )
+                    )
+                ).all()
+                imports = [
+                    screenshot.importSession
+                    for squad in squads
+                    for screenshot in squad.screenshots
+                ]
+                paths = tuple(item.imageFilename for item in imports)
+                for squad in squads:
+                    session.delete(squad)
+                session.flush()
+                for importSession in imports:
+                    session.delete(importSession)
+            return DeletionRecord(len(squads), paths)
+        except SQLAlchemyError as exc:
+            raise DatabaseError(f"Unable to delete squads: {exc}") from exc
 
     def playerNamesForSquad(self, squadName: str) -> set[str]:
         """Return player names previously confirmed for a squad."""

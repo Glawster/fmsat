@@ -15,6 +15,7 @@ from fmsat.core.images import ImagePreprocessor, PreprocessingOptions
 from fmsat.core.ocr import PaddleOcrEngine
 from fmsat.core.parser import SquadAttributesParser, TacticParser
 from fmsat.core.requirements import TacticScreenshotPlanner
+from fmsat.core.screenshotStore import ScreenshotStore
 from fmsat.core.services import ScreenshotImportService
 from fmsat.core.validation import PlayerValidator
 from fmsat.database import Database, DatabaseError
@@ -62,6 +63,7 @@ def main() -> int:
             config.attributes,
             PlayerValidator(config.confidenceThreshold()),
             TacticScreenshotPlanner.fromMapping(config.screens.get("workflow", {})),
+            ScreenshotStore(projectRoot / "data" / "screenshots"),
         )
     except (ConfigurationError, DatabaseError, OSError) as exc:
         logger.exception("Application startup failed")

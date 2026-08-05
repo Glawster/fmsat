@@ -11,18 +11,20 @@ tactic:
     height: 0.055
 
 squadAttributes:
+  # Normalized against the visible FM26 table, including captures where the
+  # Football Manager window is shifted to keep every attribute column visible.
   table:
-    x: 0.02
-    y: 0.18
-    width: 0.96
-    height: 0.76
-  header_height: 0.055
-  row_height: 0.034
+    x: 0.038
+    y: 0.17
+    width: 0.928
+    height: 0.74
+  header_height: 0.05
+  row_height: 0.044
   columns:
-    name: {x: 0.000, width: 0.135}
-    positions: {x: 0.135, width: 0.075}
-    ca: {x: 0.210, width: 0.035}
-    pa: {x: 0.245, width: 0.035}
+    name: {x: 0.000, width: 0.083}
+    positions: {x: 0.083, width: 0.065}
+    ca: {x: 0.148, width: 0.028}
+    pa: {x: 0.176, width: 0.035}
   attribute_area:
-    x: 0.280
-    width: 0.720
+    x: 0.222
+    width: 0.778

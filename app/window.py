@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QColor, QImage, QPixmap
+from PySide6.QtGui import QAction, QCloseEvent, QColor, QImage, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -25,10 +25,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from fmsat.app.managementWindow import ManagementWindow
 from fmsat.core.config import AttributeDefinition
 from fmsat.core.detection import ScreenType
 from fmsat.core.parser import ExtractedPlayer
 from fmsat.core.requirements import ScreenshotRequirement, TacticScreenshotPlanner
+from fmsat.core.screenshotStore import ScreenshotStore, ScreenshotStoreError
 from fmsat.core.services import ImportError, ImportResult, ScreenshotImportService
 from fmsat.core.validation import PlayerValidator
 from fmsat.database import Database, DatabaseError
@@ -48,6 +50,7 @@ class MainWindow(QMainWindow):
         attributes: tuple[AttributeDefinition, ...],
         validator: PlayerValidator,
         screenshotPlanner: TacticScreenshotPlanner,
+        screenshotStore: ScreenshotStore,
     ) -> None:
         super().__init__()
         self.importService = importService
@@ -55,11 +58,13 @@ class MainWindow(QMainWindow):
         self.attributes = attributes
         self.validator = validator
         self.screenshotPlanner = screenshotPlanner
+        self.screenshotStore = screenshotStore
         self.currentResult: ImportResult | None = None
         self.currentTactic: str | None = None
         self.currentSquad: str | None = None
         self.currentSquadExistingNames: set[str] = set()
         self.currentSquadPlayerOffset = 0
+        self.managementWindow: ManagementWindow | None = None
         self.setWindowTitle("Football Manager Squad Assessment Tool")
         self.resize(1500, 800)
         self._actionsCreate()
@@ -182,12 +187,22 @@ class MainWindow(QMainWindow):
                 return
             self.currentTactic = tacticName
             try:
+                screenshotPath = self._screenshotPersist(
+                    result,
+                    "tactic",
+                    tacticName,
+                )
+            except ScreenshotStoreError as exc:
+                self._errorShow("Screenshot storage error", str(exc))
+                return
+            try:
                 session = self.database.tacticImportSave(
-                    result.source,
+                    str(screenshotPath),
                     result.screenType,
                     tacticName,
                 )
             except DatabaseError as exc:
+                self.screenshotStore.capturesRemove([screenshotPath])
                 self._errorShow("Database error", str(exc))
                 return
             captured.add(result.screenType)
@@ -286,6 +301,30 @@ class MainWindow(QMainWindow):
         ]
         QMessageBox.information(self, "Players", "\n".join(lines))
 
+    def managementShow(self, tabName: str) -> None:
+        """Open or refresh the non-modal tactic and squad management window."""
+
+        if self.managementWindow is None:
+            self.managementWindow = ManagementWindow(
+                self.database,
+                self.screenshotStore,
+                self,
+            )
+            self.managementWindow.destroyed.connect(self._managementForget)
+        else:
+            self.managementWindow.dataRefresh()
+        self.managementWindow.tabShow(tabName)
+        self.managementWindow.show()
+        self.managementWindow.raise_()
+        self.managementWindow.activateWindow()
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Close every secondary FMSAT window with the main application window."""
+
+        if self.managementWindow is not None:
+            self.managementWindow.close()
+        super().closeEvent(event)
+
     def reviewSave(self) -> None:
         """Read corrected cells and persist the reviewed import."""
 
@@ -322,14 +361,25 @@ class MainWindow(QMainWindow):
             )
             return
         try:
+            screenshotPath = self._screenshotPersist(
+                self.currentResult,
+                "squad",
+                self.currentSquad,
+            )
+        except ScreenshotStoreError as exc:
+            self._errorShow("Screenshot storage error", str(exc))
+            return
+        try:
             session = self.database.squadImportSave(
-                self.currentResult.source,
+                str(screenshotPath),
                 players,
                 self.currentSquad,
             )
         except DatabaseError as exc:
+            self.screenshotStore.capturesRemove([screenshotPath])
             self._errorShow("Database error", str(exc))
             return
+        self.currentResult.source = str(screenshotPath)
         self.saveAction.setEnabled(False)
         self.statusBar().showMessage(
             f"Saved {self.currentSquad}: import {session.id} with {len(players)} new player(s)"
@@ -360,6 +410,10 @@ class MainWindow(QMainWindow):
         self.databaseAction.triggered.connect(self.playersShow)
         self.playersAction = QAction("Players", self)
         self.playersAction.triggered.connect(self.playersShow)
+        self.tacticsAction = QAction("Tactics", self)
+        self.tacticsAction.triggered.connect(lambda: self.managementShow("Tactics"))
+        self.squadsAction = QAction("Squads", self)
+        self.squadsAction.triggered.connect(lambda: self.managementShow("Squads"))
         self.settingsAction = QAction("Settings", self)
         self.settingsAction.triggered.connect(self.settingsShow)
         self.saveAction = QAction("Save Confirmed Data", self)
@@ -416,28 +470,47 @@ class MainWindow(QMainWindow):
     ) -> ImportResult | None:
         """Use a clipboard image when available, otherwise ask for a screenshot file."""
 
-        clipboardImage = QApplication.clipboard().image()
-        image: np.ndarray | None = None
-        previewImage = clipboardImage
-        source = "clipboard"
-        if not clipboardImage.isNull():
-            image = self._qImageConvert(clipboardImage)
-        else:
-            filename, _ = QFileDialog.getOpenFileName(
-                self,
-                dialogTitle,
-                str(Path.home()),
-                "Screenshots (*.png *.jpg *.jpeg)",
+        while True:
+            clipboardImage = QApplication.clipboard().image()
+            image: np.ndarray | None = None
+            previewImage = clipboardImage
+            source = "clipboard"
+            if not clipboardImage.isNull():
+                image = self._qImageConvert(clipboardImage)
+            else:
+                filename, _ = QFileDialog.getOpenFileName(
+                    self,
+                    dialogTitle,
+                    str(Path.home()),
+                    "Screenshots (*.png *.jpg *.jpeg)",
+                )
+                if not filename:
+                    return None
+                source = filename
+                previewImage = QImage(filename)
+                if previewImage.isNull():
+                    self._errorShow("Import failed", f"Unable to read screenshot: {filename}")
+                    return None
+
+            previewChoice = self._screenshotPreview(previewImage, dialogTitle)
+            if previewChoice == "use":
+                break
+            if previewChoice == "cancel":
+                return None
+
+            readyDialog = QMessageBox(self)
+            readyDialog.setWindowTitle("Take new screenshot")
+            readyDialog.setText(
+                f"Take a new {dialogTitle.lower()} now and leave it on the clipboard."
             )
-            if not filename:
-                return None
-            source = filename
-            previewImage = QImage(filename)
-            if previewImage.isNull():
-                self._errorShow("Import failed", f"Unable to read screenshot: {filename}")
-                return None
-        if not self._screenshotPreview(previewImage, dialogTitle):
-            return None
+            readyDialog.setInformativeText(
+                "Return to FMSAT and click Screenshot ready to preview the new image."
+            )
+            readyDialog.setStandardButtons(QMessageBox.StandardButton.Ok)
+            readyButton = readyDialog.button(QMessageBox.StandardButton.Ok)
+            readyButton.setText("Screenshot ready")
+            readyDialog.exec()
+
         self.statusBar().showMessage(f"Importing {expectedType.value} screenshot…")
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
@@ -450,7 +523,7 @@ class MainWindow(QMainWindow):
         finally:
             QApplication.restoreOverrideCursor()
 
-    def _screenshotPreview(self, image: QImage, dialogTitle: str) -> bool:
+    def _screenshotPreview(self, image: QImage, dialogTitle: str) -> str:
         """Ask the user to confirm the screenshot FMSAT is about to import."""
 
         preview = QPixmap.fromImage(image).scaled(
@@ -464,13 +537,41 @@ class MainWindow(QMainWindow):
         dialog.setText("FMSAT sees this screenshot:")
         dialog.setInformativeText("Continue only if this is the requested Football Manager screen.")
         dialog.setIconPixmap(preview)
-        dialog.setStandardButtons(
-            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel
+        cancelButton = dialog.addButton(QMessageBox.StandardButton.Cancel)
+        retakeButton = dialog.addButton(
+            "Take new screenshot",
+            QMessageBox.ButtonRole.ActionRole,
         )
-        useButton = dialog.button(QMessageBox.StandardButton.Ok)
-        useButton.setText("Use screenshot")
-        dialog.setDefaultButton(QMessageBox.StandardButton.Ok)
-        return dialog.exec() == QMessageBox.StandardButton.Ok
+        useButton = dialog.addButton("Use screenshot", QMessageBox.ButtonRole.AcceptRole)
+        dialog.setDefaultButton(useButton)
+        dialog.exec()
+        clickedButton = dialog.clickedButton()
+        if clickedButton is useButton:
+            return "use"
+        if clickedButton is retakeButton:
+            return "retake"
+        if clickedButton is cancelButton:
+            return "cancel"
+        return "cancel"
+
+    def _screenshotPersist(
+        self,
+        result: ImportResult,
+        ownerType: str,
+        ownerName: str,
+    ) -> Path:
+        """Persist the original image represented by an import result."""
+
+        if result.image is None:
+            raise ScreenshotStoreError("The imported screenshot image is unavailable")
+        path = self.screenshotStore.captureSave(
+            result.image,
+            ownerType,
+            ownerName,
+            result.screenType.value,
+        )
+        result.source = str(path)
+        return path
 
     def _menuCreate(self) -> None:
         fileMenu = self.menuBar().addMenu("&File")
@@ -483,7 +584,12 @@ class MainWindow(QMainWindow):
         viewMenu = self.menuBar().addMenu("&View")
         viewMenu.addAction(self.databaseAction)
         viewMenu.addAction(self.playersAction)
+        viewMenu.addAction(self.tacticsAction)
+        viewMenu.addAction(self.squadsAction)
         viewMenu.addAction(self.settingsAction)
+
+    def _managementForget(self) -> None:
+        self.managementWindow = None
 
     def _qImageConvert(self, image: QImage) -> np.ndarray:
         converted = image.convertToFormat(QImage.Format.Format_RGB888)

@@ -29,6 +29,7 @@ class ImportResult:
     players: list[ExtractedPlayer]
     tacticName: str | None = None
     confidence: float = 0.0
+    image: np.ndarray | None = None
 
 
 class ScreenshotImportService:
@@ -69,7 +70,16 @@ class ScreenshotImportService:
                     ScreenType.TACTIC_IN_POSSESSION,
                     ScreenType.TACTIC_OUT_OF_POSSESSION,
                 }
-                if {screenType, expectedType}.issubset(instructionTypes):
+                if (
+                    screenType is ScreenType.UNKNOWN
+                    and expectedType is ScreenType.SQUAD_ATTRIBUTES
+                ):
+                    logger.warning(
+                        "Squad screen signature was incomplete; validating the requested "
+                        "type through player-row extraction"
+                    )
+                    screenType = expectedType
+                elif {screenType, expectedType}.issubset(instructionTypes):
                     logger.warning(
                         "Instruction screen detection was ambiguous (%s); using requested type %s",
                         screenType.value,
@@ -89,16 +99,17 @@ class ScreenshotImportService:
                     [],
                     tacticName=tactic.name,
                     confidence=tactic.confidence,
+                    image=image.copy(),
                 )
             if screenType in {
                 ScreenType.TACTIC_IN_POSSESSION,
                 ScreenType.TACTIC_OUT_OF_POSSESSION,
             }:
-                return ImportResult(source, screenType, [])
+                return ImportResult(source, screenType, [], image=image.copy())
             players = self.squadParser.parse(processed)
             if not players:
                 raise ImportError("No player rows could be extracted from the screenshot")
-            return ImportResult(source, screenType, players)
+            return ImportResult(source, screenType, players, image=image.copy())
         except ImportError:
             raise
         except Exception as exc:

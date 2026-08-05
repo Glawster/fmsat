@@ -140,3 +140,69 @@ def testTacticCanBeAppliedToSquadWithoutChangingOwnership(tmp_path) -> None:
         assert application is not None
         assert application.squad.name == "First Team"
         assert application.tactic.name == "High Press"
+
+
+def testManagementRecordsIncludeScreenshotProvenance(tmp_path) -> None:
+    database = Database(tmp_path / "test.sqlite3")
+    database.initialize()
+    player = ExtractedPlayer("Jo Example", "D (C)", "3", "4", {}, 0.98)
+    database.tacticImportSave(
+        "/captures/formation.png",
+        ScreenType.TACTIC_FORMATION,
+        "High Press",
+    )
+    database.squadImportSave("/captures/squad.png", [player], "First Team")
+
+    tactic = database.tacticRecords()[0]
+    squad = database.squadRecords()[0]
+    storedPlayer = database.squadPlayerRecords("first team")[0]
+
+    assert tactic.name == "High Press"
+    assert tactic.captureCount == 1
+    assert tactic.formationImage == "/captures/formation.png"
+    assert squad.playerCount == 1
+    assert squad.captureCount == 1
+    assert storedPlayer.name == "Jo Example"
+    assert storedPlayer.imageFilename == "/captures/squad.png"
+
+
+def testDeletingTacticRemovesOwnedImportsButLeavesSquad(tmp_path) -> None:
+    database = Database(tmp_path / "test.sqlite3")
+    database.initialize()
+    player = ExtractedPlayer("Jo Example", "D (C)", "3", "4", {}, 0.98)
+    database.tacticImportSave(
+        "/captures/formation.png",
+        ScreenType.TACTIC_FORMATION,
+        "High Press",
+    )
+    database.squadImportSave("/captures/squad.png", [player], "First Team")
+    database.tacticApplyToSquad("First Team", "High Press")
+
+    deleted = database.tacticsDelete(["high press"])
+
+    assert deleted.deletedCount == 1
+    assert deleted.imageFilenames == ("/captures/formation.png",)
+    assert database.tacticsList() == []
+    assert database.squadsList() == ["First Team"]
+    assert database.playerNamesForSquad("First Team") == {"Jo Example"}
+
+
+def testDeletingSquadRemovesOwnedPlayersButLeavesTactic(tmp_path) -> None:
+    database = Database(tmp_path / "test.sqlite3")
+    database.initialize()
+    player = ExtractedPlayer("Jo Example", "D (C)", "3", "4", {}, 0.98)
+    database.tacticImportSave(
+        "/captures/formation.png",
+        ScreenType.TACTIC_FORMATION,
+        "High Press",
+    )
+    database.squadImportSave("/captures/squad.png", [player], "First Team")
+    database.tacticApplyToSquad("First Team", "High Press")
+
+    deleted = database.squadsDelete(["FIRST TEAM"])
+
+    assert deleted.deletedCount == 1
+    assert deleted.imageFilenames == ("/captures/squad.png",)
+    assert database.squadsList() == []
+    assert database.tacticsList() == ["High Press"]
+    assert database.playersList() == []
