@@ -99,28 +99,28 @@ class BinaryReader:
         return int(self._unpack("b"))
 
     def uint16(self, endian: Endian | None = None) -> int:
-        return int(self._unpack(f"{endian or self.endian}H"))
+        return int(self._unpack(f"{(endian or self.endian).value}H"))
 
     def int16(self, endian: Endian | None = None) -> int:
-        return int(self._unpack(f"{endian or self.endian}h"))
+        return int(self._unpack(f"{(endian or self.endian).value}h"))
 
     def uint32(self, endian: Endian | None = None) -> int:
-        return int(self._unpack(f"{endian or self.endian}I"))
+        return int(self._unpack(f"{(endian or self.endian).value}I"))
 
     def int32(self, endian: Endian | None = None) -> int:
-        return int(self._unpack(f"{endian or self.endian}i"))
+        return int(self._unpack(f"{(endian or self.endian).value}i"))
 
     def uint64(self, endian: Endian | None = None) -> int:
-        return int(self._unpack(f"{endian or self.endian}Q"))
+        return int(self._unpack(f"{(endian or self.endian).value}Q"))
 
     def int64(self, endian: Endian | None = None) -> int:
-        return int(self._unpack(f"{endian or self.endian}q"))
+        return int(self._unpack(f"{(endian or self.endian).value}q"))
 
     def float32(self, endian: Endian | None = None) -> float:
-        return float(self._unpack(f"{endian or self.endian}f"))
+        return float(self._unpack(f"{(endian or self.endian).value}f"))
 
     def float64(self, endian: Endian | None = None) -> float:
-        return float(self._unpack(f"{endian or self.endian}d"))
+        return float(self._unpack(f"{(endian or self.endian).value}d"))
 
     def varuint(self) -> int:
         """Read a base-128 little-endian variable-length unsigned integer."""

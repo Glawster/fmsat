@@ -9,9 +9,9 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from fmparser.bundleFilter import assetsFilter
-from fmparser.bundles import BundleError, UnityPyBundleReader
-from fmparser.structures import AssetData, AssetInfo, AssetReference, BundleInfo
+from fmsat.bundleFilter import assetsFilter
+from fmsat.bundles import BundleError, UnityPyBundleReader
+from fmsat.structures import AssetData, AssetInfo, AssetReference, BundleInfo
 
 try:
     from PySide6.QtCore import (

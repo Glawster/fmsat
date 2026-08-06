@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from fmparser.bundles import BundleFormatError, UnityPyBundleReader
+from fmsat.bundles import BundleFormatError, UnityPyBundleReader
 
 
 class _Type:

@@ -2,13 +2,13 @@ from pathlib import Path
 
 import pytest
 
-from fmparser.structures import AssetInfo, AssetReference
+from fmsat.structures import AssetInfo, AssetReference
 
 pytest.importorskip("PySide6")
 
 from PySide6.QtCore import QCoreApplication, Qt  # noqa: E402
 
-from fmparser.qtBundleExplorer import (  # noqa: E402
+from fmsat.qtBundleExplorer import (  # noqa: E402
     AssetFilterProxyModel,
     AssetTableModel,
     ReferenceTableModel,

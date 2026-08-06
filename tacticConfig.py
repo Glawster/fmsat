@@ -1,4 +1,4 @@
-"""User configuration for FMParser."""
+"""User configuration for FMSAT tactic-file tools."""
 
 from __future__ import annotations
 
@@ -22,12 +22,12 @@ def configLoad(configPath: Path | None = None) -> dict[str, Any]:
 
 
 def configPathDefault() -> Path:
-    """Return the default FMParser config path."""
+    """Return the default FMSAT tactic-tool configuration path."""
 
     override = os.environ.get("FMPARSER_CONFIG")
     if override:
         return Path(override).expanduser()
-    return Path.home() / ".config" / "fmparser" / "config.json"
+    return Path.home() / ".config" / "fmsat" / "config.json"
 
 
 def configSave(config: dict[str, Any], configPath: Path | None = None) -> Path:

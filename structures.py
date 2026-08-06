@@ -98,3 +98,53 @@ class FileInspection:
     strings: tuple[ASCIIString, ...]
     sections: tuple[SectionCandidate, ...]
     compressionAttempts: tuple[CompressionAttempt, ...]
+
+
+@dataclass(frozen=True)
+class AssetReference:
+    """Reference from one Unity asset record to another known or external asset."""
+
+    path_id: int | None = None
+    asset_path: str | None = None
+    asset_type: str | None = None
+    asset_name: str | None = None
+    relationship: str | None = None
+    external: str | None = None
+
+
+@dataclass(frozen=True)
+class BundleInfo:
+    """Summary metadata for a Unity asset bundle."""
+
+    path: Path
+    file_name: str
+    size: int
+    signature: str
+    unity_version: str | None
+    asset_count: int
+    external_references: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class AssetInfo:
+    """Application-owned description of one asset inside a Unity bundle."""
+
+    bundle_path: Path
+    path_id: int
+    asset_type: str
+    asset_name: str | None = None
+    serialized_size: int | None = None
+    container_path: str | None = None
+    dependencies: tuple[AssetReference, ...] = ()
+    external_references: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class AssetData:
+    """Safely readable content for an asset, or a clear unsupported message."""
+
+    asset: AssetInfo
+    representation: str
+    text: str | None = None
+    structure: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+    message: str | None = None

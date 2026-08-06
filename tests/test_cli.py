@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from fmparser.cli import main
+from fmsat.cli import main
 
 
 def testCliNoArgumentsShowsHelp(capsys) -> None:  # type: ignore[no-untyped-def]

@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from fmparser.bundleFilter import assetsFilter
-from fmparser.structures import AssetInfo
+from fmsat.bundleFilter import assetsFilter
+from fmsat.structures import AssetInfo
 
 
 def _assetCreate(path_id: int, name: str, asset_type: str, container: str) -> AssetInfo:
