@@ -565,6 +565,7 @@ class MainWindow(QMainWindow):
         self.table.setAlternatingRowColors(True)
         self.table.setSortingEnabled(False)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectItems)
+        self.table.itemChanged.connect(self._reviewItemChanged)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         layout.addWidget(self.table)
@@ -842,6 +843,38 @@ class MainWindow(QMainWindow):
             f"Extracted {len(result.players)} player(s) for {self.currentSquad} — "
             + (", ".join(summary) if summary else "sanity checks passed")
         )
+
+    def _reviewItemChanged(self, item: QTableWidgetItem) -> None:
+        """Refresh review highlighting immediately after a manual cell edit."""
+
+        if self.currentResult is None or item.row() >= self.table.rowCount():
+            return
+        if any(
+            self.table.item(item.row(), column) is None
+            for column in range(self.table.columnCount())
+        ):
+            return
+        players = self._tablePlayersRead()
+        if item.row() >= len(players):
+            return
+        issues = self.validator.validate(players[item.row()])
+        blocking = any(issue.blocking for issue in issues)
+        tooltip = "\n".join(f"{issue.field}: {issue.message}" for issue in issues)
+        self.table.blockSignals(True)
+        try:
+            for column in range(self.table.columnCount()):
+                cell = self.table.item(item.row(), column)
+                if cell is None:
+                    continue
+                if blocking:
+                    cell.setBackground(QColor("#ffc9c9"))
+                elif issues:
+                    cell.setBackground(QColor("#fff1b8"))
+                else:
+                    cell.setData(Qt.ItemDataRole.BackgroundRole, None)
+                cell.setToolTip(tooltip)
+        finally:
+            self.table.blockSignals(False)
 
     def _tacticSelect(
         self,

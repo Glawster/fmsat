@@ -92,11 +92,11 @@ class PlayerValidator:
                     True,
                 )
             )
-        if player.name.strip() and len(player.name.split()) != 2:
+        if len(player.name.split()) > 3:
             issues.append(
                 ValidationIssue(
                     "name",
-                    "Player name must contain a first name and surname",
+                    "Player name may contain merged player rows",
                     True,
                 )
             )
@@ -239,7 +239,7 @@ class PlayerValidator:
         context: str,
     ) -> tuple[ExtractedPlayer, list[PlayerCorrection]]:
         cleanedName = self._nameClean(player.name)
-        simplePlayerName = len(cleanedName.split()) == 2
+        simplePlayerName = 1 <= len(cleanedName.split()) <= 3
         values = {
             "name": cleanedName,
             "positions": self._positionsClean(player.positions),
@@ -295,9 +295,10 @@ class PlayerValidator:
         cleaned = re.sub(r"^e(?=[a-z]+(?:\s|$))", "", cleaned)
         if cleaned and cleaned[0].islower():
             cleaned = cleaned[0].upper() + cleaned[1:]
-        return " ".join(
+        cleaned = " ".join(
             word.capitalize() if word.islower() else word for word in cleaned.split()
         )
+        return re.sub(r"\bMc\s+([A-Z][a-z]+)\b", r"Mc\1", cleaned)
 
     @staticmethod
     def _abilityClean(value: str, allowMultiple: bool) -> str:
@@ -322,7 +323,15 @@ class PlayerValidator:
         cleaned = re.sub(r"\s*\)", ")", cleaned)
         cleaned = re.sub(r"\s*,\s*", ", ", cleaned)
         cleaned = re.sub(r"\s*/\s*", "/", cleaned)
-        return " ".join(cleaned.split())
+        cleaned = re.sub(r"\)\s*[.;]\s*(?=(?:GK|D|WB|DM|M|AM|ST)\b)", "), ", cleaned)
+        cleaned = " ".join(cleaned.split())
+        if PlayerValidator._positionsValid(cleaned):
+            return cleaned
+        for match in re.finditer(r"\b(?:GK|D|WB|DM|M|AM|ST)\b", cleaned):
+            candidate = cleaned[match.start() :]
+            if PlayerValidator._positionsValid(candidate):
+                return candidate
+        return cleaned
 
     @staticmethod
     def _positionsValid(value: str) -> bool:

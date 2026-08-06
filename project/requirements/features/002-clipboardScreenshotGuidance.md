@@ -2,7 +2,7 @@
 
 ## Status
 
-Backlog
+Completed
 
 ## Objective
 
@@ -17,8 +17,9 @@ screenshot from the clipboard.
 2. Tell the user to open that screen and take a screenshot.
 3. State clearly that FMSAT will collect the screenshot from the clipboard.
 4. Keep the instructions visible until the user starts or cancels the capture.
-5. If the clipboard does not contain a supported image, explain that no usable
-   screenshot was found and offer the existing image-file picker as a fallback.
+5. If the clipboard does not contain a supported image, keep the user in the
+   screenshot workflow and offer **Screenshot ready** or **Cancel** without
+   opening an unrelated file picker.
 6. Apply the guidance consistently to tactic and squad screenshot captures.
 7. For a known tactic, let the user identify the screenshot being captured so a
    single Formation, In Possession or Out of Possession capture can be updated
@@ -41,11 +42,17 @@ substituted for each requested capture.
    collect it from the clipboard.
 3. A supported clipboard image continues directly into the import workflow.
 4. A missing or unsupported clipboard image produces a clear explanation and
-   allows the user to select a PNG or JPEG file instead.
+   lets the user retake the screenshot without restarting the import.
 5. Cancelling either the prompt or file picker does not create a partial import.
 6. UI tests cover clipboard success, clipboard fallback and cancellation.
 7. A user can select a known tactic, choose one tactic screenshot type and
    replace only that capture.
+
+## Completion evidence
+
+Delivered in Phase 2. UI lifecycle tests cover clipboard acquisition, empty
+clipboard guidance, retake, cancellation, preview and adaptive squad capture.
+The complete FMSAT test suite, Ruff and `git diff --check` pass.
 
 ## Out of scope
 

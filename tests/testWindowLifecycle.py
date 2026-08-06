@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QImage
+from PySide6.QtGui import QColor, QImage
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -203,6 +203,24 @@ def testSquadReviewShowsOnlyCollectedAttributeColumns(qtbot) -> None:  # type: i
     ]
     assert headers == ["Name", "Positions", "CA", "PA", "Pas", "Vis", "Confidence"]
     assert window._tablePlayersRead()[0].attributes == {"passing": 12, "vision": None}
+
+
+def testManualCorrectionImmediatelyClearsBlockingRowHighlight(qtbot) -> None:  # type: ignore[no-untyped-def]
+    window = MainWindow(Mock(), Mock(), (), PlayerValidator(), Mock(), Mock())
+    qtbot.addWidget(window)
+    result = ImportResult(
+        "clipboard",
+        ScreenType.SQUAD_ATTRIBUTES,
+        [ExtractedPlayer("Max Power", "D (C", "114", "130", {}, 0.98)],
+    )
+    window._resultShow(result)
+
+    assert window.table.item(0, 1).background().color() == QColor("#ffc9c9")
+
+    window.table.item(0, 1).setText("D (C)")
+
+    assert window.table.item(0, 1).background().color() != QColor("#ffc9c9")
+    assert window.table.item(0, 1).toolTip() == ""
 
 
 def testAttributeViewTransitionOffersBackButton(qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]

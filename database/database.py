@@ -466,12 +466,12 @@ class Database:
                 canonical = [
                     player
                     for player in players
-                    if len(player.name.split()) == 2
+                    if 1 <= len(player.name.split()) <= 3
                     and player.ca.isdigit()
                     and player.pa.isdigit()
                 ]
                 for player in players:
-                    if len(player.name.split()) <= 2:
+                    if len(player.name.split()) <= 3:
                         continue
                     normalizedPlayerName = " ".join(player.name.casefold().split())
                     caValues = set(re.findall(r"\d{1,3}", player.ca))

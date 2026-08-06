@@ -2,7 +2,7 @@
 
 ## Status
 
-Backlog
+In progress
 
 ## Objective
 
@@ -89,3 +89,12 @@ separators or escape managed screenshot storage.
   access to the original-resolution image.
 - Plan migration behavior for existing import sessions whose image filename is
   `clipboard` and therefore has no recoverable source image.
+
+## Phase 2 delivery evidence
+
+Managed screenshot persistence, readable collision-resistant names, player-to-
+capture provenance, the non-modal screenshot viewer, missing-image handling and
+safe tactic/squad owner deletion were delivered in Phase 2 and are covered by
+database, screenshot-store and UI lifecycle tests. Selective screenshot-level
+removal and dependency preview remain future work, so this broader requirement
+remains in progress.

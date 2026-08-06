@@ -152,13 +152,33 @@ def testDuplicatedAbilityUsesFinalValueOnlyForSimplePlayerName() -> None:
     assert report.players[1].pa == "120 130"
 
 
-def testPlayerNameMustContainExactlyTwoWords() -> None:
+def testPlayerNamesAllowOneToThreeWordsButRejectMergedRows() -> None:
+    validator = PlayerValidator()
+
+    for name in ("Priscila", "Lauren Hemp", "Laura Blindkilde Brown"):
+        issues = validator.validate(
+            ExtractedPlayer(name, "ST (C)", "105", "125", {}, 0.98)
+        )
+        assert not any(issue.field == "name" for issue in issues)
+
     issues = PlayerValidator().validate(
         ExtractedPlayer("Curtis Tilt Matthew Pennington", "D (C)", "105", "125", {}, 0.98)
     )
 
     assert any(
-        issue.message == "Player name must contain a first name and surname"
+        issue.message == "Player name may contain merged player rows"
         and issue.blocking
         for issue in issues
     )
+
+
+def testSplitMcSurnameAndPositionSeparatorAreCorrected() -> None:
+    player = ExtractedPlayer(
+        "Libbi Mc Innes", "M (RL). AM (LC)", "150", "159", {}, 0.98
+    )
+
+    report = PlayerValidator().correctAll([player], context="test")
+
+    assert report.players[0].name == "Libbi McInnes"
+    assert report.players[0].positions == "M (RL), AM (LC)"
+    assert report.blockingIssues == ()

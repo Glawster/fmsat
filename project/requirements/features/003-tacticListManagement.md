@@ -2,7 +2,7 @@
 
 ## Status
 
-Backlog
+Completed
 
 ## Objective
 
@@ -59,3 +59,11 @@ managed without repeatedly using single-item dialogs.
   model.
 - Define transactional database and file-cleanup behavior before implementing
   bulk deletion.
+
+## Completion evidence
+
+Delivered in Phase 2 with managed Formation thumbnails, full-width tactic
+listing, checkbox selection, guarded bulk deletion, transactional ownership
+cleanup and immediate refresh. Database and UI lifecycle tests cover the
+delivered behavior; the complete FMSAT test suite, Ruff and `git diff --check`
+pass.
