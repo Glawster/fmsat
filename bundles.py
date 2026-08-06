@@ -98,16 +98,16 @@ class UnityPyBundleReader(BundleReader):
             self._assetInfo(bundle_path, item, container_paths.get(int(getattr(item, "path_id", 0))))
             for item in getattr(environment, "objects", [])
         )
-        self._assets_by_id = {asset.path_id: asset for asset in self._assets}
+        self._assets_by_id = {asset.pathId: asset for asset in self._assets}
 
         info = BundleInfo(
             path=bundle_path,
-            file_name=bundle_path.name,
+            filename=bundle_path.name,
             size=bundle_path.stat().st_size,
             signature=_bundleSignature(bundle_path),
-            unity_version=self._unityVersion(environment),
-            asset_count=len(self._assets),
-            external_references=self._externalReferences(environment),
+            unityVersion=self._unityVersion(environment),
+            assetCount=len(self._assets),
+            externalReferences=self._externalReferences(environment),
         )
         self._bundle_info = info
         return info
@@ -129,15 +129,15 @@ class UnityPyBundleReader(BundleReader):
             return AssetData(
                 asset=asset,
                 representation="unsupported",
-                message=f"{asset.asset_type} could not be decoded safely: {error}",
+                message=f"{asset.assetType} could not be decoded safely: {error}",
             )
 
-        if asset.asset_type == "TextAsset":
+        if asset.assetType == "TextAsset":
             text = _textAssetContent(data)
             if text is not None:
                 return AssetData(asset=asset, representation="original-or-serialized-text", text=text)
 
-        if asset.asset_type in {"VisualTreeAsset", "MonoBehaviour"} or "StyleSheet" in asset.asset_type:
+        if asset.assetType in {"VisualTreeAsset", "MonoBehaviour"} or "StyleSheet" in asset.assetType:
             structure = self._typeTree(unity_object)
             if structure:
                 return AssetData(
@@ -148,11 +148,11 @@ class UnityPyBundleReader(BundleReader):
                     message="Serialized Unity object data; this is not guaranteed to be original source.",
                 )
 
-        if asset.asset_type in {"Texture2D", "Sprite"}:
+        if asset.assetType in {"Texture2D", "Sprite"}:
             return AssetData(
                 asset=asset,
                 representation="unsupported",
-                message=f"{asset.asset_type} preview/export is not implemented in this milestone.",
+                message=f"{asset.assetType} preview/export is not implemented in this milestone.",
             )
 
         structure = self._typeTree(unity_object)
@@ -168,7 +168,7 @@ class UnityPyBundleReader(BundleReader):
         return AssetData(
             asset=asset,
             representation="unsupported",
-            message=f"{asset.asset_type} is not decoded by the first milestone.",
+            message=f"{asset.assetType} is not decoded by the first milestone.",
         )
 
     def assetExport(self, asset_id: int, destination: Path) -> Path:
@@ -180,7 +180,7 @@ class UnityPyBundleReader(BundleReader):
 
         target_dir = destination.expanduser().resolve()
         target_dir.mkdir(parents=True, exist_ok=True)
-        name = data.asset.asset_name or str(data.asset.path_id)
+        name = data.asset.assetName or str(data.asset.pathId)
         safe_name = "".join(char if char.isalnum() or char in "._-" else "_" for char in name)
         target = target_dir / f"{safe_name}.{_extensionFor(data.representation)}"
         if target.exists():
@@ -188,28 +188,28 @@ class UnityPyBundleReader(BundleReader):
         target.write_text(data.text, encoding="utf-8")
         return target
 
-    def assetSearchText(self, asset_id: int) -> str:
+    def assetSearchText(self, assetId: int) -> str:
         """Return cached searchable serialized text for one asset."""
 
         self._requireOpen()
-        if asset_id in self._serialized_search_text:
-            return self._serialized_search_text[asset_id]
+        if assetId in self._serialized_search_text:
+            return self._serialized_search_text[assetId]
 
-        asset = self._assetById(asset_id)
-        unity_object = self._objects_by_id.get(asset_id)
+        asset = self._assetById(assetId)
+        unity_object = self._objects_by_id.get(assetId)
         if unity_object is None:
-            raise BundleAssetError(f"Asset not found: {asset_id}")
+            raise BundleAssetError(f"Asset not found: {assetId}")
 
         parts = [
-            str(asset.path_id),
-            asset.asset_name or "",
-            asset.asset_type,
-            asset.container_path or "",
+            str(asset.pathId),
+            asset.assetName or "",
+            asset.assetType,
+            asset.containerPath or "",
         ]
         structure = self._typeTree(unity_object)
         if structure:
             parts.append(json.dumps(structure, sort_keys=True, default=str))
-        if asset.asset_type == "TextAsset":
+        if asset.assetType == "TextAsset":
             try:
                 text = _textAssetContent(unity_object.read())
             except Exception:  # noqa: BLE001 - deep search remains best effort.
@@ -218,7 +218,7 @@ class UnityPyBundleReader(BundleReader):
                 parts.append(text)
 
         search_text = "\n".join(part for part in parts if part).casefold()
-        self._serialized_search_text[asset_id] = search_text
+        self._serialized_search_text[assetId] = search_text
         return search_text
 
     def assetReferences(self, asset_id: int) -> tuple[AssetReference, ...]:
@@ -247,18 +247,18 @@ class UnityPyBundleReader(BundleReader):
 
         reverse: dict[int, dict[tuple[int | None, str | None], AssetReference]] = {}
         for asset in self._assets:
-            for reference in self.assetReferences(asset.path_id):
-                if reference.path_id is None:
+            for reference in self.assetReferences(asset.pathId):
+                if reference.pathId is None:
                     continue
                 source = AssetReference(
-                    path_id=asset.path_id,
-                    asset_path=asset.container_path,
-                    asset_type=asset.asset_type,
-                    asset_name=asset.asset_name,
+                    pathId=asset.pathId,
+                    assetPath=asset.containerPath,
+                    assetType=asset.assetType,
+                    assetName=asset.assetName,
                     relationship=reference.relationship,
                 )
-                key = (source.path_id, source.relationship)
-                reverse.setdefault(reference.path_id, {}).setdefault(key, source)
+                key = (source.pathId, source.relationship)
+                reverse.setdefault(reference.pathId, {}).setdefault(key, source)
         self._reverse_references_by_id = {
             path_id: tuple(refs.values()) for path_id, refs in reverse.items()
         }
@@ -302,23 +302,23 @@ class UnityPyBundleReader(BundleReader):
 
     def _assetById(self, asset_id: int) -> AssetInfo:
         for asset in self._assets:
-            if asset.path_id == asset_id:
+            if asset.pathId == asset_id:
                 return asset
         raise BundleAssetError(f"Asset not found: {asset_id}")
 
-    def _assetInfo(self, bundle_path: Path, unity_object: Any, container_path: str | None) -> AssetInfo:
-        path_id = int(getattr(unity_object, "path_id", 0))
-        asset_type = _objectTypeName(unity_object)
-        asset_name = self._assetName(unity_object)
+    def _assetInfo(self, bundlePath: Path, unityObject: Any, containerPath: str | None) -> AssetInfo:
+        pathId = int(getattr(unityObject, "path_id", 0))
+        asset_type = _objectTypeName(unityObject)
+        asset_name = self._assetName(unityObject)
         return AssetInfo(
-            bundle_path=bundle_path,
-            path_id=path_id,
-            asset_type=asset_type,
-            asset_name=asset_name,
-            serialized_size=_serializedSize(unity_object),
-            container_path=container_path,
-            dependencies=self._dependencies(unity_object),
-            external_references=self._externalReferences(self._environment),
+            bundlePath=bundlePath,
+            pathId=pathId,
+            assetType=asset_type,
+            assetName=asset_name,
+            serializedSize=_serializedSize(unityObject),
+            containerPath=containerPath,
+            dependencies=self._dependencies(unityObject),
+            externalReferences=self._externalReferences(self._environment),
         )
 
     def _assetName(self, obj) -> str:
@@ -394,7 +394,7 @@ def _referencesFromStructure(structure: Any) -> tuple[AssetReference, ...]:
     _referencesCollect(structure, "", refs)
     deduped: dict[tuple[int | None, str | None], AssetReference] = {}
     for ref in refs:
-        key = (ref.path_id, ref.relationship)
+        key = (ref.pathId, ref.relationship)
         deduped.setdefault(key, ref)
     return tuple(deduped.values())
 
@@ -403,7 +403,7 @@ def _referencesCollect(value: Any, relationship: str, refs: list[AssetReference]
     if isinstance(value, dict):
         path_id = _pathIdFromMapping(value)
         if path_id not in (None, 0):
-            refs.append(AssetReference(path_id=path_id, relationship=relationship or None))
+            refs.append(AssetReference(pathId=path_id, relationship=relationship or None))
             return
         for key, child in value.items():
             child_relationship = f"{relationship}.{key}" if relationship else str(key)
@@ -431,16 +431,16 @@ def _referenceEnrich(
     reference: AssetReference,
     assets_by_id: dict[int, AssetInfo],
 ) -> AssetReference:
-    if reference.path_id is None:
+    if reference.pathId is None:
         return reference
-    asset = assets_by_id.get(reference.path_id)
+    asset = assets_by_id.get(reference.pathId)
     if asset is None:
         return reference
     return AssetReference(
-        path_id=reference.path_id,
-        asset_path=asset.container_path,
-        asset_type=asset.asset_type,
-        asset_name=asset.asset_name,
+        pathId=reference.pathId,
+        assetPath=asset.containerPath,
+        assetType=asset.assetType,
+        assetName=asset.assetName,
         relationship=reference.relationship,
         external=reference.external,
     )
@@ -448,20 +448,20 @@ def _referenceEnrich(
 
 def _assetGraphNode(asset: AssetInfo) -> dict[str, Any]:
     return {
-        "path_id": asset.path_id,
-        "type": asset.asset_type,
-        "name": asset.asset_name,
-        "container": asset.container_path,
-        "serialized_size": asset.serialized_size,
+        "path_id": asset.pathId,
+        "type": asset.assetType,
+        "name": asset.assetName,
+        "container": asset.containerPath,
+        "serialized_size": asset.serializedSize,
     }
 
 
 def _referenceGraphNode(reference: AssetReference) -> dict[str, Any]:
     return {
-        "path_id": reference.path_id,
-        "type": reference.asset_type,
-        "name": reference.asset_name,
-        "container": reference.asset_path,
+        "path_id": reference.pathId,
+        "type": reference.assetType,
+        "name": reference.assetName,
+        "container": reference.assetPath,
         "relationship": reference.relationship,
         "external": reference.external,
     }

@@ -469,6 +469,7 @@ class MainWindow(QMainWindow):
             )
             self.managementWindow.destroyed.connect(self._managementForget)
             self.managementWindow.dataChanged.connect(self.dataChanged.emit)
+            self.dataChanged.connect(self.managementWindow.dataRefresh)
         else:
             self.managementWindow.dataRefresh()
         self.managementWindow.recordShow(tabName, recordName)

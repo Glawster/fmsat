@@ -138,12 +138,12 @@ class AssetFilterProxyModel(QSortFilterProxyModel):
         asset = model.assetAt(source_row)
         if asset is None:
             return False
-        if not assetsFilter((asset,), text="", asset_type=self._asset_type):
+        if not assetsFilter((asset,), text="", assetType=self._asset_type):
             return False
         query = self._text.strip().casefold()
         if not query:
             return True
-        if assetsFilter((asset,), text=self._text, asset_type=""):
+        if assetsFilter((asset,), text=self._text, assetType=""):
             return True
         return query in self._serialized_text_by_id.get(asset.path_id, "")
 
@@ -600,8 +600,8 @@ class BundleExplorerWindow(QMainWindow):
         self._typeSummarySet(assets)
         self._metadata.setPlainText(_bundleText(info))
         self._preview.clear()
-        self._log.appendPlainText(f"Opened {info.file_name}: {info.asset_count} assets")
-        self.statusBar().showMessage(f"Opened {info.file_name}")
+        self._log.appendPlainText(f"Opened {info.filename}: {info.asset_count} assets")
+        self.statusBar().showMessage(f"Opened {info.filename}")
         self._referenceIndexStart()
 
     def _previewReady(self, data: AssetData) -> None:
@@ -775,7 +775,7 @@ def _referenceSortValue(reference: AssetReference, column: int) -> str | int:
 def _bundleText(info: BundleInfo) -> str:
     return "\n".join(
         (
-            f"File: {info.file_name}",
+            f"File: {info.filename}",
             f"Path: {info.path}",
             f"Size: {info.size}",
             f"Signature: {info.signature}",

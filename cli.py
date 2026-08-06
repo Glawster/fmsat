@@ -221,7 +221,7 @@ def _unityActionRun(args: argparse.Namespace) -> int:
     reader = UnityPyBundleReader()
     info = reader.open(bundlePath)
     if args.list:
-        assets = assetsFilter(reader.assetsList(), text=args.filter, asset_type=args.type)
+        assets = assetsFilter(reader.assetsList(), text=args.filter, assetType=args.type)
         print(_bundleListReport(info, assets[: max(0, args.limit)]), end="")
     elif args.preview is not None:
         print(_assetDataReport(reader.assetRead(args.preview)), end="")
@@ -258,7 +258,7 @@ def _bundleListReport(info: BundleInfo, assets: tuple[AssetInfo, ...]) -> str:
     lines = [
         "Bundle",
         "------",
-        f"Filename: {info.file_name}",
+        f"Filename: {info.filename}",
         f"Path: {info.path}",
         f"Size: {info.size}",
         f"Signature: {info.signature}",

@@ -32,4 +32,4 @@ def testAssetsFilterAppliesTypeFilter() -> None:
         _assetCreate(20, "PlayerIcon", "Texture2D", "ui/player.png"),
     )
 
-    assert assetsFilter(assets, text="player", asset_type="VisualTree") == (assets[0],)
+    assert assetsFilter(assets, text="player", assetType="VisualTree") == (assets[0],)

@@ -3,17 +3,20 @@
 from __future__ import annotations
 
 import ast
+import re
 from pathlib import Path
 
 allowedIdentifiers = {
     "_",
     "SQUAD_ATTRIBUTES",
+    "CLUB_INFORMATION",
     "TACTIC_FORMATION",
     "TACTIC_IN_POSSESSION",
     "TACTIC_OUT_OF_POSSESSION",
     "tmp_path",
 }
-allowedFileNames = {"__init__.py", "conftest.py"}
+allowedFileNames = {"__init__.py", "__main__.py", "conftest.py"}
+testFilePattern = re.compile(r"test_[a-zA-Z]+\.py")
 
 
 def _hasInternalUnderscore(identifier: str) -> bool:
@@ -22,17 +25,19 @@ def _hasInternalUnderscore(identifier: str) -> bool:
     return "_" in identifier.lstrip("_")
 
 
-def testPythonFileNamesUseCamelCase() -> None:
+def testPythonFileNamesFollowPolicy() -> None:
     projectPath = Path(__file__).parents[1]
-    invalidNames = sorted(
-        path.name
-        for path in projectPath.rglob("*.py")
-        if "__pycache__" not in path.parts
-        and path.name not in allowedFileNames
-        and "_" in path.stem
-    )
+    invalidNames = []
+    for path in projectPath.rglob("*.py"):
+        if "__pycache__" in path.parts or path.name in allowedFileNames:
+            continue
+        if "tests" in path.parts:
+            if testFilePattern.fullmatch(path.name) is None:
+                invalidNames.append(path.name)
+        elif "_" in path.stem:
+            invalidNames.append(path.name)
 
-    assert invalidNames == []
+    assert sorted(invalidNames) == []
 
 
 def testProjectOwnedIdentifiersUseCamelCase() -> None:

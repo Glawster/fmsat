@@ -11,22 +11,22 @@ def assetsFilter(
     assets: Iterable[AssetInfo],
     *,
     text: str = "",
-    asset_type: str = "",
+    assetType: str = "",
 ) -> tuple[AssetInfo, ...]:
     """Filter assets by path ID, name, type, or container path."""
 
     query = text.strip().casefold()
-    type_query = asset_type.strip().casefold()
+    typeQuery = assetType.strip().casefold()
     matches: list[AssetInfo] = []
     for asset in assets:
-        if type_query and type_query not in asset.asset_type.casefold():
+        if typeQuery and typeQuery not in asset.assetType.casefold():
             continue
         haystack = " ".join(
             (
-                str(asset.path_id),
-                asset.asset_name or "",
-                asset.asset_type,
-                asset.container_path or "",
+                str(asset.pathId),
+                asset.assetName or "",
+                asset.assetType,
+                asset.containerPath or "",
             )
         ).casefold()
         if query and query not in haystack:

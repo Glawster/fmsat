@@ -2,7 +2,7 @@
 
 ## Status
 
-Completed
+In Progress
 
 ## Objective
 
@@ -62,8 +62,20 @@ managed without repeatedly using single-item dialogs.
 
 ## Completion evidence
 
-Delivered in Phase 2 with managed Formation thumbnails, full-width tactic
-listing, checkbox selection, guarded bulk deletion, transactional ownership
-cleanup and immediate refresh. Database and UI lifecycle tests cover the
-delivered behavior; the complete FMSAT test suite, Ruff and `git diff --check`
-pass.
+Revalidated on 2026-08-07. The implementation provides managed Formation
+images, full-width tactic listing, checkbox selection, guarded bulk deletion,
+transactional database ownership cleanup and live refresh of an open tactic
+editor after tactic changes.
+
+Requirement-focused database and Qt coverage now verifies checkbox toggling,
+select-all, clear-selection, selection counts, disabled deletion, no-selection
+guarding, cancellation, managed-file cleanup, checked-only multi-delete,
+preservation of unchecked tactics and squads, relationship cleanup and
+Formation-image persistence across a database restart. The focused suite passes
+with 39 tests and `git diff --check` passes.
+
+The requirement remains In Progress because repository-wide verification is not
+fully green: the complete suite has 127 passing tests and two existing
+naming-policy failures; Ruff reports 30 existing issues and Black reports 16
+existing files requiring formatting. Those broader merge-era cleanup items are
+not caused by requirement 003 and are not being hidden by this evidence.

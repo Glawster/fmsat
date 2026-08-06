@@ -104,10 +104,10 @@ class FileInspection:
 class AssetReference:
     """Reference from one Unity asset record to another known or external asset."""
 
-    path_id: int | None = None
-    asset_path: str | None = None
-    asset_type: str | None = None
-    asset_name: str | None = None
+    pathId: int | None = None
+    assetPath: str | None = None
+    assetType: str | None = None
+    assetName: str | None = None
     relationship: str | None = None
     external: str | None = None
 
@@ -117,26 +117,26 @@ class BundleInfo:
     """Summary metadata for a Unity asset bundle."""
 
     path: Path
-    file_name: str
+    filename: str
     size: int
     signature: str
-    unity_version: str | None
-    asset_count: int
-    external_references: tuple[str, ...] = ()
+    unityVersion: str | None
+    assetCount: int
+    externalReferences: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
 class AssetInfo:
     """Application-owned description of one asset inside a Unity bundle."""
 
-    bundle_path: Path
-    path_id: int
-    asset_type: str
-    asset_name: str | None = None
-    serialized_size: int | None = None
-    container_path: str | None = None
+    bundlePath: Path
+    pathId: int
+    assetType: str
+    assetName: str | None = None
+    serializedSize: int | None = None
+    containerPath: str | None = None
     dependencies: tuple[AssetReference, ...] = ()
-    external_references: tuple[str, ...] = ()
+    externalReferences: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
