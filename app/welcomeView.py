@@ -71,10 +71,36 @@ class WelcomeView(QWidget):
         for action in actions:
             button = QToolButton(actionPanel)
             button.setDefaultAction(action)
-            button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+            button.setObjectName("workspaceActionButton")
+            button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
             button.setAccessibleName(action.text())
-            button.setMinimumHeight(36)
-            actionLayout.addWidget(button)
+            button.setFixedSize(220, 54)
+            button.setStyleSheet(
+                "QToolButton#workspaceActionButton {"
+                "background-color: #2563eb; color: white; border: 2px solid #1d4ed8; "
+                "border-radius: 10px; font-size: 15px; font-weight: 600; padding: 8px 18px;"
+                "}"
+                "QToolButton#workspaceActionButton:hover {"
+                "background-color: #3b82f6; border-color: #1e40af;"
+                "}"
+                "QToolButton#workspaceActionButton:pressed {"
+                "background-color: #1d4ed8;"
+                "}"
+                "QToolButton#workspaceActionButton:focus {"
+                "background-color: #2563eb; border-color: #93c5fd;"
+                "}"
+                "QToolButton#workspaceActionButton:focus:hover {"
+                "background-color: #3b82f6; border-color: #93c5fd;"
+                "}"
+                "QToolButton#workspaceActionButton:focus:pressed {"
+                "background-color: #1d4ed8; border-color: #93c5fd;"
+                "}"
+            )
+            buttonRow = QHBoxLayout()
+            buttonRow.addStretch()
+            buttonRow.addWidget(button)
+            buttonRow.addStretch()
+            actionLayout.addLayout(buttonRow)
         actionLayout.addStretch()
         rootLayout.addWidget(actionPanel)
 

@@ -817,7 +817,17 @@ class MainWindow(QMainWindow):
         return paths
 
     def _menuCreate(self) -> None:
-        self.menuBar().hide()
+        fileMenu = self.menuBar().addMenu("&File")
+        fileMenu.addAction(self.importTacticAction)
+        fileMenu.addAction(self.importSquadAction)
+        fileMenu.addAction(self.saveAction)
+        fileMenu.addSeparator()
+        fileMenu.addAction(self.exitAction)
+        viewMenu = self.menuBar().addMenu("&View")
+        viewMenu.addAction(self.tacticsAction)
+        viewMenu.addAction(self.squadsAction)
+        viewMenu.addAction(self.playersAction)
+        viewMenu.addAction(self.settingsAction)
 
     def _managementForget(self) -> None:
         self.dataChanged.emit()

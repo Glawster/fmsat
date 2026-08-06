@@ -14,26 +14,39 @@ application.
 - [Sample screenshot guidance](documentation/sampleScreenshots.md)
 - [Football Manager file transfer requirement](project/requirements/features/001-footballManagerFileTransfer.md)
 
-## Phase 1 workflow
+## Workspace and import workflow
 
-1. Launch FMSAT and select **Import Tactic** (`Ctrl+T`).
-2. Import the Formation screenshot. FMSAT extracts the tactic name and asks you to confirm
+1. Launch FMSAT. The workspace shows the stored tactics and squads, with
+   **Import Tactic** and **Import Squad** actions at the top left.
+2. Select **Import Tactic** (`Ctrl+T`).
+3. Import the Formation screenshot. FMSAT extracts the tactic name and asks you to confirm
    or correct it.
-3. Select **Import Tactic** again for the In Possession screenshot, then once more for the
+4. Select **Import Tactic** again for the In Possession screenshot, then once more for the
    Out of Possession screenshot. FMSAT tracks the next missing capture for each tactic.
-4. Select **Import Squad** (`Ctrl+I`) and name or select the squad independently.
-5. Copy the requested screenshot to the clipboard or save it as PNG/JPEG. FMSAT prefers an
-   image already on the clipboard; otherwise it opens a file picker.
-6. Review the spreadsheet-style squad result. Rows below 95% OCR confidence are highlighted.
-7. Correct any cell and select **Save Confirmed Data** (`Ctrl+S`).
-8. Confirmed imports are stored in `data/fmsat.sqlite3` at the repository root.
-9. Choose **Apply Tactic to Squad** to pair any completed tactic with any stored squad.
+5. Select **Import Squad** (`Ctrl+I`) and name or select the squad independently. When
+   creating a new squad, FMSAT first asks for a Club Information screenshot showing the
+   club badge. This image is retained for the squad's workspace card and is not sent to OCR.
+6. Copy each requested Squad Attributes screenshot to the clipboard and return to FMSAT.
+   Capture as many player pages or attribute views as needed, then finish the import.
+7. Review the spreadsheet-style squad result. Missing, corrected, or low-confidence values
+   are highlighted.
+8. Correct any cell and select **Save Confirmed Data** (`Ctrl+S`) from the File menu.
+9. Confirmed imports are stored in `data/fmsat.sqlite3` at the repository root.
+
+The main toolbar remains deliberately limited to the two import actions. The File and View
+menus provide the remaining application commands. Selecting **Open** on a tactic or squad
+workspace row opens the corresponding focused editor with that record selected. Use
+**Apply Tactic to Squad** from the tactic editor and **Clean Up Data** from the squad editor.
 
 When a tactic already has all three tactic screenshots, FMSAT offers to import an updated
 Formation screenshot while retaining the previous import history. Squads are stored
 independently rather than owned by a tactic, allowing the same squad to be assessed against
 multiple tactics. Applying a tactic creates a reusable many-to-many pairing; it does not
 move the squad or prevent another tactic from being applied.
+
+The workspace refreshes during the current session after imports and editor changes. A
+missing or unreadable badge or Formation image produces a neutral placeholder rather than
+hiding the stored record.
 
 An applied pairing is not yet an automatic suitability rating. A defensible calculated
 score requires formation positions, roles and team instructions to be extracted into typed
@@ -143,7 +156,7 @@ OCR is mocked in unit tests; test execution does not download models.
 
 ## Error handling and privacy
 
-Unsupported screens, missing files, OCR failures and database errors are shown as desktop
+Unsupported screens, missing clipboard images, OCR failures and database errors are shown as desktop
 messages and written to the rotating log. All screenshots and extracted records stay on
 the local machine. The application makes no changes to Football Manager.
 

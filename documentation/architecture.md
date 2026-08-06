@@ -5,6 +5,17 @@ coordinates preprocessing, screen detection, OCR, tactic-name extraction and Squ
 Attributes parsing. Parsers receive an `OcrEngine` interface, so PaddleOCR can be replaced
 without UI or database changes.
 
+`WelcomeView` is the default `MainWindow` page. It receives existing application actions
+for imports and uses `WelcomeService` to request bounded tactic and squad records from the
+database gateway. It contains no OCR, parsing, raw SQL or persistence logic. The editable
+player review table remains on a separate stacked page and is shown only while reviewing a
+squad import.
+
+Workspace rows open the existing management UI in a focused tactic-editor or squad-editor
+presentation with the selected record active. Applying a tactic is owned by the tactic
+editor; persisted squad cleanup is owned by the squad editor. `MainWindow.dataChanged` is
+the central Qt signal used to refresh workspace summaries after imports and editor changes.
+
 YAML owns screen regions, preprocessing switches, detection keywords and attribute
 definitions. SQLite writes are performed through a transactional SQLAlchemy gateway.
 The tactic name is confirmed or corrected before persistence. The review table converts
@@ -16,6 +27,13 @@ features can therefore pair one squad with multiple tactics without duplicating 
 `SquadTacticApplication` records those explicit many-to-many pairings. It deliberately has
 no arbitrary score until tactic positions, roles and instructions have typed parsers.
 
-The supported workflow captures Formation, In Possession, Out of Possession and Squad
-Attributes screens. It intentionally reads screenshots only. It neither reads Football
-Manager save files nor communicates with or modifies a running Football Manager process.
+New squads may also own `SquadClubScreenshot` records. The associated Club Information
+screenshot supplies the squad-card badge image. It is previewed and persisted through
+`ScreenshotStore` without screen detection, OCR or player parsing. Keeping this provenance
+in SQLite avoids a second source of truth and lets squad deletion clean up the owned image.
+
+The supported workflow captures Club Information, Formation, In Possession, Out of
+Possession and Squad Attributes screens. Only the tactic and Squad Attributes captures are
+processed by their relevant extraction workflows; Club Information is retained as a visual
+asset. FMSAT intentionally reads screenshots only. It neither reads Football Manager save
+files nor communicates with or modifies a running Football Manager process.

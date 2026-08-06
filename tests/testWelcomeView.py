@@ -3,7 +3,7 @@
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from PySide6.QtWidgets import QLabel, QTableWidget
+from PySide6.QtWidgets import QLabel, QTableWidget, QToolButton
 
 from fmsat.app.welcomeView import WelcomeService, WelcomeView
 from fmsat.app.window import MainWindow
@@ -28,6 +28,28 @@ def testWelcomeViewEmptyDatabase(qtbot) -> None:  # type: ignore[no-untyped-def]
     assert "No tactics have been imported yet." in _labelTexts(window.welcomeView)
     assert "No squads have been imported yet." in _labelTexts(window.welcomeView)
     assert not window.welcomeView.findChildren(QTableWidget)
+
+
+def testWorkspaceImportButtonsAreEqualProminentActions(qtbot) -> None:  # type: ignore[no-untyped-def]
+    window = _mainWindowCreate()
+    qtbot.addWidget(window)
+
+    buttons = window.welcomeView.findChildren(
+        QToolButton,
+        "workspaceActionButton",
+    )
+
+    assert [button.text() for button in buttons] == ["Import Tactic", "Import Squad"]
+    assert buttons[0].size() == buttons[1].size()
+    assert "background-color" in buttons[0].styleSheet()
+    assert "border-radius" in buttons[0].styleSheet()
+
+
+def testMainMenuBarIsAvailableWithFileAndViewMenus(qtbot) -> None:  # type: ignore[no-untyped-def]
+    window = _mainWindowCreate()
+    qtbot.addWidget(window)
+
+    assert [action.text() for action in window.menuBar().actions()] == ["&File", "&View"]
 
 
 def testWelcomeViewPopulated(qtbot) -> None:  # type: ignore[no-untyped-def]
