@@ -1,0 +1,112 @@
+schema_version: "1.0"
+
+profile:
+  key: wealdstone_winger
+  name: Wealdstone Winger
+  position: AMR_AML
+  role: Winger
+  duty: Support
+
+  description: >
+    A quick, hard-working wide player who maintains width, carries the
+    ball forward, presses aggressively and recovers into the defensive shape.
+
+attributes:
+  essential:
+    acceleration:
+      weight: 18
+      minimum: 12
+      target: 14
+    pace:
+      weight: 16
+      minimum: 12
+      target: 14
+    work_rate:
+      weight: 14
+      minimum: 11
+      target: 13
+
+  important:
+    off_the_ball:
+      weight: 12
+      minimum: 10
+      target: 12
+    decisions:
+      weight: 10
+      minimum: 9
+      target: 11
+    dribbling:
+      weight: 10
+      minimum: 10
+      target: 12
+
+  useful:
+    crossing:
+      weight: 8
+      minimum: 9
+      target: 11
+    stamina:
+      weight: 7
+      minimum: 10
+      target: 12
+    first_touch:
+      weight: 3
+      minimum: 9
+      target: 11
+
+  bonus:
+    technique:
+      weight: 1
+    teamwork:
+      weight: 1
+
+league_overrides:
+  national_league:
+    acceleration:
+      minimum: 12
+    pace:
+      minimum: 12
+  league_two:
+    acceleration:
+      minimum: 12
+    pace:
+      minimum: 12
+    work_rate:
+      minimum: 11
+
+age:
+  ideal:
+    minimum: 18
+    maximum: 24
+  acceptable:
+    maximum: 28
+
+personality:
+  preferred:
+    - model_citizen
+    - model_professional
+    - professional
+    - resolute
+    - driven
+    - fairly_professional
+
+traits:
+  preferred:
+    - runs_with_ball_down_left
+    - runs_with_ball_down_right
+    - knocks_ball_past_opponent
+    - hugs_line
+    - plays_one_twos
+  undesirable:
+    - dwells_on_ball
+    - stops_play
+    - comes_deep_to_get_ball
+    - shoots_from_distance
+
+development:
+  priority_order:
+    - stamina
+    - decisions
+    - first_touch
+    - balance
+    - passing
