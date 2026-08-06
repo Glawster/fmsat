@@ -11,17 +11,15 @@ from organiseMyProjects.logUtils import getLogger, setLogLevel
 
 logger = getLogger()
 
-from fmparser.bundleFilter import assetsFilter  # noqa: E402
-from fmparser.bundles import BundleError, UnityPyBundleReader  # noqa: E402
-from fmparser.config import tacticDefaultGet, tacticDefaultSet  # noqa: E402
-from fmparser.diff import diff_files  # noqa: E402
-from fmparser.parser import FMFTactic, FMFParser  # noqa: E402
-from fmparser.report import diff_report, inspection_report  # noqa: E402
-from fmparser.structures import AssetData, AssetInfo, BundleInfo  # noqa: E402
+from fmsat.diff import filesDiff  # noqa: E402
+from fmsat.parser import FMFParser, FMFTactic  # noqa: E402
+from fmsat.report import diffReport, inspectionReport, structuresReport  # noqa: E402
+from fmsat.signatures import asciiStrings  # noqa: E402
+from fmsat.structuresDiscovery import structuresRepeated  # noqa: E402
 
 
-def buildParser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="fmparser")
+def parserBuild() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="fmsat parser")
     parser.add_argument("-v", "--verbose", action="count", default=0)
     parser.add_argument(
         "-y",
@@ -30,69 +28,86 @@ def buildParser() -> argparse.ArgumentParser:
         action="store_true",
         help="execute changes (default is dry-run)",
     )
-    parser.add_argument("--tactic", type=Path, help="FM tactic file to use")
-    parser.add_argument("--inspect", action="store_true", help="Inspect the selected tactic file")
-    parser.add_argument(
-        "--print",
-        dest="print_tactic",
-        action="store_true",
-        help="Print the parsed tactic model report",
-    )
-    parser.add_argument("--compare", type=Path, help="Compare selected tactic against another tactic")
-    parser.add_argument("--save", action="store_true", help="Store --tactic as the default tactic")
-    parser.add_argument("--unity", type=Path, help="Unity bundle file to inspect")
-    parser.add_argument("--list", action="store_true", help="List assets in the selected Unity bundle")
-    parser.add_argument("--preview", type=int, help="Preview a Unity bundle asset by path ID")
-    parser.add_argument("--gui", action="store_true", help="Launch the Qt Unity bundle explorer")
-    parser.add_argument("--filter", default="", help="Filter bundle assets by name, type, container, or path ID")
-    parser.add_argument("--type", default="", help="Filter bundle assets by Unity object type")
-    parser.add_argument("--limit", type=int, default=100, help="Maximum bundle assets to print")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    inspect = subparsers.add_parser("inspect", help="Inspect file signatures and sections")
+    inspect.add_argument("file", type=Path)
+
+    diff = subparsers.add_parser("diff", help="Compare two controlled tactic files")
+    diff.add_argument("old", type=Path)
+    diff.add_argument("new", type=Path)
+
+    report = subparsers.add_parser("report", help="Generate a Markdown tactic report")
+    report.add_argument("file", type=Path)
+
+    dump = subparsers.add_parser("dump", help="Dump current parsed tactic model")
+    dump.add_argument("file", type=Path)
+
+    strings = subparsers.add_parser("strings", help="Extract printable ASCII strings")
+    strings.add_argument("file", type=Path)
+    strings.add_argument("--minimum", type=int, default=4)
+
+    hexView = subparsers.add_parser("hex", help="Print a compact hex view")
+    hexView.add_argument("file", type=Path)
+    hexView.add_argument("--offset", type=int, default=0)
+    hexView.add_argument("--length", type=int, default=256)
+
+    structures = subparsers.add_parser("structures", help="Find repeated binary structures")
+    structures.add_argument("file", type=Path)
 
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
-    global logger
-
-    parser = buildParser()
-    args = parser.parse_args(argv)
+    args = parserBuild().parse_args(argv)
     dryRun = not args.confirm
-    logger = getLogger(includeConsole=args.verbose > 0, dryRun=dryRun)
-    logger.doing("fmparser command")
-    logger.value("dryRun", dryRun)
+    if args.verbose:
+        setLogLevel(logging.DEBUG if args.verbose > 1 else logging.INFO, logger)
+    logger.info("Running fmsat parser command=%s dryRun=%s", args.command, dryRun)
 
     try:
-        if not _hasTacticAction(args) and not _hasUnityAction(args):
-            parser.print_help()
-            return 2
-        if _hasTacticAction(args) and _hasUnityAction(args):
-            raise ValueError("Choose either tactic options or Unity options, not both.")
-        if _hasTacticAction(args):
-            return _tacticActionRun(args)
-        if _hasUnityAction(args):
-            return _unityActionRun(args)
-    except BundleError as error:
-        logger.error("bundle command failed: %s", error)
-        print(f"Error: {error}", file=sys.stderr)
-        return 1
+        if args.command == "inspect":
+            filePath = pathValidateFile(args.file)
+            print(inspectionReport(FMFParser().inspect(filePath)), end="")
+            logger.info("FMSAT parser command completed")
+            return 0
+        if args.command == "diff":
+            oldPath = pathValidateFile(args.old)
+            newPath = pathValidateFile(args.new)
+            print(diffReport(oldPath, newPath, filesDiff(oldPath, newPath)), end="")
+            logger.info("FMSAT parser command completed")
+            return 0
+        if args.command == "report":
+            tactic = FMFTactic.read(pathValidateFile(args.file))
+            print(_tacticReport(tactic), end="")
+            logger.info("FMSAT parser command completed")
+            return 0
+        if args.command == "dump":
+            print(FMFTactic.read(pathValidateFile(args.file)))
+            logger.info("FMSAT parser command completed")
+            return 0
+        if args.command == "strings":
+            filePath = pathValidateFile(args.file)
+            for item in asciiStrings(filePath.read_bytes(), minimum=args.minimum):
+                print(f"{item.offset}: {item.value}")
+            logger.info("FMSAT parser command completed")
+            return 0
+        if args.command == "hex":
+            filePath = pathValidateFile(args.file)
+            print(_hexFormat(filePath.read_bytes(), offset=args.offset, length=args.length), end="")
+            logger.info("FMSAT parser command completed")
+            return 0
+        if args.command == "structures":
+            filePath = pathValidateFile(args.file)
+            print(structuresReport(structuresRepeated(filePath.read_bytes())), end="")
+            logger.info("FMSAT parser command completed")
+            return 0
     except Exception as error:
         logger.error("fmsat command failed: %s", error)
         print(f"Error: {error}", file=sys.stderr)
         return 1
 
     return 2
-
-
-def configTacticResolve(tacticPath: Path | None) -> Path:
-    """Resolve a tactic path from CLI input or user config."""
-
-    selectedPath = tacticPath or tacticDefaultGet()
-    if selectedPath is None:
-        raise FileNotFoundError(
-            "No tactic file supplied. Use --tactic PATH or store one with "
-            "--tactic PATH --save."
-        )
-    return pathValidateFile(selectedPath)
 
 
 def pathValidateFile(filePath: Path) -> Path:
@@ -103,65 +118,20 @@ def pathValidateFile(filePath: Path) -> Path:
     return resolvedPath
 
 
-def _hasTacticAction(args: argparse.Namespace) -> bool:
-    return bool(args.inspect or args.print_tactic or args.compare or args.save or args.tactic)
+def _hexFormat(data: bytes, *, offset: int, length: int) -> str:
+    if offset < 0:
+        raise ValueError("offset must be non-negative")
+    if length < 0:
+        raise ValueError("length must be non-negative")
 
-
-def _hasUnityAction(args: argparse.Namespace) -> bool:
-    return bool(args.unity or args.list or args.preview is not None or args.gui)
-
-
-def _tacticActionRun(args: argparse.Namespace) -> int:
-    tacticPath = configTacticResolve(args.tactic)
-
-    actions = [args.inspect, args.print_tactic, args.compare is not None]
-    actionCount = sum(1 for action in actions if action)
-    if actionCount == 0 and args.tactic is not None:
-        configPath = tacticDefaultSet(tacticPath)
-        logger.value("config", configPath)
-        print(f"Default tactic: {tacticPath}\n")
-        logger.done("fmparser command")
-        return 0
-    if args.save:
-        if args.tactic is None:
-            raise ValueError("--save requires --tactic PATH.")
-        configPath = tacticDefaultSet(tacticPath)
-        logger.value("config", configPath)
-    if actionCount != 1:
-        raise ValueError("Choose exactly one tactic action: --inspect, --print, or --compare PATH.")
-
-    if args.inspect:
-        print(inspection_report(FMFParser().inspect(tacticPath)), end="")
-    elif args.print_tactic:
-        print(_tacticReport(FMFTactic.read(tacticPath)), end="")
-    elif args.compare:
-        comparePath = pathValidateFile(args.compare)
-        print(diff_report(tacticPath, comparePath, diff_files(tacticPath, comparePath)), end="")
-    logger.done("fmparser command")
-    return 0
-
-
-def _unityActionRun(args: argparse.Namespace) -> int:
-    actions = [args.list, args.preview is not None, args.gui]
-    if sum(1 for action in actions if action) != 1:
-        raise ValueError("Choose exactly one Unity action: --list, --preview PATH_ID, or --gui.")
-    if args.unity is None and not args.gui:
-        raise FileNotFoundError("No Unity bundle supplied. Use --unity PATH.")
-    if args.gui:
-        from fmparser.qtBundleExplorer import main as qt_main
-
-        return qt_main([str(args.unity)] if args.unity else [])
-
-    bundlePath = pathValidateFile(args.unity)
-    reader = UnityPyBundleReader()
-    info = reader.open(bundlePath)
-    if args.list:
-        assets = assetsFilter(reader.assetsList(), text=args.filter, asset_type=args.type)
-        print(_bundleListReport(info, assets[: max(0, args.limit)]), end="")
-    elif args.preview is not None:
-        print(_assetDataReport(reader.assetRead(args.preview)), end="")
-    logger.done("fmparser command")
-    return 0
+    lines: list[str] = []
+    stopOffset = min(len(data), offset + length)
+    for rowOffset in range(offset, stopOffset, 16):
+        row = data[rowOffset : min(rowOffset + 16, stopOffset)]
+        hexBytes = " ".join(f"{byte:02x}" for byte in row)
+        asciiBytes = "".join(chr(byte) if 32 <= byte <= 126 else "." for byte in row)
+        lines.append(f"{rowOffset:08x}  {hexBytes:<47}  {asciiBytes}")
+    return "\n".join(lines) + ("\n" if lines else "")
 
 
 def _tacticReport(tactic: FMFTactic) -> str:
@@ -186,96 +156,6 @@ def _tacticReport(tactic: FMFTactic) -> str:
         lines.append("unknown")
     lines.extend(["", "Instructions", "------------"])
     lines.extend(tactic.teamInstructions or ["unknown"])
-    return "\n".join(lines) + "\n"
-
-
-def _bundleListReport(info: BundleInfo, assets: tuple[AssetInfo, ...]) -> str:
-    lines = [
-        "Bundle",
-        "------",
-        f"Filename: {info.file_name}",
-        f"Path: {info.path}",
-        f"Size: {info.size}",
-        f"Signature: {info.signature}",
-        f"Unity version: {info.unity_version or 'unknown'}",
-        f"Asset count: {info.asset_count}",
-        "",
-        "Assets",
-        "------",
-    ]
-    if not assets:
-        lines.append("- none")
-    for asset in assets:
-        lines.append(
-            f"- {asset.path_id}: {asset.asset_name or '(unnamed)'} "
-            f"[{asset.asset_type}] container={asset.container_path or 'unknown'} "
-            f"size={asset.serialized_size if asset.serialized_size is not None else 'unknown'} "
-            f"refs={len(asset.dependencies) + len(asset.external_references)}"
-        )
-    return "\n".join(lines) + "\n"
-
-
-def _assetDataReport(data: AssetData) -> str:
-    lines = [
-        "Asset",
-        "-----",
-        f"Path ID: {data.asset.path_id}",
-        f"Name: {data.asset.asset_name or 'unknown'}",
-        f"Type: {data.asset.asset_type}",
-        f"Container: {data.asset.container_path or 'unknown'}",
-        f"Representation: {data.representation}",
-    ]
-    if data.message:
-        lines.extend(["", "Note", "----", data.message])
-    if data.text:
-        lines.extend(["", "Preview", "-------", data.text])
-    elif not data.message:
-        lines.extend(["", "Preview", "-------", "No readable preview is available."])
-    return "\n".join(lines) + "\n"
-
-
-def _bundleListReport(info: BundleInfo, assets: tuple[AssetInfo, ...]) -> str:
-    lines = [
-        "Bundle",
-        "------",
-        f"Filename: {info.file_name}",
-        f"Path: {info.path}",
-        f"Size: {info.size}",
-        f"Signature: {info.signature}",
-        f"Unity version: {info.unity_version or 'unknown'}",
-        f"Asset count: {info.asset_count}",
-        "",
-        "Assets",
-        "------",
-    ]
-    if not assets:
-        lines.append("- none")
-    for asset in assets:
-        lines.append(
-            f"- {asset.path_id}: {asset.asset_name or '(unnamed)'} "
-            f"[{asset.asset_type}] container={asset.container_path or 'unknown'} "
-            f"size={asset.serialized_size if asset.serialized_size is not None else 'unknown'} "
-            f"refs={len(asset.dependencies) + len(asset.external_references)}"
-        )
-    return "\n".join(lines) + "\n"
-
-
-def _assetDataReport(data: AssetData) -> str:
-    lines = [
-        "Asset",
-        "-----",
-        f"Path ID: {data.asset.path_id}",
-        f"Name: {data.asset.asset_name or 'unknown'}",
-        f"Type: {data.asset.asset_type}",
-        f"Container: {data.asset.container_path or 'unknown'}",
-        f"Representation: {data.representation}",
-    ]
-    if data.message:
-        lines.extend(["", "Note", "----", data.message])
-    if data.text:
-        lines.extend(["", "Preview", "-------", data.text])
-    elif not data.message:
-        lines.extend(["", "Preview", "-------", "No readable preview is available."])
     return "\n".join(lines) + "\n"
 
 
