@@ -98,6 +98,49 @@ def testParserUsesHeadersAndOcrBoxesInsteadOfFixedRowSteps() -> None:
     ]
 
 
+def testParserKeepsFullTableNamesWhenFocusedOcrFragmentsCoverOneRow() -> None:
+    def result(text: str, x: float, y: float) -> OcrResult:
+        return OcrResult(text, 0.99, (x - 8, y - 4, x + 8, y + 4))
+
+    fullResults = [
+        result("Player", 80, 20),
+        result("Position", 250, 20),
+        result("CA", 380, 20),
+        result("PA", 430, 20),
+    ]
+    for name, y, ca, pa in (
+        ("George Goodman", 60, "75", "123"),
+        ("Lewis Boney", 100, "65", "112"),
+        ("Jack Ryder", 140, "43", "81"),
+    ):
+        fullResults.extend(
+            (
+                result(name, 120, y),
+                result("D (C)", 250, y),
+                result(ca, 380, y),
+                result(pa, 430, y),
+            )
+        )
+    focusedFragments = [
+        result("George", 40, 20),
+        result("Good", 80, 20),
+        result("man", 120, 20),
+    ]
+    parser = SquadAttributesParser(
+        FakeOcr([fullResults, focusedFragments], suppliesGeometry=True),
+        {"squadAttributes": {}},
+        (),
+    )
+
+    players = parser.parse(np.zeros((400, 800, 3), dtype=np.uint8))
+
+    assert [player.name for player in players] == [
+        "George Goodman",
+        "Lewis Boney",
+        "Jack Ryder",
+    ]
+
+
 def testParserMergesDenseScreenshotStripsWithoutDuplicatingOverlap() -> None:
     def result(text: str, x: float, y: float) -> OcrResult:
         scale = 1.5

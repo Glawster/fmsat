@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import gzip
-import logging
 import lzma
 import zlib
 from collections.abc import Callable
 
+from organiseMyProjects.logUtils import getLogger
+
 from fmsat.structures import CompressionAttempt
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = getLogger()
 
 Decompressor = Callable[[bytes], bytes]
 

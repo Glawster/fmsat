@@ -43,3 +43,13 @@ class DeletionRecord:
 
     deletedCount: int
     imageFilenames: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class SquadCleanupRecord:
+    """Outcome of a conservative persisted-squad cleanup."""
+
+    correctedCount: int
+    mergedCount: int
+    ambiguousCount: int
+    remainingCount: int

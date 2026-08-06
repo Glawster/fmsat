@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-import logging
 import math
 import re
 from collections.abc import Iterable
 
+from organiseMyProjects.logUtils import getLogger
+
 from fmsat.structures import ASCIIString, EntropyWindow, HeaderInfo, SectionCandidate
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = getLogger()
 
 
 def entropy(data: bytes) -> float:

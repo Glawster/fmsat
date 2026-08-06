@@ -60,6 +60,12 @@ class ManagementWindow(QMainWindow):
     def dataRefresh(self) -> None:
         """Reload tactic and squad lists from committed database state."""
 
+        selectedSquad = None
+        currentSquadRow = self.squadTable.currentRow()
+        if currentSquadRow >= 0:
+            currentSquadItem = self.squadTable.item(currentSquadRow, 1)
+            if currentSquadItem is not None:
+                selectedSquad = currentSquadItem.text()
         try:
             tacticRecords = self.database.tacticRecords()
             squadRecords = self.database.squadRecords()
@@ -101,6 +107,13 @@ class ManagementWindow(QMainWindow):
             self.squadTable.setItem(row, 2, QTableWidgetItem(str(record.captureCount)))
             self.squadTable.setItem(row, 3, QTableWidgetItem(str(record.playerCount)))
         self.playerTable.setRowCount(0)
+        if selectedSquad is not None:
+            for row in range(self.squadTable.rowCount()):
+                if self.squadTable.item(row, 1).text() == selectedSquad:
+                    self.squadTable.selectRow(row)
+                    self.squadTable.setCurrentCell(row, 1)
+                    self._playersRefresh()
+                    break
         self._selectionRefresh()
 
     def tabShow(self, name: str) -> None:
@@ -225,6 +238,32 @@ class ManagementWindow(QMainWindow):
         self.squadSelection.setText(f"{squadCount} selected")
         self.tacticDeleteButton.setEnabled(tacticCount > 0)
         self.squadDeleteButton.setEnabled(squadCount > 0)
+        self.squadCleanButton.setEnabled(squadCount > 0)
+
+    def _squadsClean(self) -> None:
+        names = self._selectedNames(self.squadTable, 1)
+        if not names:
+            return
+        try:
+            results = [(name, self.database.squadClean(name)) for name in names]
+        except DatabaseError as exc:
+            QMessageBox.critical(self, "Database error", str(exc))
+            return
+        corrected = sum(result.correctedCount for _, result in results)
+        merged = sum(result.mergedCount for _, result in results)
+        ambiguous = sum(result.ambiguousCount for _, result in results)
+        message = (
+            f"Cleaned {len(results)} squad(s): corrected {corrected} field(s) and "
+            f"merged {merged} unambiguous duplicate player(s)."
+        )
+        if ambiguous:
+            message += (
+                f" {ambiguous} possible duplicate(s) were retained for later review."
+            )
+            QMessageBox.warning(self, "Squad cleanup needs review", message)
+        else:
+            self.statusBar().showMessage(message, 8000)
+        self.dataRefresh()
 
     @staticmethod
     def _selectedNames(table: QTableWidget, nameColumn: int) -> list[str]:
@@ -255,6 +294,10 @@ class ManagementWindow(QMainWindow):
         self.squadSelection = QPushButton("0 selected")
         self.squadSelection.setEnabled(False)
         buttonLayout.insertWidget(2, self.squadSelection)
+        self.squadCleanButton = QPushButton("Clean selected")
+        self.squadCleanButton.setEnabled(False)
+        self.squadCleanButton.clicked.connect(self._squadsClean)
+        buttonLayout.insertWidget(buttonLayout.count() - 1, self.squadCleanButton)
         layout.addLayout(buttonLayout)
         self.playerTable = QTableWidget(0, 6)
         self.playerTable.setHorizontalHeaderLabels(

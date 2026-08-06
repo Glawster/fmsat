@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import hashlib
-import logging
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from organiseMyProjects.logUtils import getLogger
 
 from fmsat.compression import compressionProbe
 from fmsat.signatures import (
@@ -17,7 +18,7 @@ from fmsat.signatures import (
 )
 from fmsat.structures import FileInspection, PlayerSlot, TacticMetadata
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = getLogger()
 
 
 @dataclass(frozen=True)

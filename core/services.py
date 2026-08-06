@@ -2,19 +2,19 @@
 
 from __future__ import annotations
 
-import logging
 import time
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from pathlib import Path
 
 import numpy as np
+from organiseMyProjects.logUtils import getLogger
 
 from .detection import ScreenDetector, ScreenType
 from .images import ImagePreprocessor, imageLoad
 from .parser import ExtractedPlayer, SquadAttributesParser, TacticParser
 
-logger = logging.getLogger(__name__)
+logger = getLogger()
 
 
 class ImportError(RuntimeError):
@@ -216,7 +216,11 @@ class ScreenshotImportService:
                 return ImportResult(source, screenType, [], image=image.copy())
             players = self.squadParser.parse(processed)
             if not players:
-                raise ImportError("No player rows could be extracted from the screenshot")
+                raise ImportError(
+                    "No player rows could be extracted. Please retake the screenshot, "
+                    "making sure the Player, Position, CA and PA headings and complete "
+                    "player rows are visible."
+                )
             return ImportResult(source, screenType, players, image=image.copy())
         except ImportError:
             raise

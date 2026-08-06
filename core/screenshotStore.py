@@ -8,8 +8,11 @@ from pathlib import Path
 from uuid import uuid4
 
 import numpy as np
+from organiseMyProjects.logUtils import getLogger
 
 from .images.pipeline import ImageProcessingError, _cv2
+
+logger = getLogger()
 
 
 class ScreenshotStoreError(RuntimeError):
@@ -55,7 +58,15 @@ class ScreenshotStore:
             with path.open("xb") as stream:
                 stream.write(content.tobytes())
         except (OSError, ImageProcessingError) as exc:
+            logger.exception("screenshot save failed path=%s", path)
             raise ScreenshotStoreError(f"Unable to store screenshot: {exc}") from exc
+        logger.action(
+            "screenshot saved path=%s ownerType=%s ownerName=%r screenType=%s",
+            path,
+            ownerType,
+            ownerName,
+            screenType,
+        )
         return path
 
     def capturesRemove(self, paths: list[str | Path]) -> list[Path]:
@@ -70,11 +81,14 @@ class ScreenshotStore:
             if not path.exists():
                 continue
             if path.parent != self.directory:
+                logger.warning("screenshot removal refused unmanaged path=%s", path)
                 failures.append(path)
                 continue
             try:
                 path.unlink(missing_ok=True)
+                logger.action("screenshot removed path=%s", path)
             except OSError:
+                logger.exception("screenshot removal failed path=%s", path)
                 failures.append(path)
         return failures
 

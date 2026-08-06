@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 
 import numpy as np
+from organiseMyProjects.logUtils import getLogger
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QCloseEvent, QColor, QImage, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
-    QFileDialog,
     QHBoxLayout,
     QHeaderView,
     QInputDialog,
@@ -38,10 +37,10 @@ from fmsat.core.services import (
     ScreenshotImportService,
     squadCapturesMerge,
 )
-from fmsat.core.validation import PlayerValidator
+from fmsat.core.validation import PlayerValidator, SquadSanityReport
 from fmsat.database import Database, DatabaseError
 
-logger = logging.getLogger(__name__)
+logger = getLogger()
 
 
 class MainWindow(QMainWindow):
@@ -71,6 +70,7 @@ class MainWindow(QMainWindow):
         self.currentSquadExistingNames: set[str] = set()
         self.currentSquadPlayerOffset = 0
         self.currentDisplayedAttributes: tuple[AttributeDefinition, ...] = ()
+        self.currentSanityReport: SquadSanityReport | None = None
         self.managementWindow: ManagementWindow | None = None
         self.setWindowTitle("Football Manager Squad Assessment Tool")
         self.resize(1500, 800)
@@ -81,51 +81,53 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("Ready — choose Import Tactic or Import Squad")
 
     def squadImport(self) -> None:
-        """Collect every player across two complementary attribute views."""
+        """Collect arbitrary squad pages and attribute views into one review draft."""
 
         squadName = self._squadSelect()
         if squadName is None:
             return
         self.currentSquad = squadName
-        self.currentSquadExistingNames = set()
-        self.currentSquadPlayerOffset = 0
+        try:
+            existingNames = self.database.playerNamesForSquad(squadName)
+        except DatabaseError as exc:
+            self._errorShow("Database error", str(exc))
+            return
+        self.currentSquadExistingNames = {
+            self._playerNameNormalize(name) for name in existingNames
+        }
+        self.currentSquadPlayerOffset = len(self.currentSquadExistingNames)
+        logger.info(
+            "squad import target=%r mode=append existingPlayers=%d",
+            squadName,
+            self.currentSquadPlayerOffset,
+        )
         combined: ImportResult | None = None
-        for viewNumber in (1, 2):
-            pageNumber = 1
+        captureNumber = 1
+        while True:
+            capture = self._screenshotAcquire(
+                ScreenType.SQUAD_ATTRIBUTES,
+                f"Import Squad Attributes, Capture {captureNumber}",
+            )
+            if capture is None:
+                return
+            combined = capture if combined is None else squadCapturesMerge(combined, capture)
+            self._resultShow(combined)
+            self.saveAction.setEnabled(False)
+            QApplication.processEvents()
             while True:
-                capture = self._screenshotAcquire(
-                    ScreenType.SQUAD_ATTRIBUTES,
-                    f"Import Attribute View {viewNumber}, Page {pageNumber}",
-                )
-                if capture is None:
+                choice = self._squadCaptureChoice(captureNumber)
+                if choice == "cancel":
                     return
-                combined = (
-                    capture if combined is None else squadCapturesMerge(combined, capture)
-                )
-                self._resultShow(combined)
-                self.saveAction.setEnabled(False)
-                QApplication.processEvents()
-                while True:
-                    choice = self._squadCaptureChoice(viewNumber)
-                    if choice == "cancel":
-                        return
-                    if choice == "continue":
-                        pageNumber += 1
-                        self._screenshotReadyWait(
-                            "Capture next player page",
-                            f"Keep Attribute View {viewNumber}, scroll to the next players, "
-                            "and take another screenshot.",
-                        )
-                        break
-                    if viewNumber != 1 or self._screenshotReadyWait(
-                        "Switch to Attribute View 2",
-                        "Switch to Attribute View 2, return to the first players, "
-                        "and take a screenshot.",
-                        allowBack=True,
-                    ):
-                        break
-                if choice == "continue":
-                    continue
+                if choice == "finish":
+                    break
+                if self._screenshotReadyWait(
+                    "Capture another squad screenshot",
+                    "Show any player page in either attribute view and take a screenshot.",
+                    allowBack=True,
+                ):
+                    captureNumber += 1
+                    break
+            if choice == "finish":
                 break
         if combined is None:
             return
@@ -140,21 +142,21 @@ class MainWindow(QMainWindow):
             )
         else:
             self.statusBar().showMessage(
-                f"Captured {len(combined.players)} players across both attribute views; "
+                f"Captured {len(combined.players)} players from {captureNumber} screenshot(s); "
                 "review the combined table before saving.",
                 12000,
             )
 
-    def _squadCaptureChoice(self, viewNumber: int) -> str:
-        """Choose another page or complete the current attribute-view pass."""
+    def _squadCaptureChoice(self, captureNumber: int) -> str:
+        """Choose another arbitrary squad screenshot or finish the draft."""
 
         dialog = QDialog(self)
-        dialog.setWindowTitle(f"Attribute View {viewNumber} captured")
+        dialog.setWindowTitle(f"Squad screenshot {captureNumber} captured")
         layout = QVBoxLayout(dialog)
         layout.addWidget(
             QLabel(
-                f"The data captured so far from Attribute View {viewNumber} "
-                "is now shown in the review table."
+                "The combined data captured so far is now shown in the review table. "
+                "You may capture any player page from either attribute view next."
             )
         )
         choice = "cancel"
@@ -169,11 +171,10 @@ class MainWindow(QMainWindow):
         cancelButton = QPushButton("Cancel import")
         cancelButton.clicked.connect(dialog.reject)
         buttons.addWidget(cancelButton)
-        nextButton = QPushButton("Capture next player page")
+        nextButton = QPushButton("Capture another screenshot")
         nextButton.clicked.connect(lambda: choiceSet("continue"))
         buttons.addWidget(nextButton)
-        finishText = "Switch to Attribute View 2" if viewNumber == 1 else "Finish capture"
-        finishButton = QPushButton(finishText)
+        finishButton = QPushButton("Finish import")
         finishButton.clicked.connect(lambda: choiceSet("finish"))
         finishButton.setDefault(True)
         buttons.addWidget(finishButton)
@@ -187,6 +188,7 @@ class MainWindow(QMainWindow):
         instructions: str,
         *,
         allowBack: bool = False,
+        backText: str = "Back",
     ) -> bool:
         """Wait while the user prepares the next requested clipboard screenshot."""
 
@@ -205,7 +207,7 @@ class MainWindow(QMainWindow):
         buttons = QHBoxLayout()
         buttons.addStretch()
         if allowBack:
-            backButton = QPushButton("Back")
+            backButton = QPushButton(backText)
             backButton.clicked.connect(dialog.reject)
             buttons.addWidget(backButton)
         readyButton = QPushButton("Screenshot ready")
@@ -429,14 +431,33 @@ class MainWindow(QMainWindow):
             self._errorShow("Cannot save", "Name the squad before saving this screenshot")
             return
         players = self._tablePlayersRead()
-        missingNames = [
-            index + 1 for index, player in enumerate(players) if not player.name.strip()
-        ]
-        if missingNames:
+        sanity = self.validator.correctAll(
+            players,
+            context=f"confirmed squad={self.currentSquad}",
+        )
+        players, mergedDuplicates = self.validator.duplicatesMerge(
+            list(sanity.players),
+            context=f"confirmed squad={self.currentSquad}",
+        )
+        sanity = self.validator.correctAll(
+            players,
+            context=f"confirmed merged squad={self.currentSquad}",
+        )
+        players = list(sanity.players)
+        if sanity.blockingIssues:
+            lines = [
+                f"Row {row + 1}, {issue.field}: {issue.message}"
+                for row, issue in sanity.blockingIssues[:20]
+            ]
+            logger.warning(
+                "sanity save blocked squad=%s issues=%d",
+                self.currentSquad,
+                len(sanity.blockingIssues),
+            )
             QMessageBox.warning(
                 self,
-                "Cannot save",
-                f"Player name is required on row(s): {', '.join(map(str, missingNames))}",
+                "Correct player data before saving",
+                "FMSAT found data that cannot be saved safely:\n\n" + "\n".join(lines),
             )
             return
         uniquePlayers: list[ExtractedPlayer] = []
@@ -477,7 +498,13 @@ class MainWindow(QMainWindow):
         self.saveAction.setEnabled(False)
         self.statusBar().showMessage(
             f"Saved {self.currentSquad}: import {session.id} with {len(players)} new player(s)"
-            + (f"; skipped {skipped} existing or duplicate row(s)" if skipped else ""),
+            + (f"; merged {mergedDuplicates} duplicate row(s)" if mergedDuplicates else "")
+            + (f"; skipped {skipped} existing or duplicate row(s)" if skipped else "")
+            + (
+                f"; missing data remains for {len(sanity.missingPlayers)} player(s)"
+                if sanity.missingPlayers
+                else ""
+            ),
             8000,
         )
 
@@ -521,7 +548,8 @@ class MainWindow(QMainWindow):
         widget = QWidget(self)
         layout = QVBoxLayout(widget)
         self.instructions = QLabel(
-            "Import three tactic screenshots, then import two Squad Attributes screenshots. "
+            "Import three tactic screenshots, then capture one or more Squad Attributes "
+            "screenshots in any player-page or attribute-view order. "
             "For each step, take the requested screenshot and leave it on the clipboard; "
             "FMSAT collects it when you continue. Extracted squad cells remain editable "
             "until saved."
@@ -562,29 +590,23 @@ class MainWindow(QMainWindow):
         expectedType: ScreenType,
         dialogTitle: str,
     ) -> ImportResult | None:
-        """Use a clipboard image when available, otherwise ask for a screenshot file."""
+        """Collect a clipboard screenshot, prompting the user when none is available."""
 
         while True:
             clipboardImage = QApplication.clipboard().image()
             image: np.ndarray | None = None
             previewImage = clipboardImage
             source = "clipboard"
-            if not clipboardImage.isNull():
-                image = self._qImageConvert(clipboardImage)
-            else:
-                filename, _ = QFileDialog.getOpenFileName(
-                    self,
-                    dialogTitle,
-                    str(Path.home()),
-                    "Screenshots (*.png *.jpg *.jpeg)",
-                )
-                if not filename:
+            if clipboardImage.isNull():
+                if not self._screenshotReadyWait(
+                    "Take screenshot",
+                    f"Take the requested {dialogTitle.lower()} and leave it on the clipboard.",
+                    allowBack=True,
+                    backText="Cancel",
+                ):
                     return None
-                source = filename
-                previewImage = QImage(filename)
-                if previewImage.isNull():
-                    self._errorShow("Import failed", f"Unable to read screenshot: {filename}")
-                    return None
+                continue
+            image = self._qImageConvert(clipboardImage)
 
             previewChoice = self._screenshotPreview(previewImage, dialogTitle)
             if previewChoice == "use":
@@ -592,30 +614,38 @@ class MainWindow(QMainWindow):
             if previewChoice == "cancel":
                 return None
 
-            readyDialog = QMessageBox(self)
-            readyDialog.setWindowTitle("Take new screenshot")
-            readyDialog.setText(
-                f"Take a new {dialogTitle.lower()} now and leave it on the clipboard."
-            )
-            readyDialog.setInformativeText(
-                "Return to FMSAT and click Screenshot ready to preview the new image."
-            )
-            readyDialog.setStandardButtons(QMessageBox.StandardButton.Ok)
-            readyButton = readyDialog.button(QMessageBox.StandardButton.Ok)
-            readyButton.setText("Screenshot ready")
-            readyDialog.exec()
+            if not self._screenshotReadyWait(
+                "Take new screenshot",
+                f"Take a new {dialogTitle.lower()} and leave it on the clipboard.",
+                allowBack=True,
+                backText="Cancel",
+            ):
+                return None
 
         self.statusBar().showMessage(f"Importing {expectedType.value} screenshot…")
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        importError: ImportError | OSError | None = None
         try:
-            if image is not None:
-                return self.importService.imageImport(image, expectedType, source)
-            return self.importService.fileImport(Path(source), expectedType)
+            result = self.importService.imageImport(image, expectedType, source)
         except (ImportError, OSError) as exc:
-            self._errorShow("Import failed", str(exc))
-            return None
+            importError = exc
         finally:
             QApplication.restoreOverrideCursor()
+        if importError is not None and "No player rows could be extracted" in str(
+            importError
+        ):
+            if not self._screenshotReadyWait(
+                "Please retake screenshot",
+                str(importError),
+                allowBack=True,
+                backText="Cancel",
+            ):
+                return None
+            return self._screenshotAcquire(expectedType, dialogTitle)
+        if importError is not None:
+            self._errorShow("Import failed", str(importError))
+            return None
+        return result
 
     def _screenshotPreview(self, image: QImage, dialogTitle: str) -> str:
         """Ask the user to confirm the screenshot FMSAT is about to import."""
@@ -688,13 +718,11 @@ class MainWindow(QMainWindow):
         result: ImportResult,
         squadName: str,
     ) -> list[Path]:
-        """Persist both complementary source screenshots for a squad import."""
+        """Persist every source screenshot collected for a squad import."""
 
         images = ([result.image] if result.image is not None else []) + result.additionalImages
-        if len(images) < 2:
-            raise ScreenshotStoreError(
-                "A squad import requires captures from both attribute views"
-            )
+        if not images:
+            raise ScreenshotStoreError("A squad import requires at least one screenshot")
         paths: list[Path] = []
         try:
             for image in images:
@@ -738,6 +766,12 @@ class MainWindow(QMainWindow):
         return rgb[:, :, ::-1].copy()
 
     def _resultShow(self, result: ImportResult) -> None:
+        sanity = self.validator.correctAll(
+            result.players,
+            context=f"review source={result.source}",
+        )
+        result.players = list(sanity.players)
+        self.currentSanityReport = sanity
         self.currentResult = result
         collectedNames = {
             name for player in result.players for name in player.attributes.keys()
@@ -766,6 +800,8 @@ class MainWindow(QMainWindow):
             ]
         )
         for row, player in enumerate(result.players):
+            rowIssues = [issue for issueRow, issue in sanity.issues if issueRow == row]
+            blockingIssues = [issue for issue in rowIssues if issue.blocking]
             values = [
                 player.name,
                 player.positions,
@@ -783,17 +819,28 @@ class MainWindow(QMainWindow):
                 item = QTableWidgetItem(value)
                 if column == len(values) - 1:
                     item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                if self.validator.isLowConfidence(player):
+                if blockingIssues:
+                    item.setBackground(QColor("#ffc9c9"))
+                elif rowIssues:
                     item.setBackground(QColor("#fff1b8"))
+                if rowIssues:
                     item.setToolTip(
-                        "OCR confidence below "
-                        f"{self.validator.confidenceThreshold:.0%}; review this row"
+                        "\n".join(
+                            f"{issue.field}: {issue.message}" for issue in rowIssues
+                        )
                     )
                 self.table.setItem(row, column, item)
         self.saveAction.setEnabled(True)
+        summary = []
+        if sanity.blockingIssues:
+            summary.append(f"{len(sanity.blockingIssues)} blocking issue(s)")
+        if sanity.missingPlayers:
+            summary.append(f"missing data for {len(sanity.missingPlayers)} player(s)")
+        if sanity.corrections:
+            summary.append(f"{len(sanity.corrections)} automatic correction(s)")
         self.statusBar().showMessage(
             f"Extracted {len(result.players)} player(s) for {self.currentSquad} — "
-            "review highlighted rows before saving"
+            + (", ".join(summary) if summary else "sanity checks passed")
         )
 
     def _tacticSelect(
@@ -854,8 +901,10 @@ class MainWindow(QMainWindow):
             )
             return None
         if squads:
-            choices = squads if existingOnly else ["Create new squad…", *squads]
-            selectedIndex = choices.index(self.currentSquad) if self.currentSquad in choices else 0
+            choices = squads if existingOnly else [*squads, "Create new squad…"]
+            selectedIndex = (
+                choices.index(self.currentSquad) if self.currentSquad in squads else 0
+            )
             name, accepted = QInputDialog.getItem(
                 self,
                 "Select squad",

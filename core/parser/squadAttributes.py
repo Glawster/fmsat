@@ -9,11 +9,14 @@ from typing import Any
 
 import cv2
 import numpy as np
+from organiseMyProjects.logUtils import getLogger
 
 from ..config import AttributeDefinition
 from ..ocr import OcrEngine, OcrResult
 from ..textCleanup import ocrTextClean
 from .models import ExtractedPlayer
+
+logger = getLogger()
 
 
 class ParserError(RuntimeError):
@@ -77,6 +80,13 @@ class SquadAttributesParser:
             "pa": self._headerFind(results, "pa"),
         }
         if any(result is None for result in baseHeaders.values()):
+            logger.warning(
+                "squad parser missing base headers results=%d position=%s ca=%s pa=%s",
+                len(results),
+                baseHeaders["positions"] is not None,
+                baseHeaders["ca"] is not None,
+                baseHeaders["pa"] is not None,
+            )
             return []
         positionedHeaders = {
             name: result for name, result in baseHeaders.items() if result is not None
@@ -90,6 +100,11 @@ class SquadAttributesParser:
         }
         positionGap = columns["ca"] - columns["positions"]
         if positionGap <= 0:
+            logger.warning(
+                "squad parser invalid column order positionX=%.1f caX=%.1f",
+                columns["positions"],
+                columns["ca"],
+            )
             return []
         playerHeader = self._headerFind(results, "player")
         if (
@@ -136,15 +151,6 @@ class SquadAttributesParser:
             if column in attributeColumns and abs(columnX - result.center[0]) > attributeTolerance:
                 continue
             assigned.append((result, column))
-        focusedNames = self._focusedNameResults(
-            image,
-            playerHeader,
-            columns["positions"],
-            headerY,
-        )
-        if focusedNames:
-            assigned = [item for item in assigned if item[1] != "name"]
-            assigned.extend((result, "name") for result in focusedNames)
         rowSeeds = sorted(
             (
                 result
@@ -154,6 +160,56 @@ class SquadAttributesParser:
             ),
             key=lambda result: result.center[1],
         )
+        rowSpacings = [
+            right.center[1] - left.center[1]
+            for left, right in zip(rowSeeds, rowSeeds[1:], strict=False)
+            if right.center[1] - left.center[1] > 8
+        ]
+        rowSpacing = median(rowSpacings) if rowSpacings else image.shape[0] * 0.025
+        rowTolerance = max(
+            10.0,
+            min(rowSpacing * 0.42, image.shape[0] * 0.022),
+        )
+        focusedNames = self._focusedNameResults(
+            image,
+            playerHeader,
+            columns["positions"],
+            headerY,
+        )
+        focusedRows = {
+            index
+            for result in focusedNames
+            for index, rowSeed in enumerate(rowSeeds)
+            if abs(result.center[1] - rowSeed.center[1]) <= rowTolerance
+        }
+        minimumNameCoverage = max(1, int(len(rowSeeds) * 0.7))
+        if len(focusedRows) >= minimumNameCoverage:
+            assigned = [
+                item
+                for item in assigned
+                if item[1] != "name"
+                or not any(
+                    abs(item[0].center[1] - rowSeeds[index].center[1]) <= rowTolerance
+                    for index in focusedRows
+                )
+            ]
+            assigned.extend(
+                (result, "name")
+                for result in focusedNames
+                if any(
+                    abs(result.center[1] - rowSeeds[index].center[1]) <= rowTolerance
+                    for index in focusedRows
+                )
+            )
+        elif focusedNames:
+            logger.warning(
+                "squad parser ignored partial focused names names=%d coveredRows=%d "
+                "rowSeeds=%d required=%d",
+                len(focusedNames),
+                len(focusedRows),
+                len(rowSeeds),
+                minimumNameCoverage,
+            )
         players: list[ExtractedPlayer] = []
         previousY = -1.0
         for rowSeed in rowSeeds:
@@ -161,13 +217,6 @@ class SquadAttributesParser:
             if rowY - previousY < max(6.0, image.shape[0] * 0.008):
                 continue
             previousY = rowY
-            rowTolerance = max(
-                8.0,
-                min(
-                    (rowSeed.bounds[3] - rowSeed.bounds[1]) * 0.9,
-                    image.shape[0] * 0.014,
-                ),
-            )
             rowCells: dict[str, list[OcrResult]] = {}
             for result, column in assigned:
                 if abs(result.center[1] - rowY) <= rowTolerance:
@@ -206,6 +255,17 @@ class SquadAttributesParser:
                     confidence=confidence,
                 )
             )
+        logger.info(
+            "squad parser results=%d attributes=%d assigned=%d rowSeeds=%d "
+            "focusedNames=%d rowTolerance=%.1f players=%d",
+            len(results),
+            len(attributeColumns),
+            len(assigned),
+            len(rowSeeds),
+            len(focusedNames),
+            rowTolerance,
+            len(players),
+        )
         return players
 
     def _positionedResults(self, image: np.ndarray) -> list[OcrResult]:
@@ -272,7 +332,8 @@ class SquadAttributesParser:
         gap = positionX - playerX
         if gap <= 0:
             return []
-        left = max(0, int(playerX + gap * 0.18))
+        headerLeft = playerHeader.bounds[0] if playerHeader.bounds is not None else playerX
+        left = max(0, int(min(playerX, headerLeft)))
         right = min(width, int(positionX - gap * 0.10))
         top = max(0, int(headerY + height * 0.012))
         if right <= left or top >= height:

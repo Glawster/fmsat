@@ -156,6 +156,138 @@ def testSquadCaptureBatchPreservesEveryPageAndOnePlayerSnapshot(tmp_path) -> Non
     assert squad.playerCount == 1
 
 
+def testSquadCaptureBatchAllowsOneScreenshotAppend(tmp_path) -> None:
+    database = Database(tmp_path / "test.sqlite3")
+    database.initialize()
+    player = ExtractedPlayer("Jo Example", "D (C)", "3", "4", {"passing": 12}, 0.98)
+
+    session = database.squadImportBatchSave(
+        ["attributes-update.png"],
+        [player],
+        "First Team",
+    )
+
+    squad = database.squadRecords()[0]
+    assert session.id > 0
+    assert squad.captureCount == 1
+    assert squad.playerCount == 1
+
+
+def testStoredSquadCleanupCorrectsAndMergesExactIdentityDuplicates(tmp_path) -> None:
+    database = Database(tmp_path / "test.sqlite3")
+    database.initialize()
+    database.squadImportSave(
+        "first.png",
+        [ExtractedPlayer("Max Power.", "Dm,m (C)", "114", "130", {"passing": 15}, 0.96)],
+        "First Team",
+    )
+    database.squadImportSave(
+        "second.png",
+        [ExtractedPlayer("Max Power", "DM, M (C)", "114", "130", {"vision": 16}, 0.99)],
+        "First Team",
+    )
+
+    result = database.squadClean("first team")
+
+    assert result.correctedCount == 2
+    assert result.mergedCount == 1
+    assert result.ambiguousCount == 0
+    assert result.remainingCount == 1
+    assert database.squadRecords()[0].playerCount == 1
+    with Session(database.engine) as session:
+        player = session.scalar(select(Player))
+        assert player is not None
+        assert player.name == "Max Power"
+        assert player.positions == "DM, M (C)"
+        assert {item.attributeName: item.attributeValue for item in player.attributes} == {
+            "passing": 15,
+            "vision": 16,
+        }
+
+
+def testStoredSquadCleanupRetainsAmbiguousSameNamePlayers(tmp_path) -> None:
+    database = Database(tmp_path / "test.sqlite3")
+    database.initialize()
+    database.squadImportSave(
+        "first.png",
+        [ExtractedPlayer("Max Power", "DM", "114", "130", {}, 0.98)],
+        "First Team",
+    )
+    database.squadImportSave(
+        "second.png",
+        [ExtractedPlayer("Max Power", "DM", "113", "130", {}, 0.97)],
+        "First Team",
+    )
+
+    result = database.squadClean("First Team")
+
+    assert result.mergedCount == 0
+    assert result.ambiguousCount == 1
+    assert result.remainingCount == 2
+
+
+def testStoredSquadCleanupResolvesAndRemovesCompositeOcrRows(tmp_path) -> None:
+    database = Database(tmp_path / "test.sqlite3")
+    database.initialize()
+    trusted = [
+        ExtractedPlayer("Curtis Tilt", "D (C)", "105", "120", {}, 0.98),
+        ExtractedPlayer("Matthew Pennington", "D (C)", "105", "125", {}, 0.99),
+        ExtractedPlayer("Jack Ryder", "DM, M (C)", "43", "81", {}, 0.98),
+        ExtractedPlayer("Lewis Boney", "D/WB (L)", "65", "112", {}, 0.98),
+        ExtractedPlayer("Harry Parr", "M (C), AM (LC)", "42", "95", {}, 0.98),
+        ExtractedPlayer("Paul Mullin", "ST (C)", "100", "110", {}, 0.98),
+        ExtractedPlayer(
+            "Stephen Humphrys", "AM (RLC), ST (C)", "109", "130 120", {}, 0.98
+        ),
+        ExtractedPlayer("Tyreik Wright", "WB/M/AM (L)", "98", "115", {}, 0.98),
+    ]
+    errors = [
+        ExtractedPlayer(
+            "De Curtis Tilt Matthew Pennington",
+            "D (C)",
+            "105",
+            "125",
+            {},
+            0.97,
+        ),
+        ExtractedPlayer(
+            "Jack Ryder e Lewis Boney Lewis Boney",
+            "D/WB (L) DM, M (C)",
+            "65 43",
+            "8 81 112",
+            {},
+            0.95,
+        ),
+        ExtractedPlayer("Harry Parr", "M (C), AM (LC)", "f2 42", "95", {}, 0.97),
+        ExtractedPlayer(
+            "Paul Mullin Stephen Humphrys",
+            "AM (RLC), ST (C)",
+            "107 109",
+            "120 130",
+            {},
+            0.97,
+        ),
+        ExtractedPlayer("Tyrei Wright", "WB/M/AM (L)", "98", "115", {}, 0.97),
+    ]
+    database.squadImportSave("trusted.png", trusted, "First Team")
+    database.squadImportSave("errors.png", errors, "First Team")
+
+    result = database.squadClean("First Team")
+
+    assert result.mergedCount == 5
+    assert result.remainingCount == 8
+    assert database.playerNamesForSquad("First Team") == {
+        "Curtis Tilt",
+        "Matthew Pennington",
+        "Jack Ryder",
+        "Lewis Boney",
+        "Harry Parr",
+        "Paul Mullin",
+        "Stephen Humphrys",
+        "Tyreik Wright",
+    }
+
+
 def testTacticCanBeAppliedToSquadWithoutChangingOwnership(tmp_path) -> None:
     database = Database(tmp_path / "test.sqlite3")
     database.initialize()

@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-import logging
+import re
+from difflib import SequenceMatcher
 from pathlib import Path
 
+from organiseMyProjects.logUtils import getLogger
 from sqlalchemy import create_engine as createEngine
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
@@ -12,6 +14,7 @@ from sqlalchemy.orm import Session, selectinload, sessionmaker
 
 from fmsat.core.detection import ScreenType
 from fmsat.core.parser import ExtractedPlayer
+from fmsat.core.validation import PlayerValidator
 
 from .models import (
     AttributeSnapshot,
@@ -24,9 +27,15 @@ from .models import (
     Tactic,
     TacticScreenshot,
 )
-from .records import DeletionRecord, SquadPlayerRecord, SquadRecord, TacticRecord
+from .records import (
+    DeletionRecord,
+    SquadCleanupRecord,
+    SquadPlayerRecord,
+    SquadRecord,
+    TacticRecord,
+)
 
-logger = logging.getLogger(__name__)
+logger = getLogger()
 
 
 class DatabaseError(RuntimeError):
@@ -50,6 +59,7 @@ class Database:
 
         try:
             Base.metadata.create_all(self.engine)
+            logger.info("database initialized path=%s", self.path)
         except SQLAlchemyError as exc:
             raise DatabaseError(f"Unable to create database tables: {exc}") from exc
 
@@ -146,8 +156,16 @@ class Database:
                     screenType=screenType.value,
                 )
                 session.add(importSession)
+            logger.action(
+                "tactic import saved tactic=%r screenType=%s importSession=%s image=%s",
+                cleanName,
+                screenType.value,
+                importSession.id,
+                imageFilename,
+            )
             return importSession
         except SQLAlchemyError as exc:
+            logger.exception("tactic import database write failed")
             raise DatabaseError(f"Unable to save tactic import: {exc}") from exc
 
     def squadImportSave(
@@ -187,8 +205,16 @@ class Database:
                     )
                     importSession.players.append(player)
                 session.add(importSession)
+            logger.action(
+                "squad import saved squad=%r players=%d importSession=%s image=%s",
+                cleanName,
+                len(extractedPlayers),
+                importSession.id,
+                imageFilename,
+            )
             return importSession
         except SQLAlchemyError as exc:
+            logger.exception("squad import database write failed")
             raise DatabaseError(f"Unable to save squad import: {exc}") from exc
 
     def squadImportPairSave(
@@ -211,8 +237,8 @@ class Database:
     ) -> ImportSession:
         """Persist all capture pages and one merged squad player snapshot."""
 
-        if len(imageFilenames) < 2:
-            raise DatabaseError("A squad capture batch requires at least two screenshots")
+        if not imageFilenames:
+            raise DatabaseError("A squad capture batch requires at least one screenshot")
         try:
             with self._sessionFactory.begin() as session:
                 cleanName = squadName.strip()
@@ -247,8 +273,17 @@ class Database:
                     )
                     importSessions[0].players.append(player)
                 session.add_all(importSessions)
+            logger.action(
+                "squad capture batch saved squad=%r players=%d captures=%d "
+                "primaryImportSession=%s",
+                cleanName,
+                len(extractedPlayers),
+                len(imageFilenames),
+                importSessions[0].id,
+            )
             return importSessions[0]
         except SQLAlchemyError as exc:
+            logger.exception("squad capture batch database write failed")
             raise DatabaseError(f"Unable to save squad capture batch: {exc}") from exc
 
     def screenTypesForTactic(self, tacticName: str) -> set[ScreenType]:
@@ -381,6 +416,237 @@ class Database:
         except SQLAlchemyError as exc:
             raise DatabaseError(f"Unable to list squad players: {exc}") from exc
 
+    def squadClean(self, squadName: str) -> SquadCleanupRecord:
+        """Correct and merge only unambiguous duplicate players in a stored squad."""
+
+        normalizedName = squadName.strip().casefold()
+        validator = PlayerValidator()
+        try:
+            with self._sessionFactory.begin() as session:
+                players = list(
+                    session.scalars(
+                        select(Player)
+                        .join(ImportSession, Player.importSessionId == ImportSession.id)
+                        .join(
+                            SquadScreenshot,
+                            SquadScreenshot.importSessionId == ImportSession.id,
+                        )
+                        .join(Squad, SquadScreenshot.squadId == Squad.id)
+                        .where(Squad.normalizedName == normalizedName)
+                        .options(selectinload(Player.attributes))
+                        .order_by(Player.id)
+                    ).all()
+                )
+                extracted = [
+                    ExtractedPlayer(
+                        player.name,
+                        player.positions,
+                        player.ca,
+                        player.pa,
+                        {
+                            attribute.attributeName: attribute.attributeValue
+                            for attribute in player.attributes
+                        },
+                        player.confidence,
+                    )
+                    for player in players
+                ]
+                sanity = validator.correctAll(
+                    extracted,
+                    context=f"stored squad={squadName}",
+                )
+                for player, corrected in zip(players, sanity.players, strict=True):
+                    player.name = corrected.name
+                    player.positions = corrected.positions
+                    player.ca = corrected.ca
+                    player.pa = corrected.pa
+
+                contextualCorrections = 0
+                removedArtifacts: set[int] = set()
+                canonical = [
+                    player
+                    for player in players
+                    if len(player.name.split()) == 2
+                    and player.ca.isdigit()
+                    and player.pa.isdigit()
+                ]
+                for player in players:
+                    if len(player.name.split()) <= 2:
+                        continue
+                    normalizedPlayerName = " ".join(player.name.casefold().split())
+                    caValues = set(re.findall(r"\d{1,3}", player.ca))
+                    paValues = set(re.findall(r"\d{1,3}", player.pa))
+                    matches = [
+                        candidate
+                        for candidate in canonical
+                        if " ".join(candidate.name.casefold().split())
+                        in normalizedPlayerName
+                        and candidate.ca in caValues
+                        and candidate.pa in paValues
+                    ]
+                    identities = {
+                        (candidate.name.casefold(), candidate.ca, candidate.pa): candidate
+                        for candidate in matches
+                    }
+                    if len(identities) == 1:
+                        candidate = next(iter(identities.values()))
+                        oldValues = (player.name, player.positions, player.ca, player.pa)
+                        newValues = (
+                            candidate.name,
+                            candidate.positions,
+                            candidate.ca,
+                            candidate.pa,
+                        )
+                        for field, old, new in zip(
+                            ("name", "positions", "ca", "pa"),
+                            oldValues,
+                            newValues,
+                            strict=True,
+                        ):
+                            if old == new:
+                                continue
+                            setattr(player, field, new)
+                            contextualCorrections += 1
+                            logger.action(
+                                "stored squad contextual correction squad=%r playerId=%d "
+                                "field=%s old=%r new=%r",
+                                squadName,
+                                player.id,
+                                field,
+                                old,
+                                new,
+                            )
+                    elif len(identities) > 1:
+                        removedArtifacts.add(player.id)
+                        session.delete(player)
+                        logger.action(
+                            "stored squad composite row removed squad=%r playerId=%d "
+                            "name=%r matchedPlayers=%r",
+                            squadName,
+                            player.id,
+                            player.name,
+                            [candidate.name for candidate in identities.values()],
+                        )
+
+                players = [
+                    player for player in players if player.id not in removedArtifacts
+                ]
+                for index, left in enumerate(players):
+                    if not left.ca.isdigit() or not left.pa.isdigit():
+                        continue
+                    for right in players[index + 1 :]:
+                        if (left.ca, left.pa) != (right.ca, right.pa):
+                            continue
+                        leftName = " ".join(left.name.casefold().split())
+                        rightName = " ".join(right.name.casefold().split())
+                        if leftName == rightName:
+                            continue
+                        similarity = SequenceMatcher(None, leftName, rightName).ratio()
+                        if similarity < 0.94:
+                            continue
+                        preferred = max((left, right), key=self._storedPlayerQuality)
+                        corrected = right if preferred is left else left
+                        oldName = corrected.name
+                        corrected.name = preferred.name
+                        contextualCorrections += 1
+                        logger.action(
+                            "stored squad near-name correction squad=%r playerId=%d "
+                            "old=%r new=%r ca=%s pa=%s similarity=%.3f",
+                            squadName,
+                            corrected.id,
+                            oldName,
+                            corrected.name,
+                            corrected.ca,
+                            corrected.pa,
+                            similarity,
+                        )
+
+                groups: dict[tuple[str, str, str], list[Player]] = {}
+                for player in players:
+                    identity = (
+                        " ".join(player.name.casefold().split()),
+                        player.ca,
+                        player.pa,
+                    )
+                    groups.setdefault(identity, []).append(player)
+
+                mergedCount = len(removedArtifacts)
+                for identity, duplicates in groups.items():
+                    if not all(identity) or len(duplicates) < 2:
+                        continue
+                    survivor = max(duplicates, key=self._storedPlayerQuality)
+                    for duplicate in duplicates:
+                        if duplicate is survivor:
+                            continue
+                        self._storedPlayerMerge(survivor, duplicate)
+                        session.delete(duplicate)
+                        mergedCount += 1
+                        logger.action(
+                            "stored squad duplicate merged squad=%r keptPlayerId=%d "
+                            "removedPlayerId=%d player=%r ca=%s pa=%s",
+                            squadName,
+                            survivor.id,
+                            duplicate.id,
+                            survivor.name,
+                            survivor.ca,
+                            survivor.pa,
+                        )
+
+                identitiesByName: dict[str, set[tuple[str, str]]] = {}
+                for identity in groups:
+                    if all(identity):
+                        identitiesByName.setdefault(identity[0], set()).add(identity[1:])
+                ambiguousCount = sum(
+                    len(identities) - 1
+                    for identities in identitiesByName.values()
+                    if len(identities) > 1
+                )
+                remainingCount = len(players) - (mergedCount - len(removedArtifacts))
+                correctedCount = len(sanity.corrections) + contextualCorrections
+            logger.action(
+                "stored squad cleaned squad=%r corrections=%d merged=%d "
+                "ambiguous=%d remaining=%d",
+                squadName,
+                correctedCount,
+                mergedCount,
+                ambiguousCount,
+                remainingCount,
+            )
+            return SquadCleanupRecord(
+                correctedCount,
+                mergedCount,
+                ambiguousCount,
+                remainingCount,
+            )
+        except SQLAlchemyError as exc:
+            logger.exception("stored squad cleanup failed squad=%r", squadName)
+            raise DatabaseError(f"Unable to clean squad: {exc}") from exc
+
+    @staticmethod
+    def _storedPlayerMerge(survivor: Player, duplicate: Player) -> None:
+        """Fill missing survivor fields from one exact-identity duplicate."""
+
+        survivor.confidence = max(survivor.confidence, duplicate.confidence)
+        if not survivor.positions:
+            survivor.positions = duplicate.positions
+        attributes = {item.attributeName: item for item in survivor.attributes}
+        for source in duplicate.attributes:
+            target = attributes.get(source.attributeName)
+            if target is None:
+                survivor.attributes.append(
+                    AttributeSnapshot(
+                        attributeName=source.attributeName,
+                        attributeValue=source.attributeValue,
+                    )
+                )
+            elif target.attributeValue is None and source.attributeValue is not None:
+                target.attributeValue = source.attributeValue
+
+    @staticmethod
+    def _storedPlayerQuality(player: Player) -> tuple[int, float, int]:
+        populated = sum(item.attributeValue is not None for item in player.attributes)
+        return populated, player.confidence, -player.id
+
     def tacticsDelete(self, tacticNames: list[str]) -> DeletionRecord:
         """Delete selected tactics and their owned import sessions atomically."""
 
@@ -407,8 +673,15 @@ class Database:
                 session.flush()
                 for importSession in imports:
                     session.delete(importSession)
+            logger.action(
+                "tactics deleted names=%r count=%d captures=%d",
+                tacticNames,
+                len(tactics),
+                len(paths),
+            )
             return DeletionRecord(len(tactics), paths)
         except SQLAlchemyError as exc:
+            logger.exception("tactic deletion database write failed")
             raise DatabaseError(f"Unable to delete tactics: {exc}") from exc
 
     def squadsDelete(self, squadNames: list[str]) -> DeletionRecord:
@@ -437,8 +710,15 @@ class Database:
                 session.flush()
                 for importSession in imports:
                     session.delete(importSession)
+            logger.action(
+                "squads deleted names=%r count=%d captures=%d",
+                squadNames,
+                len(squads),
+                len(paths),
+            )
             return DeletionRecord(len(squads), paths)
         except SQLAlchemyError as exc:
+            logger.exception("squad deletion database write failed")
             raise DatabaseError(f"Unable to delete squads: {exc}") from exc
 
     def playerNamesForSquad(self, squadName: str) -> set[str]:
@@ -469,6 +749,7 @@ class Database:
         """Create or return a deliberate squad-to-tactic application."""
 
         try:
+            created = False
             with self._sessionFactory.begin() as session:
                 squad = session.scalar(
                     select(Squad).where(Squad.normalizedName == squadName.strip().casefold())
@@ -489,8 +770,17 @@ class Database:
                 if application is None:
                     application = SquadTacticApplication(squad=squad, tactic=tactic)
                     session.add(application)
+                    created = True
+            if created:
+                logger.action(
+                    "tactic applied squad=%r tactic=%r application=%s",
+                    squadName,
+                    tacticName,
+                    application.id,
+                )
             return application
         except SQLAlchemyError as exc:
+            logger.exception("squad tactic application database write failed")
             raise DatabaseError(f"Unable to apply tactic to squad: {exc}") from exc
 
     def playersList(self) -> list[Player]:

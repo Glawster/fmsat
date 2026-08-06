@@ -12,7 +12,13 @@ from .models import (
     Tactic,
     TacticScreenshot,
 )
-from .records import DeletionRecord, SquadPlayerRecord, SquadRecord, TacticRecord
+from .records import (
+    DeletionRecord,
+    SquadCleanupRecord,
+    SquadPlayerRecord,
+    SquadRecord,
+    TacticRecord,
+)
 
 __all__ = [
     "AttributeSnapshot",
@@ -23,6 +29,7 @@ __all__ = [
     "ImportSession",
     "Player",
     "Squad",
+    "SquadCleanupRecord",
     "SquadPlayerRecord",
     "SquadRecord",
     "SquadScreenshot",

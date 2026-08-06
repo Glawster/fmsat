@@ -7,7 +7,9 @@ import logging
 import sys
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
+from organiseMyProjects.logUtils import getLogger, setLogLevel
+
+logger = getLogger()
 
 from fmsat.diff import filesDiff  # noqa: E402
 from fmsat.parser import FMFParser, FMFTactic  # noqa: E402
@@ -60,7 +62,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parserBuild().parse_args(argv)
     dryRun = not args.confirm
     if args.verbose:
-        logging.basicConfig(level=logging.DEBUG if args.verbose > 1 else logging.INFO)
+        setLogLevel(logging.DEBUG if args.verbose > 1 else logging.INFO, logger)
     logger.info("Running fmsat parser command=%s dryRun=%s", args.command, dryRun)
 
     try:
