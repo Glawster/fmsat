@@ -10,6 +10,7 @@ from PySide6.QtGui import QAction, QCloseEvent, QIcon, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHBoxLayout,
+    QHeaderView,
     QMainWindow,
     QMenu,
     QMessageBox,
@@ -76,8 +77,8 @@ class ManagementWindow(QMainWindow):
             thumbnail = QTableWidgetItem("No Formation image")
             if record.formationImage and Path(record.formationImage).is_file():
                 pixmap = QPixmap(record.formationImage).scaled(
-                    140,
-                    80,
+                    280,
+                    160,
                     Qt.AspectRatioMode.KeepAspectRatio,
                     Qt.TransformationMode.SmoothTransformation,
                 )
@@ -86,7 +87,7 @@ class ManagementWindow(QMainWindow):
             self.tacticTable.setItem(row, 1, thumbnail)
             self.tacticTable.setItem(row, 2, QTableWidgetItem(record.name))
             self.tacticTable.setItem(row, 3, QTableWidgetItem(str(record.captureCount)))
-            self.tacticTable.setRowHeight(row, 86)
+            self.tacticTable.setRowHeight(row, 172)
 
         self.squadTable.setRowCount(len(squadRecords))
         for row, record in enumerate(squadRecords):
@@ -238,11 +239,15 @@ class ManagementWindow(QMainWindow):
         layout = QVBoxLayout(tab)
         self.squadTable = QTableWidget(0, 4)
         self.squadTable.setHorizontalHeaderLabels(("Select", "Squad", "Captures", "Players"))
+        squadHeader = self.squadTable.horizontalHeader()
+        squadHeader.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        for column in range(1, 4):
+            squadHeader.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
         self.squadTable.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.squadTable.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.squadTable.itemSelectionChanged.connect(self._playersRefresh)
         self.squadTable.itemChanged.connect(self._selectionRefresh)
-        layout.addWidget(self.squadTable)
+        layout.addWidget(self.squadTable, 1)
         buttonLayout, self.squadDeleteButton = self._buttonsCreate(
             self.squadTable,
             lambda: self._deleteFinish("squad", self._selectedNames(self.squadTable, 1)),
@@ -255,10 +260,16 @@ class ManagementWindow(QMainWindow):
         self.playerTable.setHorizontalHeaderLabels(
             ("Player", "Positions", "CA", "PA", "Confidence", "Imported")
         )
+        playerHeader = self.playerTable.horizontalHeader()
+        playerHeader.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        playerHeader.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        for column in range(2, 5):
+            playerHeader.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
+        playerHeader.setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)
         self.playerTable.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.playerTable.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.playerTable.customContextMenuRequested.connect(self._playerMenuShow)
-        layout.addWidget(self.playerTable)
+        layout.addWidget(self.playerTable, 3)
         return tab
 
     def _tacticTabCreate(self) -> QWidget:
@@ -266,7 +277,12 @@ class ManagementWindow(QMainWindow):
         layout = QVBoxLayout(tab)
         self.tacticTable = QTableWidget(0, 4)
         self.tacticTable.setHorizontalHeaderLabels(("Select", "Formation", "Tactic", "Captures"))
-        self.tacticTable.setIconSize(QPixmap(140, 80).size())
+        self.tacticTable.setIconSize(QPixmap(280, 160).size())
+        header = self.tacticTable.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
         self.tacticTable.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.tacticTable.itemChanged.connect(self._selectionRefresh)
         layout.addWidget(self.tacticTable)

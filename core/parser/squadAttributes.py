@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from statistics import median
 from typing import Any
 
+import cv2
 import numpy as np
 
 from ..config import AttributeDefinition
@@ -46,9 +48,7 @@ class SquadAttributesParser:
         if not isinstance(settings, dict):
             raise ParserError("Missing squadAttributes region configuration")
         if self.ocr.suppliesGeometry:
-            positionedPlayers = self._positionedParse(image)
-            if positionedPlayers:
-                return positionedPlayers
+            return self._positionedParse(image)
         table = self._regionCrop(image, settings["table"])
         headerHeight = self._pixels(settings["header_height"], table.shape[0])
         rowHeight = max(1, self._pixels(settings["row_height"], table.shape[0]))
@@ -91,7 +91,15 @@ class SquadAttributesParser:
         positionGap = columns["ca"] - columns["positions"]
         if positionGap <= 0:
             return []
-        columns["name"] = max(0.0, columns["positions"] - positionGap)
+        playerHeader = self._headerFind(results, "player")
+        if (
+            playerHeader is not None
+            and abs(playerHeader.center[1] - headerY) <= headerTolerance
+        ):
+            columns["name"] = (playerHeader.center[0] + columns["positions"]) / 2
+        else:
+            columns["name"] = max(0.0, columns["positions"] - positionGap)
+        attributeColumns: set[str] = set()
         for definition in self.attributes:
             header = self._attributeHeaderFind(
                 results,
@@ -102,42 +110,76 @@ class SquadAttributesParser:
             )
             if header is not None:
                 columns[definition.name] = header.center[0]
+                attributeColumns.add(definition.name)
         orderedColumns = sorted(columns.items(), key=lambda item: item[1])
+        attributeXs = sorted(columns[name] for name in attributeColumns)
+        attributeTolerance = (
+            median(
+                right - left
+                for left, right in zip(attributeXs, attributeXs[1:], strict=False)
+            )
+            * 0.48
+            if len(attributeXs) >= 2
+            else float("inf")
+        )
         rowResults = [
             result
             for result in results
             if result.center[1] > headerY + headerTolerance / 2
         ]
-        assigned = [
-            (result, min(orderedColumns, key=lambda item: abs(item[1] - result.center[0]))[0])
-            for result in rowResults
-        ]
-        nameSeeds = sorted(
+        assigned: list[tuple[OcrResult, str]] = []
+        for result in rowResults:
+            column, columnX = min(
+                orderedColumns,
+                key=lambda item: abs(item[1] - result.center[0]),
+            )
+            if column in attributeColumns and abs(columnX - result.center[0]) > attributeTolerance:
+                continue
+            assigned.append((result, column))
+        focusedNames = self._focusedNameResults(
+            image,
+            playerHeader,
+            columns["positions"],
+            headerY,
+        )
+        if focusedNames:
+            assigned = [item for item in assigned if item[1] != "name"]
+            assigned.extend((result, "name") for result in focusedNames)
+        rowSeeds = sorted(
             (
                 result
                 for result, column in assigned
-                if column == "name" and any(character.isalpha() for character in result.text)
+                if column == "ca"
+                and re.fullmatch(r"\d{1,3}", result.text.strip()) is not None
             ),
             key=lambda result: result.center[1],
         )
         players: list[ExtractedPlayer] = []
         previousY = -1.0
-        for nameSeed in nameSeeds:
-            rowY = nameSeed.center[1]
+        for rowSeed in rowSeeds:
+            rowY = rowSeed.center[1]
             if rowY - previousY < max(6.0, image.shape[0] * 0.008):
                 continue
             previousY = rowY
             rowTolerance = max(
                 8.0,
-                (nameSeed.bounds[3] - nameSeed.bounds[1]) * 0.9,
-                image.shape[0] * 0.012,
+                min(
+                    (rowSeed.bounds[3] - rowSeed.bounds[1]) * 0.9,
+                    image.shape[0] * 0.014,
+                ),
             )
             rowCells: dict[str, list[OcrResult]] = {}
             for result, column in assigned:
                 if abs(result.center[1] - rowY) <= rowTolerance:
                     rowCells.setdefault(column, []).append(result)
             cells = {
-                name: self._positionedCellRead(values)
+                name: self._positionedCellRead(
+                    [
+                        self._playerNameResultClean(value) if name == "name" else value
+                        for value in values
+                        if name != "name" or self._playerNameFragmentValid(value.text)
+                    ]
+                )
                 for name, values in rowCells.items()
             }
             if "name" not in cells or not self._numericCellValid(cells.get("ca")):
@@ -159,6 +201,7 @@ class SquadAttributesParser:
                             cells.get(definition.name, _Cell("", 0.0)).text
                         )
                         for definition in self.attributes
+                        if definition.name in attributeColumns
                     },
                     confidence=confidence,
                 )
@@ -186,18 +229,80 @@ class SquadAttributesParser:
         )
         positioned: list[OcrResult] = []
         for top, bottom in strips:
-            for result in self.ocr.recognize(image[top:bottom, :]):
+            scale = 1.5
+            strip = image[top:bottom, :]
+            enlarged = cv2.resize(
+                strip,
+                None,
+                fx=scale,
+                fy=scale,
+                interpolation=cv2.INTER_CUBIC,
+            )
+            for result in self.ocr.recognize(enlarged):
                 if result.bounds is None:
                     continue
                 left, localTop, right, localBottom = result.bounds
                 translated = OcrResult(
                     result.text,
                     result.confidence,
-                    (left, localTop + top, right, localBottom + top),
+                    (
+                        left / scale,
+                        localTop / scale + top,
+                        right / scale,
+                        localBottom / scale + top,
+                    ),
                 )
                 if not self._resultDuplicate(positioned, translated):
                     positioned.append(translated)
         return positioned
+
+    def _focusedNameResults(
+        self,
+        image: np.ndarray,
+        playerHeader: OcrResult | None,
+        positionX: float,
+        headerY: float,
+    ) -> list[OcrResult]:
+        """OCR the name-text band without checkboxes, portraits, or person icons."""
+
+        if playerHeader is None or playerHeader.center is None:
+            return []
+        height, width = image.shape[:2]
+        playerX = playerHeader.center[0]
+        gap = positionX - playerX
+        if gap <= 0:
+            return []
+        left = max(0, int(playerX + gap * 0.18))
+        right = min(width, int(positionX - gap * 0.10))
+        top = max(0, int(headerY + height * 0.012))
+        if right <= left or top >= height:
+            return []
+        scale = 2.0
+        enlarged = cv2.resize(
+            image[top:, left:right],
+            None,
+            fx=scale,
+            fy=scale,
+            interpolation=cv2.INTER_CUBIC,
+        )
+        names: list[OcrResult] = []
+        for result in self.ocr.recognize(enlarged):
+            if result.bounds is None:
+                continue
+            localLeft, localTop, localRight, localBottom = result.bounds
+            translated = OcrResult(
+                result.text,
+                result.confidence,
+                (
+                    localLeft / scale + left,
+                    localTop / scale + top,
+                    localRight / scale + left,
+                    localBottom / scale + top,
+                ),
+            )
+            if self._playerNameFragmentValid(translated.text):
+                names.append(translated)
+        return names
 
     def _resultDuplicate(
         self,
@@ -228,6 +333,31 @@ class SquadAttributesParser:
     def _tokenNormalize(value: str) -> str:
         return re.sub(r"[^a-z0-9]", "", value.casefold())
 
+    @staticmethod
+    def _playerNameFragmentValid(value: str) -> bool:
+        """Reject short OCR noise produced by row controls, portraits, and icons."""
+
+        cleaned = SquadAttributesParser._playerNameTextClean(value)
+        letters = "".join(character for character in cleaned if character.isalpha())
+        return len(letters) >= 3
+
+    @staticmethod
+    def _playerNameTextClean(value: str) -> str:
+        """Remove fused icon prefixes and restore spaces between recognized names."""
+
+        cleaned = value.strip()
+        cleaned = re.sub(r"^[a-z](?=[A-Z][a-z])", "", cleaned)
+        cleaned = re.sub(r"^[A-Z]{2}(?=[A-Z][a-z])", "", cleaned)
+        return re.sub(r"(?<=[a-z])(?=[A-Z])", " ", cleaned)
+
+    @classmethod
+    def _playerNameResultClean(cls, result: OcrResult) -> OcrResult:
+        return OcrResult(
+            cls._playerNameTextClean(result.text),
+            result.confidence,
+            result.bounds,
+        )
+
     def _headerFind(self, results: list[OcrResult], expected: str) -> OcrResult | None:
         expectedToken = self._tokenNormalize(expected)
         matches = [
@@ -256,7 +386,14 @@ class SquadAttributesParser:
         return min(matches, key=lambda result: result.center[0], default=None)
 
     def _positionedCellRead(self, results: list[OcrResult]) -> _Cell:
-        ordered = sorted(results, key=lambda result: result.center[0])
+        ordered: list[OcrResult] = []
+        seenTokens: set[str] = set()
+        for result in sorted(results, key=lambda item: item.center[0]):
+            token = self._tokenNormalize(result.text)
+            if token and token in seenTokens:
+                continue
+            seenTokens.add(token)
+            ordered.append(result)
         return _Cell(
             ocrTextClean(" ".join(result.text for result in ordered)),
             sum(result.confidence for result in ordered) / len(ordered),
@@ -264,7 +401,9 @@ class SquadAttributesParser:
 
     @staticmethod
     def _numericCellValid(cell: _Cell | None) -> bool:
-        return cell is not None and any(character.isdigit() for character in cell.text)
+        if cell is None:
+            return False
+        return re.fullmatch(r"\d{1,3}", cell.text.strip()) is not None
 
     def _attributeParse(self, text: str) -> int | None:
         digits = "".join(character for character in text if character.isdigit())

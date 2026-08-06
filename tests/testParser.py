@@ -62,10 +62,12 @@ def testParserUsesHeadersAndOcrBoxesInsteadOfFixedRowSteps() -> None:
         [
             [
                 result("Position", 250, 100),
+                result("Player", 80, 100),
                 result("CA", 380, 100),
                 result("PA", 430, 100),
                 result("Cro...", 500, 100),
-                result("Max Power", 120, 140),
+                result("O", 82, 140),
+                result("eMax Power", 120, 140),
                 result("DM, M (C)", 250, 140),
                 result("114", 380, 140),
                 result("130", 430, 140),
@@ -98,7 +100,17 @@ def testParserUsesHeadersAndOcrBoxesInsteadOfFixedRowSteps() -> None:
 
 def testParserMergesDenseScreenshotStripsWithoutDuplicatingOverlap() -> None:
     def result(text: str, x: float, y: float) -> OcrResult:
-        return OcrResult(text, 0.99, (x - 8, y - 4, x + 8, y + 4))
+        scale = 1.5
+        return OcrResult(
+            text,
+            0.99,
+            (
+                (x - 8) * scale,
+                (y - 4) * scale,
+                (x + 8) * scale,
+                (y + 4) * scale,
+            ),
+        )
 
     firstResults = [
         result("Position", 250, 100),

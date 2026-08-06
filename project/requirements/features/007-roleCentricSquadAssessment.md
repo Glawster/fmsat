@@ -100,6 +100,7 @@ invent a modifier when the structured tactic provides no supporting evidence.
    and position-familiarity contribution to the overall score.
 5. Retain enough calculation detail to reproduce a result during testing and
    troubleshooting.
+6. When a role is defined for a player highlight the key stats for that role against the player, good stats in green and weak stats in red.
 
 ## Candidate comparison
 

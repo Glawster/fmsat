@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import logging
 import sys
 from pathlib import Path
 
+from organiseMyProjects.logUtils import getLogger
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from fmsat.app.window import MainWindow
@@ -19,16 +19,14 @@ from fmsat.core.screenshotStore import ScreenshotStore
 from fmsat.core.services import ScreenshotImportService
 from fmsat.core.validation import PlayerValidator
 from fmsat.database import Database, DatabaseError
-from fmsat.loggingConfig import loggingConfigure
 
-logger = logging.getLogger(__name__)
+logger = getLogger()
 
 
 def main() -> int:
     """Create dependencies, initialize storage, and start the Qt event loop."""
 
     projectRoot = Path(__file__).parents[2]
-    loggingConfigure(projectRoot / "logs")
     application = QApplication(sys.argv)
     application.setApplicationName("FMSAT")
     application.setOrganizationName("FMSAT")

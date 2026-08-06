@@ -6,7 +6,7 @@ import numpy as np
 
 from fmsat.core.detection import ScreenType
 from fmsat.core.parser import ExtractedPlayer
-from fmsat.core.services import ScreenshotImportService
+from fmsat.core.services import ImportResult, ScreenshotImportService, squadCapturesMerge
 
 
 def testRequestedInstructionTypeWinsWhenInstructionDetectionIsAmbiguous() -> None:
@@ -42,3 +42,61 @@ def testRequestedSquadTypeIsValidatedByRowExtractionWhenDetectionIsUnknown() -> 
 
     assert result.screenType is ScreenType.SQUAD_ATTRIBUTES
     assert [player.name for player in result.players] == ["Max Power"]
+
+
+def testComplementarySquadCapturesMergePlayersAndAttributes() -> None:
+    first = ImportResult(
+        "first",
+        ScreenType.SQUAD_ATTRIBUTES,
+        [ExtractedPlayer("Max Power", "DM", "114", "130", {"passing": 15}, 0.98)],
+        image=np.zeros((10, 10, 3), dtype=np.uint8),
+    )
+    second = ImportResult(
+        "second",
+        ScreenType.SQUAD_ATTRIBUTES,
+        [ExtractedPlayer("Max Power", "DM", "114", "130", {"vision": 16}, 0.97)],
+        image=np.ones((10, 10, 3), dtype=np.uint8),
+    )
+
+    merged = squadCapturesMerge(first, second)
+
+    assert len(merged.players) == 1
+    assert merged.players[0].attributes == {"passing": 15, "vision": 16}
+    assert len(merged.additionalImages) == 1
+    assert merged.mergeConflicts == []
+
+
+def testComplementarySquadCaptureConflictsAreReported() -> None:
+    first = ImportResult(
+        "first",
+        ScreenType.SQUAD_ATTRIBUTES,
+        [ExtractedPlayer("Max Power", "DM", "114", "130", {"passing": 15}, 0.98)],
+    )
+    second = ImportResult(
+        "second",
+        ScreenType.SQUAD_ATTRIBUTES,
+        [ExtractedPlayer("Max Power", "DM", "114", "130", {"passing": 12}, 0.97)],
+    )
+
+    merged = squadCapturesMerge(first, second)
+
+    assert merged.players[0].attributes["passing"] == 15
+    assert merged.mergeConflicts == ["Max Power: passing 15 / 12"]
+
+
+def testSquadCaptureMergeAccumulatesEverySourceImage() -> None:
+    player = ExtractedPlayer("Max Power", "DM", "114", "130", {}, 0.98)
+    captures = [
+        ImportResult(
+            f"capture-{index}",
+            ScreenType.SQUAD_ATTRIBUTES,
+            [player],
+            image=np.full((2, 2, 3), index, dtype=np.uint8),
+        )
+        for index in range(3)
+    ]
+
+    merged = squadCapturesMerge(squadCapturesMerge(captures[0], captures[1]), captures[2])
+
+    assert merged.image is not None
+    assert len(merged.additionalImages) == 2

@@ -191,6 +191,66 @@ class Database:
         except SQLAlchemyError as exc:
             raise DatabaseError(f"Unable to save squad import: {exc}") from exc
 
+    def squadImportPairSave(
+        self,
+        imageFilenames: list[str],
+        extractedPlayers: list[ExtractedPlayer],
+        squadName: str,
+    ) -> ImportSession:
+        """Compatibility wrapper for a two-image squad capture batch."""
+
+        if len(imageFilenames) != 2:
+            raise DatabaseError("A paired squad import requires exactly two screenshots")
+        return self.squadImportBatchSave(imageFilenames, extractedPlayers, squadName)
+
+    def squadImportBatchSave(
+        self,
+        imageFilenames: list[str],
+        extractedPlayers: list[ExtractedPlayer],
+        squadName: str,
+    ) -> ImportSession:
+        """Persist all capture pages and one merged squad player snapshot."""
+
+        if len(imageFilenames) < 2:
+            raise DatabaseError("A squad capture batch requires at least two screenshots")
+        try:
+            with self._sessionFactory.begin() as session:
+                cleanName = squadName.strip()
+                if not cleanName:
+                    raise DatabaseError("A squad name is required")
+                normalizedName = cleanName.casefold()
+                squad = session.scalar(
+                    select(Squad).where(Squad.normalizedName == normalizedName)
+                )
+                if squad is None:
+                    squad = Squad(name=cleanName, normalizedName=normalizedName)
+                    session.add(squad)
+                importSessions = [
+                    ImportSession(
+                        imageFilename=filename,
+                        screenType=ScreenType.SQUAD_ATTRIBUTES.value,
+                        squadCapture=SquadScreenshot(squad=squad),
+                    )
+                    for filename in imageFilenames
+                ]
+                for extracted in extractedPlayers:
+                    player = Player(
+                        name=extracted.name.strip(),
+                        positions=extracted.positions.strip(),
+                        ca=extracted.ca.strip(),
+                        pa=extracted.pa.strip(),
+                        confidence=extracted.confidence,
+                    )
+                    player.attributes.extend(
+                        AttributeSnapshot(attributeName=name, attributeValue=value)
+                        for name, value in extracted.attributes.items()
+                    )
+                    importSessions[0].players.append(player)
+                session.add_all(importSessions)
+            return importSessions[0]
+        except SQLAlchemyError as exc:
+            raise DatabaseError(f"Unable to save squad capture batch: {exc}") from exc
+
     def screenTypesForTactic(self, tacticName: str) -> set[ScreenType]:
         """Return screen types previously confirmed for a tactic."""
 

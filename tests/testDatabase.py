@@ -123,6 +123,39 @@ def testPlayerNamesForSquadDoNotIncludeOtherSquads(tmp_path) -> None:
     assert database.playerNamesForSquad("Unknown") == set()
 
 
+def testPairedSquadImportPreservesBothCapturesAndOnePlayerSnapshot(tmp_path) -> None:
+    database = Database(tmp_path / "test.sqlite3")
+    database.initialize()
+    player = ExtractedPlayer("Jo Example", "D (C)", "3", "4", {"passing": 12}, 0.98)
+
+    session = database.squadImportPairSave(
+        ["attributes-one.png", "attributes-two.png"],
+        [player],
+        "First Team",
+    )
+
+    squad = database.squadRecords()[0]
+    assert session.id > 0
+    assert squad.captureCount == 2
+    assert squad.playerCount == 1
+
+
+def testSquadCaptureBatchPreservesEveryPageAndOnePlayerSnapshot(tmp_path) -> None:
+    database = Database(tmp_path / "test.sqlite3")
+    database.initialize()
+    player = ExtractedPlayer("Jo Example", "D (C)", "3", "4", {"passing": 12}, 0.98)
+
+    database.squadImportBatchSave(
+        ["view1-page1.png", "view1-page2.png", "view2-page1.png", "view2-page2.png"],
+        [player],
+        "First Team",
+    )
+
+    squad = database.squadRecords()[0]
+    assert squad.captureCount == 4
+    assert squad.playerCount == 1
+
+
 def testTacticCanBeAppliedToSquadWithoutChangingOwnership(tmp_path) -> None:
     database = Database(tmp_path / "test.sqlite3")
     database.initialize()
