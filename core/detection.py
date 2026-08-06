@@ -15,6 +15,7 @@ class ScreenType(str, Enum):  # noqa: UP042 - keeps local Python 3.10 verificati
     """Known Football Manager screenshot types."""
 
     UNKNOWN = "UNKNOWN"
+    CLUB_INFORMATION = "CLUB_INFORMATION"
     TACTIC_FORMATION = "TACTIC_FORMATION"
     TACTIC_IN_POSSESSION = "TACTIC_IN_POSSESSION"
     TACTIC_OUT_OF_POSSESSION = "TACTIC_OUT_OF_POSSESSION"

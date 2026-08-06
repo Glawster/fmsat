@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction, QCloseEvent, QIcon, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -30,15 +30,19 @@ from fmsat.database import Database, DatabaseError
 class ManagementWindow(QMainWindow):
     """Manage stored tactics, squads, players, captures, and safe deletion."""
 
+    dataChanged = Signal()
+
     def __init__(
         self,
         database: Database,
         screenshotStore: ScreenshotStore,
         parent: QWidget | None = None,
+        tacticApply: Callable[[str], None] | None = None,
     ) -> None:
         super().__init__(parent, Qt.WindowType.Window)
         self.database = database
         self.screenshotStore = screenshotStore
+        self.tacticApply = tacticApply
         self.screenshotWindows: list[ScreenshotWindow] = []
         self.setWindowTitle("FMSAT Data Management")
         self.resize(1100, 760)
@@ -116,10 +120,21 @@ class ManagementWindow(QMainWindow):
                     break
         self._selectionRefresh()
 
-    def tabShow(self, name: str) -> None:
-        """Select a management tab by its visible name."""
+    def recordShow(self, kind: str, recordName: str | None = None) -> None:
+        """Present one focused editor and optionally select its named record."""
 
-        self.tabs.setCurrentIndex(0 if name == "Tactics" else 1)
+        tacticEditor = kind == "Tactics"
+        self.tabs.setCurrentIndex(0 if tacticEditor else 1)
+        self.tabs.tabBar().hide()
+        self.setWindowTitle(f"FMSAT {'Tactic' if tacticEditor else 'Squad'} Editor")
+        table = self.tacticTable if tacticEditor else self.squadTable
+        nameColumn = 2 if tacticEditor else 1
+        if recordName is not None:
+            for row in range(table.rowCount()):
+                if table.item(row, nameColumn).text() == recordName:
+                    table.selectRow(row)
+                    table.setCurrentCell(row, nameColumn)
+                    break
 
     def _buttonsCreate(
         self,
@@ -186,6 +201,7 @@ class ManagementWindow(QMainWindow):
         else:
             self.statusBar().showMessage(message, 6000)
         self.dataRefresh()
+        self.dataChanged.emit()
 
     def _playerMenuShow(self, point) -> None:  # type: ignore[no-untyped-def]
         item = self.playerTable.itemAt(point)
@@ -265,6 +281,11 @@ class ManagementWindow(QMainWindow):
             self.statusBar().showMessage(message, 8000)
         self.dataRefresh()
 
+    def _tacticApply(self) -> None:
+        row = self.tacticTable.currentRow()
+        if row >= 0 and self.tacticApply is not None:
+            self.tacticApply(self.tacticTable.item(row, 2).text())
+
     @staticmethod
     def _selectedNames(table: QTableWidget, nameColumn: int) -> list[str]:
         return [
@@ -294,7 +315,7 @@ class ManagementWindow(QMainWindow):
         self.squadSelection = QPushButton("0 selected")
         self.squadSelection.setEnabled(False)
         buttonLayout.insertWidget(2, self.squadSelection)
-        self.squadCleanButton = QPushButton("Clean selected")
+        self.squadCleanButton = QPushButton("Clean Up Data")
         self.squadCleanButton.setEnabled(False)
         self.squadCleanButton.clicked.connect(self._squadsClean)
         buttonLayout.insertWidget(buttonLayout.count() - 1, self.squadCleanButton)
@@ -336,6 +357,10 @@ class ManagementWindow(QMainWindow):
             lambda: self._deleteFinish("tactic", self._selectedNames(self.tacticTable, 2)),
         )
         buttonLayout.insertWidget(2, self.tacticSelection)
+        if self.tacticApply is not None:
+            applyButton = QPushButton("Apply Tactic to Squad")
+            applyButton.clicked.connect(self._tacticApply)
+            buttonLayout.insertWidget(buttonLayout.count() - 1, applyButton)
         layout.addLayout(buttonLayout)
         return tab
 

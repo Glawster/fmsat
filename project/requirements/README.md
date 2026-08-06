@@ -11,7 +11,7 @@ The next available requirement number is **009**.
 | 005 | [Formation role palette and icons](features/005-formationRolePalette.md) | Backlog | [Prompt](prompt/005-formationRolePalette.prompt.md) | — |
 | 006 | [Structured tactic extraction](features/006-structuredTacticExtraction.md) | Backlog | [Prompt](prompt/006-structuredTacticExtraction.prompt.md) | — |
 | 007 | [Role-centric squad assessment](features/007-roleCentricSquadAssessment.md) | Backlog | [Prompt](prompt/007-roleCentricSquadAssessment.prompt.md) | — |
-| 008 | [Welcome screen](features/008-welcomeScreen.md) | Backlog | [Prompt](prompt/008-welcomeScreen.prompt.md) | — |
+| 008 | [Welcome screen](features/008-welcomeScreen.md) | In Progress | [Prompt](prompt/008-welcomeScreen.md) | — |
 
 Requirement records are stable statements of intent. Update their status as work
 progresses; put changing implementation guidance in `../../documentation/`.

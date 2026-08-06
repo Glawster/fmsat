@@ -317,6 +317,7 @@ def testManagementRecordsIncludeScreenshotProvenance(tmp_path) -> None:
         "High Press",
     )
     database.squadImportSave("/captures/squad.png", [player], "First Team")
+    database.squadClubImageSave("/captures/club-information.png", "First Team")
 
     tactic = database.tacticRecords()[0]
     squad = database.squadRecords()[0]
@@ -327,6 +328,7 @@ def testManagementRecordsIncludeScreenshotProvenance(tmp_path) -> None:
     assert tactic.formationImage == "/captures/formation.png"
     assert squad.playerCount == 1
     assert squad.captureCount == 1
+    assert squad.clubImage == "/captures/club-information.png"
     assert storedPlayer.name == "Jo Example"
     assert storedPlayer.imageFilename == "/captures/squad.png"
 
@@ -362,12 +364,16 @@ def testDeletingSquadRemovesOwnedPlayersButLeavesTactic(tmp_path) -> None:
         "High Press",
     )
     database.squadImportSave("/captures/squad.png", [player], "First Team")
+    database.squadClubImageSave("/captures/club-information.png", "First Team")
     database.tacticApplyToSquad("First Team", "High Press")
 
     deleted = database.squadsDelete(["FIRST TEAM"])
 
     assert deleted.deletedCount == 1
-    assert deleted.imageFilenames == ("/captures/squad.png",)
+    assert set(deleted.imageFilenames) == {
+        "/captures/squad.png",
+        "/captures/club-information.png",
+    }
     assert database.squadsList() == []
     assert database.tacticsList() == ["High Press"]
     assert database.playersList() == []

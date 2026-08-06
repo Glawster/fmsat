@@ -27,6 +27,7 @@ class ImportSession(Base):
     )
     tacticCapture: Mapped[TacticScreenshot | None] = relationship(back_populates="importSession")
     squadCapture: Mapped[SquadScreenshot | None] = relationship(back_populates="importSession")
+    clubCapture: Mapped[SquadClubScreenshot | None] = relationship(back_populates="importSession")
 
 
 class Tactic(Base):
@@ -77,6 +78,9 @@ class Squad(Base):
     screenshots: Mapped[list[SquadScreenshot]] = relationship(
         back_populates="squad", cascade="all, delete-orphan"
     )
+    clubScreenshots: Mapped[list[SquadClubScreenshot]] = relationship(
+        back_populates="squad", cascade="all, delete-orphan"
+    )
     tacticApplications: Mapped[list[SquadTacticApplication]] = relationship(
         back_populates="squad", cascade="all, delete-orphan"
     )
@@ -96,6 +100,22 @@ class SquadScreenshot(Base):
     )
     squad: Mapped[Squad] = relationship(back_populates="screenshots")
     importSession: Mapped[ImportSession] = relationship(back_populates="squadCapture")
+
+
+class SquadClubScreenshot(Base):
+    """Links a Club Information badge screenshot to its squad."""
+
+    __tablename__ = "squad_club_screenshots"
+
+    id: Mapped[int] = mappedColumn(primary_key=True)
+    squadId: Mapped[int] = mappedColumn(
+        "squad_id", ForeignKey("squads.id"), nullable=False, index=True
+    )
+    importSessionId: Mapped[int] = mappedColumn(
+        "import_session_id", ForeignKey("import_sessions.id"), unique=True, nullable=False
+    )
+    squad: Mapped[Squad] = relationship(back_populates="clubScreenshots")
+    importSession: Mapped[ImportSession] = relationship(back_populates="clubCapture")
 
 
 class SquadTacticApplication(Base):

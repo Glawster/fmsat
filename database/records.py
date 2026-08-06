@@ -22,6 +22,7 @@ class SquadRecord:
     name: str
     captureCount: int
     playerCount: int
+    clubImage: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

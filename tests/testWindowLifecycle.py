@@ -1,9 +1,11 @@
 """Secondary-window lifecycle tests."""
 
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 
 from PySide6.QtCore import QSize, Qt
+from PySide6.QtTest import QSignalSpy
 from PySide6.QtGui import QColor, QImage
 from PySide6.QtWidgets import (
     QApplication,
@@ -205,6 +207,26 @@ def testSquadReviewShowsOnlyCollectedAttributeColumns(qtbot) -> None:  # type: i
     assert window._tablePlayersRead()[0].attributes == {"passing": 12, "vision": None}
 
 
+def testSquadReviewPopulationDoesNotEmitPartialRowChanges(qtbot) -> None:  # type: ignore[no-untyped-def]
+    attributes = (AttributeDefinition("passing", "Pas", 1),)
+    window = MainWindow(Mock(), Mock(), attributes, PlayerValidator(), Mock(), Mock())
+    qtbot.addWidget(window)
+    result = ImportResult(
+        "clipboard",
+        ScreenType.SQUAD_ATTRIBUTES,
+        [
+            ExtractedPlayer("First Player", "DM", "100", "120", {"passing": 12}, 0.98),
+            ExtractedPlayer("Second Player", "GK", "90", "110", {"passing": None}, 0.95),
+        ],
+    )
+    changed = QSignalSpy(window.table.itemChanged)
+
+    window._resultShow(result)
+
+    assert changed.count() == 0
+    assert window._tablePlayersRead()[1].attributes == {"passing": None}
+
+
 def testManualCorrectionImmediatelyClearsBlockingRowHighlight(qtbot) -> None:  # type: ignore[no-untyped-def]
     window = MainWindow(Mock(), Mock(), (), PlayerValidator(), Mock(), Mock())
     qtbot.addWidget(window)
@@ -352,3 +374,23 @@ def testExistingSquadImportAppendsAfterStoredPlayers(qtbot) -> None:  # type: ig
 
     assert window.currentSquadExistingNames == {"sam walker", "joe wright"}
     assert window.currentSquadPlayerOffset == 2
+
+
+def testNewSquadCapturesClubInformationWithoutOcr(qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    window = _mainWindowCreate()
+    qtbot.addWidget(window)
+    image = QImage(20, 20, QImage.Format.Format_RGB32)
+    clipboard = Mock()
+    clipboard.image.return_value = image
+    monkeypatch.setattr(QApplication, "clipboard", lambda: clipboard)
+    window._screenshotReadyWait = Mock(return_value=True)
+    window._screenshotPreview = Mock(return_value="use")
+    window.screenshotStore.captureSave.return_value = Path("/captures/club.png")
+
+    assert window._squadClubImageCapture("Wealdstone")
+
+    window.importService.imageImport.assert_not_called()
+    window.screenshotStore.captureSave.assert_called_once()
+    window.database.squadClubImageSave.assert_called_once_with(
+        "/captures/club.png", "Wealdstone"
+    )

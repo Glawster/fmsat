@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 from organiseMyProjects.logUtils import getLogger
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSignalBlocker, Qt, Signal
 from PySide6.QtGui import QAction, QCloseEvent, QColor, QImage, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
@@ -21,11 +21,13 @@ from PySide6.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QToolBar,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
 from fmsat.app.managementWindow import ManagementWindow
+from fmsat.app.welcomeView import WelcomeService, WelcomeView
 from fmsat.core.config import AttributeDefinition
 from fmsat.core.detection import ScreenType
 from fmsat.core.parser import ExtractedPlayer
@@ -47,6 +49,7 @@ class MainWindow(QMainWindow):
     """FMSAT main window for importing, reviewing, and confirming player data."""
 
     baseColumns = ("Name", "Positions", "CA", "PA")
+    dataChanged = Signal()
 
     def __init__(
         self,
@@ -78,13 +81,24 @@ class MainWindow(QMainWindow):
         self._menuCreate()
         self._toolbarCreate()
         self._contentCreate()
-        self.statusBar().showMessage("Ready — choose Import Tactic or Import Squad")
+        self.dataChanged.connect(self.welcomeView.refresh)
+        self.statusBar().showMessage("Ready — choose to Import a Tactic or Squad or view Tactics, or Squads from the Database.")
 
     def squadImport(self) -> None:
         """Collect arbitrary squad pages and attribute views into one review draft."""
 
+        try:
+            existingSquads = self.database.squadsList()
+        except DatabaseError as exc:
+            self._errorShow("Database error", str(exc))
+            return
         squadName = self._squadSelect()
         if squadName is None:
+            return
+        isNewSquad = squadName.casefold() not in {
+            name.casefold() for name in existingSquads
+        }
+        if isNewSquad and not self._squadClubImageCapture(squadName):
             return
         self.currentSquad = squadName
         try:
@@ -146,6 +160,49 @@ class MainWindow(QMainWindow):
                 "review the combined table before saving.",
                 12000,
             )
+
+    def _squadClubImageCapture(self, squadName: str) -> bool:
+        """Capture and persist a Club Information screenshot without running OCR."""
+
+        while True:
+            if not self._screenshotReadyWait(
+                "Capture club badge",
+                "Open the club information screen and take a screenshot showing the club badge.",
+                allowBack=True,
+                backText="Cancel squad import",
+            ):
+                return False
+            clipboardImage = QApplication.clipboard().image()
+            if clipboardImage.isNull():
+                QMessageBox.warning(
+                    self,
+                    "Club screenshot unavailable",
+                    "No image is currently available on the clipboard.",
+                )
+                continue
+            choice = self._screenshotPreview(clipboardImage, "Club Information")
+            if choice == "cancel":
+                return False
+            if choice == "retake":
+                continue
+            break
+
+        image = self._qImageConvert(clipboardImage)
+        try:
+            path = self.screenshotStore.captureSave(
+                image,
+                "squad",
+                squadName,
+                ScreenType.CLUB_INFORMATION.value,
+            )
+            self.database.squadClubImageSave(str(path), squadName)
+        except (DatabaseError, ScreenshotStoreError) as exc:
+            if "path" in locals():
+                self.screenshotStore.capturesRemove([path])
+            self._errorShow("Club image error", str(exc))
+            return False
+        self.dataChanged.emit()
+        return True
 
     def _squadCaptureChoice(self, captureNumber: int) -> str:
         """Choose another arbitrary squad screenshot or finish the draft."""
@@ -321,6 +378,7 @@ class MainWindow(QMainWindow):
                 f"as import {session.id}.{nextMessage}",
                 10000,
             )
+            self.dataChanged.emit()
 
     def _tacticCaptureSelect(
         self,
@@ -346,15 +404,16 @@ class MainWindow(QMainWindow):
             return None
         return next(items for choiceLabel, items in choices if choiceLabel == label)
 
-    def tacticApplyToSquad(self) -> None:
+    def tacticApplyToSquad(self, tacticName: str | None = None) -> None:
         """Pair an independently stored squad with a completed tactic."""
 
         squadName = self._squadSelect(existingOnly=True)
         if squadName is None:
             return
-        tacticName = self._tacticSelect(existingOnly=True)
         if tacticName is None:
-            return
+            tacticName = self._tacticSelect(existingOnly=True)
+            if tacticName is None:
+                return
         requiredTypes = {
             ScreenType.TACTIC_FORMATION,
             ScreenType.TACTIC_IN_POSSESSION,
@@ -398,7 +457,7 @@ class MainWindow(QMainWindow):
         ]
         QMessageBox.information(self, "Players", "\n".join(lines))
 
-    def managementShow(self, tabName: str) -> None:
+    def managementShow(self, tabName: str, recordName: str | None = None) -> None:
         """Open or refresh the non-modal tactic and squad management window."""
 
         if self.managementWindow is None:
@@ -406,11 +465,13 @@ class MainWindow(QMainWindow):
                 self.database,
                 self.screenshotStore,
                 self,
+                tacticApply=self.tacticApplyToSquad,
             )
             self.managementWindow.destroyed.connect(self._managementForget)
+            self.managementWindow.dataChanged.connect(self.dataChanged.emit)
         else:
             self.managementWindow.dataRefresh()
-        self.managementWindow.tabShow(tabName)
+        self.managementWindow.recordShow(tabName, recordName)
         self.managementWindow.show()
         self.managementWindow.raise_()
         self.managementWindow.activateWindow()
@@ -507,6 +568,7 @@ class MainWindow(QMainWindow):
             ),
             8000,
         )
+        self.dataChanged.emit()
 
     def settingsShow(self) -> None:
         """Describe the Phase 1 configuration location."""
@@ -545,8 +607,20 @@ class MainWindow(QMainWindow):
         self.exitAction.triggered.connect(self.close)
 
     def _contentCreate(self) -> None:
-        widget = QWidget(self)
-        layout = QVBoxLayout(widget)
+        self.contentStack = QStackedWidget(self)
+        self.welcomeView = WelcomeView(
+            WelcomeService(self.database),
+            (
+                self.importTacticAction,
+                self.importSquadAction,
+            ),
+            lambda name: self.managementShow("Tactics", name),
+            lambda name: self.managementShow("Squads", name),
+            self,
+        )
+        self.contentStack.addWidget(self.welcomeView)
+        self.reviewWidget = QWidget(self)
+        layout = QVBoxLayout(self.reviewWidget)
         self.instructions = QLabel(
             "Import three tactic screenshots, then capture one or more Squad Attributes "
             "screenshots in any player-page or attribute-view order. "
@@ -579,7 +653,9 @@ class MainWindow(QMainWindow):
         )
         buttonLayout.addWidget(self.saveButton)
         layout.addLayout(buttonLayout)
-        self.setCentralWidget(widget)
+        self.contentStack.addWidget(self.reviewWidget)
+        self.contentStack.setCurrentWidget(self.welcomeView)
+        self.setCentralWidget(self.contentStack)
 
     def _errorShow(self, title: str, message: str) -> None:
         logger.warning("%s: %s", title, message)
@@ -741,21 +817,10 @@ class MainWindow(QMainWindow):
         return paths
 
     def _menuCreate(self) -> None:
-        fileMenu = self.menuBar().addMenu("&File")
-        fileMenu.addAction(self.importTacticAction)
-        fileMenu.addAction(self.importSquadAction)
-        fileMenu.addAction(self.applyTacticAction)
-        fileMenu.addAction(self.saveAction)
-        fileMenu.addSeparator()
-        fileMenu.addAction(self.exitAction)
-        viewMenu = self.menuBar().addMenu("&View")
-        viewMenu.addAction(self.databaseAction)
-        viewMenu.addAction(self.playersAction)
-        viewMenu.addAction(self.tacticsAction)
-        viewMenu.addAction(self.squadsAction)
-        viewMenu.addAction(self.settingsAction)
+        self.menuBar().hide()
 
     def _managementForget(self) -> None:
+        self.dataChanged.emit()
         self.managementWindow = None
 
     def _qImageConvert(self, image: QImage) -> np.ndarray:
@@ -767,6 +832,7 @@ class MainWindow(QMainWindow):
         return rgb[:, :, ::-1].copy()
 
     def _resultShow(self, result: ImportResult) -> None:
+        self.contentStack.setCurrentWidget(self.reviewWidget)
         sanity = self.validator.correctAll(
             result.players,
             context=f"review source={result.source}",
@@ -780,6 +846,7 @@ class MainWindow(QMainWindow):
         self.currentDisplayedAttributes = tuple(
             attribute for attribute in self.attributes if attribute.name in collectedNames
         )
+        signalBlocker = QSignalBlocker(self.table)
         self.table.setColumnCount(
             len(self.baseColumns) + len(self.currentDisplayedAttributes) + 1
         )
@@ -831,6 +898,7 @@ class MainWindow(QMainWindow):
                         )
                     )
                 self.table.setItem(row, column, item)
+        del signalBlocker
         self.saveAction.setEnabled(True)
         summary = []
         if sanity.blockingIssues:
@@ -1000,11 +1068,6 @@ class MainWindow(QMainWindow):
         for action in (
             self.importTacticAction,
             self.importSquadAction,
-            self.applyTacticAction,
-            self.databaseAction,
-            self.playersAction,
-            self.settingsAction,
-            self.saveAction,
         ):
             toolbar.addAction(action)
         self.addToolBar(toolbar)

@@ -22,6 +22,7 @@ from .models import (
     ImportSession,
     Player,
     Squad,
+    SquadClubScreenshot,
     SquadScreenshot,
     SquadTacticApplication,
     Tactic,
@@ -217,6 +218,31 @@ class Database:
             logger.exception("squad import database write failed")
             raise DatabaseError(f"Unable to save squad import: {exc}") from exc
 
+    def squadClubImageSave(self, imageFilename: str, squadName: str) -> ImportSession:
+        """Persist a Club Information screenshot for a new or existing squad."""
+
+        try:
+            with self._sessionFactory.begin() as session:
+                cleanName = squadName.strip()
+                if not cleanName:
+                    raise DatabaseError("A squad name is required")
+                normalizedName = cleanName.casefold()
+                squad = session.scalar(select(Squad).where(Squad.normalizedName == normalizedName))
+                if squad is None:
+                    squad = Squad(name=cleanName, normalizedName=normalizedName)
+                    session.add(squad)
+                importSession = ImportSession(
+                    imageFilename=imageFilename,
+                    screenType=ScreenType.CLUB_INFORMATION.value,
+                )
+                importSession.clubCapture = SquadClubScreenshot(squad=squad)
+                session.add(importSession)
+            logger.action("squad club image saved squad=%r image=%s", cleanName, imageFilename)
+            return importSession
+        except SQLAlchemyError as exc:
+            logger.exception("squad club image database write failed")
+            raise DatabaseError(f"Unable to save squad club image: {exc}") from exc
+
     def squadImportPairSave(
         self,
         imageFilenames: list[str],
@@ -366,21 +392,35 @@ class Database:
                     .options(
                         selectinload(Squad.screenshots)
                         .selectinload(SquadScreenshot.importSession)
-                        .selectinload(ImportSession.players)
+                        .selectinload(ImportSession.players),
+                        selectinload(Squad.clubScreenshots).selectinload(
+                            SquadClubScreenshot.importSession
+                        )
                     )
                     .order_by(Squad.name)
                 ).all()
-                return [
-                    SquadRecord(
-                        squad.name,
-                        len(squad.screenshots),
-                        sum(
-                            len(screenshot.importSession.players)
-                            for screenshot in squad.screenshots
-                        ),
+                records = []
+                for squad in squads:
+                    latestClub = (
+                        max(
+                            (item.importSession for item in squad.clubScreenshots),
+                            key=lambda item: (item.date, item.id),
+                        )
+                        if squad.clubScreenshots
+                        else None
                     )
-                    for squad in squads
-                ]
+                    records.append(
+                        SquadRecord(
+                            squad.name,
+                            len(squad.screenshots),
+                            sum(
+                                len(screenshot.importSession.players)
+                                for screenshot in squad.screenshots
+                            ),
+                            latestClub.imageFilename if latestClub else None,
+                        )
+                    )
+                return records
         except SQLAlchemyError as exc:
             raise DatabaseError(f"Unable to list squad records: {exc}") from exc
 
@@ -696,7 +736,10 @@ class Database:
                     .options(
                         selectinload(Squad.screenshots).selectinload(
                             SquadScreenshot.importSession
-                        )
+                        ),
+                        selectinload(Squad.clubScreenshots).selectinload(
+                            SquadClubScreenshot.importSession
+                        ),
                     )
                 ).all()
                 imports = [
@@ -704,6 +747,11 @@ class Database:
                     for squad in squads
                     for screenshot in squad.screenshots
                 ]
+                imports.extend(
+                    screenshot.importSession
+                    for squad in squads
+                    for screenshot in squad.clubScreenshots
+                )
                 paths = tuple(item.imageFilename for item in imports)
                 for squad in squads:
                     session.delete(squad)
