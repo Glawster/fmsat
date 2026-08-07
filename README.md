@@ -31,7 +31,13 @@ application.
 7. Review the spreadsheet-style squad result. Missing, corrected, or low-confidence values
    are highlighted.
 8. Correct any cell and select **Save Confirmed Data** (`Ctrl+S`) from the File menu.
-9. Confirmed imports are stored in `data/fmsat.sqlite3` at the repository root.
+9. Confirmed imports are stored in `~/.local/state/fmsat/fmsat.sqlite3`, with retained
+   screenshots under `~/.local/state/fmsat/screenshots/`.
+
+On first launch after upgrading from the repository-local data layout, FMSAT copies an
+existing `data/fmsat.sqlite3` and its retained screenshots into the persistent user-data
+directory. The legacy files are left untouched as a recovery copy. When `XDG_STATE_HOME`
+is configured, FMSAT uses `$XDG_STATE_HOME/fmsat/` instead.
 
 The main toolbar remains deliberately limited to the two import actions. The File and View
 menus provide the remaining application commands. Selecting **Open** on a tactic or squad
@@ -47,6 +53,18 @@ move the squad or prevent another tactic from being applied.
 The workspace refreshes during the current session after imports and editor changes. A
 missing or unreadable badge or Formation image produces a neutral placeholder rather than
 hiding the stored record.
+
+Use **File → Import Role Profile** to add factual role knowledge from Football Manager.
+Choose the expected role and position, place the corresponding role-profile screenshot on
+the clipboard, then review the detected key attributes, displayed values and instructions.
+Confirming the review creates a factual role definition beneath
+`~/.local/state/fmsat/knowledge/roles/`. Displayed player values and suitability stars are
+retained only as screenshot evidence and are never written as role weights. Once structured
+formation-slot extraction is complete, missing roles will open this same workflow
+automatically rather than requiring the expected role and position to be selected manually.
+Each role YAML records separate `inPossession` and `outOfPossession` flags. Confirming the
+other phase updates the same role file and merges its factual evidence without duplicating
+the definition.
 
 An applied pairing is not yet an automatic suitability rating. A defensible calculated
 score requires formation positions, roles and team instructions to be extracted into typed

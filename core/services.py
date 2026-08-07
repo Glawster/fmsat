@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from difflib import SequenceMatcher
 from pathlib import Path
 
@@ -12,7 +12,13 @@ from organiseMyProjects.logUtils import getLogger
 
 from .detection import ScreenDetector, ScreenType
 from .images import ImagePreprocessor, imageLoad
-from .parser import ExtractedPlayer, SquadAttributesParser, TacticParser
+from .parser import (
+    ExtractedPlayer,
+    RoleProfileEvidence,
+    RoleProfileParser,
+    SquadAttributesParser,
+    TacticParser,
+)
 
 logger = getLogger()
 
@@ -33,6 +39,7 @@ class ImportResult:
     image: np.ndarray | None = None
     additionalImages: list[np.ndarray] = field(default_factory=list)
     mergeConflicts: list[str] = field(default_factory=list)
+    roleProfile: RoleProfileEvidence | None = None
 
 
 def squadCapturesMerge(first: ImportResult, second: ImportResult) -> ImportResult:
@@ -70,9 +77,7 @@ def _playerMatch(
 ) -> ExtractedPlayer | None:
     normalizedName = _nameNormalize(player.name)
     exact = [
-        candidate
-        for candidate in candidates
-        if _nameNormalize(candidate.name) == normalizedName
+        candidate for candidate in candidates if _nameNormalize(candidate.name) == normalizedName
     ]
     if len(exact) == 1:
         return exact[0]
@@ -149,11 +154,13 @@ class ScreenshotImportService:
         detector: ScreenDetector,
         squadParser: SquadAttributesParser,
         tacticParser: TacticParser,
+        roleProfileParser: RoleProfileParser | None = None,
     ) -> None:
         self.preprocessor = preprocessor
         self.detector = detector
         self.squadParser = squadParser
         self.tacticParser = tacticParser
+        self.roleProfileParser = roleProfileParser
 
     def fileImport(self, path: Path, expectedType: ScreenType) -> ImportResult:
         """Import a supported screenshot from disk."""
@@ -178,10 +185,7 @@ class ScreenshotImportService:
                     ScreenType.TACTIC_IN_POSSESSION,
                     ScreenType.TACTIC_OUT_OF_POSSESSION,
                 }
-                if (
-                    screenType is ScreenType.UNKNOWN
-                    and expectedType is ScreenType.SQUAD_ATTRIBUTES
-                ):
+                if screenType is ScreenType.UNKNOWN and expectedType is ScreenType.SQUAD_ATTRIBUTES:
                     logger.warning(
                         "Squad screen signature was incomplete; validating the requested "
                         "type through player-row extraction"
@@ -214,6 +218,19 @@ class ScreenshotImportService:
                 ScreenType.TACTIC_OUT_OF_POSSESSION,
             }:
                 return ImportResult(source, screenType, [], image=image.copy())
+            if screenType is ScreenType.ROLE_PROFILE:
+                if self.roleProfileParser is None:
+                    raise ImportError("Role-profile parsing is not configured")
+                evidence = self.roleProfileParser.parse(processed)
+                evidence = replace(evidence, sourceImport=source)
+                return ImportResult(
+                    source,
+                    screenType,
+                    [],
+                    confidence=evidence.confidence,
+                    image=image.copy(),
+                    roleProfile=evidence,
+                )
             players = self.squadParser.parse(processed)
             if not players:
                 raise ImportError(

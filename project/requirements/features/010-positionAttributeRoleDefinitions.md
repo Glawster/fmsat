@@ -153,12 +153,15 @@ supports:
    supported positions, supported duties, factual description, screenshot-backed
    key attributes, behaviours, explicit player instructions and provenance where
    those facts are available.
-3. A screenshot-derived role definition must not contain the displayed player's
+3. Store `inPossession` and `outOfPossession` boolean flags in each role YAML.
+   Set a flag to `true` only after confirmed evidence for that phase; one role
+   file must represent both phases rather than creating phase-suffixed role files.
+4. A screenshot-derived role definition must not contain the displayed player's
    attribute values, suitability stars, FMSAT weights or hard minimums.
-4. Role definitions may be used to normalize and review a structured tactic
+5. Role definitions may be used to normalize and review a structured tactic
    before a corresponding assessment requirement exists. In that state, player
    scoring for the role must be reported as unavailable.
-5. Make sure only roles defined within the supported Football Manager version
+6. Make sure only roles defined within the supported Football Manager version
    are documented; do not retain roles from earlier versions merely to complete
    a historical list.
 
@@ -167,6 +170,8 @@ An illustrative factual definition is:
 ```yaml
 id: advancedPlaymaker
 displayName: Advanced Playmaker
+inPossession: true
+outOfPossession: false
 abbreviations:
   - AP
 positions:

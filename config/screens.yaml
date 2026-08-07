@@ -20,6 +20,15 @@ detection:
       - Defensive
       - Line
       - Press
+  roleProfile:
+    keywords:
+      - Roles
+      - Role
+      - Ability
+      - Key
+      - Attributes
+      - Player
+      - Instructions
   squadAttributes:
     keywords:
       - Squad

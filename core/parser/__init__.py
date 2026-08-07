@@ -1,7 +1,12 @@
 """Screen-specific parsers and extracted data objects."""
 
 from .models import ExtractedPlayer
-from .roleProfile import RoleProfileEvidence
+from .roleProfile import (
+    RoleDefinitionDraft,
+    RoleKnowledgeGap,
+    RoleProfileParser,
+    RoleProfileEvidence,
+)
 from .squadAttributes import SquadAttributesParser
 from .tactic import ExtractedTactic, TacticParser
 from .tacticModels import (
@@ -20,6 +25,9 @@ __all__ = [
     "FormationSlot",
     "NormalizedValue",
     "RoleDefinition",
+    "RoleDefinitionDraft",
+    "RoleKnowledgeGap",
+    "RoleProfileParser",
     "RoleProfileEvidence",
     "SquadAttributesParser",
     "StructuredTactic",

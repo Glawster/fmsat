@@ -66,6 +66,108 @@ def testDetectsConfiguredTacticScreenTypes() -> None:
     )
 
 
+def testDetectsRoleProfileFromKeyAttributesAndInstructions() -> None:
+    detector = KeywordScreenDetector(
+        FakeOcr([[OcrResult("Advanced Playmaker Key Attributes Player Instructions", 0.99)]]),
+        {
+            ScreenType.ROLE_PROFILE: ["Key", "Attributes", "Player", "Instructions"],
+            ScreenType.SQUAD_ATTRIBUTES: ["Squad", "Attributes", "Player", "Position"],
+        },
+    )
+
+    assert detector.detect(np.zeros((100, 100, 3), dtype=np.uint8)) is ScreenType.ROLE_PROFILE
+
+
+def testRoleProfileOverridesItsInPossessionAndPassingText() -> None:
+    detector = KeywordScreenDetector(
+        FakeOcr(
+            [
+                [
+                    OcrResult(
+                        "In Possession Role AM C Advanced Playmaker Role Ability "
+                        "Key Attributes Passing Vision Player Instructions",
+                        0.99,
+                    )
+                ]
+            ]
+        ),
+        {
+            ScreenType.ROLE_PROFILE: [
+                "Role",
+                "Ability",
+                "Key",
+                "Attributes",
+                "Player",
+                "Instructions",
+            ],
+            ScreenType.TACTIC_IN_POSSESSION: [
+                "In",
+                "Possession",
+                "Attacking",
+                "Width",
+                "Passing",
+            ],
+        },
+    )
+
+    assert detector.detect(np.zeros((100, 100, 3), dtype=np.uint8)) is ScreenType.ROLE_PROFILE
+
+
+def testRoleProfileDetailPanelIsScannedWhenHeaderLooksLikeInPossession() -> None:
+    ocr = FakeOcr(
+        [
+            [OcrResult("In Possession Role Advanced Playmaker Passing Vision", 0.99)],
+            [OcrResult("Key Attributes Player Instructions Take More Risks", 0.99)],
+        ]
+    )
+    detector = KeywordScreenDetector(
+        ocr,
+        {
+            ScreenType.ROLE_PROFILE: [
+                "Role",
+                "Ability",
+                "Key",
+                "Attributes",
+                "Player",
+                "Instructions",
+            ],
+            ScreenType.TACTIC_IN_POSSESSION: [
+                "In",
+                "Possession",
+                "Attacking",
+                "Width",
+                "Passing",
+            ],
+        },
+    )
+
+    assert detector.detect(np.zeros((1000, 1600, 3), dtype=np.uint8)) is (
+        ScreenType.ROLE_PROFILE
+    )
+
+
+def testPlayerRolesBreadcrumbAndPossessionRoleIdentifyEveryRoleProfile() -> None:
+    detector = KeywordScreenDetector(
+        FakeOcr(
+            [
+                [
+                    OcrResult("Match Day Tactics Planner Player Roles", 0.99),
+                    OcrResult("In Possession Role AM (C)", 0.99),
+                ]
+            ]
+        ),
+        {
+            ScreenType.ROLE_PROFILE: ["Roles", "Role", "Key", "Attributes"],
+            ScreenType.TACTIC_IN_POSSESSION: ["In", "Possession", "Passing"],
+            ScreenType.TACTIC_FORMATION: ["Planner", "Shape", "Both"],
+        },
+    )
+
+    assert detector.detect(np.zeros((1000, 1600, 3), dtype=np.uint8)) is (
+        ScreenType.ROLE_PROFILE
+    )
+
+
 def testTacticsPlannerBothViewIsDetectedAsFormation() -> None:
 
     detector = KeywordScreenDetector(

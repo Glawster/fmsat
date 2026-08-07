@@ -41,7 +41,11 @@ def testWorkspaceImportButtonsAreEqualProminentActions(qtbot) -> None:  # type: 
         "workspaceActionButton",
     )
 
-    assert [button.text() for button in buttons] == ["Import Tactic", "Import Squad"]
+    assert [button.text() for button in buttons] == [
+        "Import Tactic",
+        "Import Squad",
+        "Import Role Profile",
+    ]
     assert buttons[0].size() == buttons[1].size()
     assert "background-color" in buttons[0].styleSheet()
     assert "border-radius" in buttons[0].styleSheet()
