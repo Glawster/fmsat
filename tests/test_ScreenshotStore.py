@@ -8,6 +8,7 @@ from fmsat.core.screenshotStore import ScreenshotStore
 
 
 def testCaptureUsesReadableUniqueSafeNameAndCanBeRemoved(tmp_path) -> None:
+
     store = ScreenshotStore(tmp_path / "screenshots")
     image = np.zeros((20, 30, 3), dtype=np.uint8)
 
@@ -29,6 +30,7 @@ def testCaptureUsesReadableUniqueSafeNameAndCanBeRemoved(tmp_path) -> None:
 
 
 def testRemovalRejectsAPathOutsideManagedStorage(tmp_path) -> None:
+
     store = ScreenshotStore(tmp_path / "screenshots")
     outside = tmp_path / "outside.png"
     outside.write_bytes(b"not managed")
@@ -38,6 +40,7 @@ def testRemovalRejectsAPathOutsideManagedStorage(tmp_path) -> None:
 
 
 def testRemovalIgnoresMissingLegacyImageReference(tmp_path) -> None:
+
     store = ScreenshotStore(tmp_path / "screenshots")
     legacyReference = tmp_path / "clipboard"
 

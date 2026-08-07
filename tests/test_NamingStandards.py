@@ -26,6 +26,7 @@ def _hasInternalUnderscore(identifier: str) -> bool:
 
 
 def testPythonFileNamesFollowPolicy() -> None:
+
     projectPath = Path(__file__).parents[1]
     invalidNames = []
     for path in projectPath.rglob("*.py"):
@@ -41,6 +42,7 @@ def testPythonFileNamesFollowPolicy() -> None:
 
 
 def testProjectOwnedIdentifiersUseCamelCase() -> None:
+
     projectPath = Path(__file__).parents[1]
     invalidIdentifiers: list[str] = []
     for path in projectPath.rglob("*.py"):

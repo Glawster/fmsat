@@ -10,6 +10,7 @@ from fmsat.core.services import ImportResult, ScreenshotImportService, squadCapt
 
 
 def testRequestedInstructionTypeWinsWhenInstructionDetectionIsAmbiguous() -> None:
+
     image = np.zeros((100, 100, 3), dtype=np.uint8)
     preprocessor = Mock()
     preprocessor.process.return_value = image
@@ -27,6 +28,7 @@ def testRequestedInstructionTypeWinsWhenInstructionDetectionIsAmbiguous() -> Non
 
 
 def testRequestedSquadTypeIsValidatedByRowExtractionWhenDetectionIsUnknown() -> None:
+
     image = np.zeros((100, 100, 3), dtype=np.uint8)
     preprocessor = Mock()
     preprocessor.process.return_value = image
@@ -45,6 +47,7 @@ def testRequestedSquadTypeIsValidatedByRowExtractionWhenDetectionIsUnknown() -> 
 
 
 def testComplementarySquadCapturesMergePlayersAndAttributes() -> None:
+
     first = ImportResult(
         "first",
         ScreenType.SQUAD_ATTRIBUTES,
@@ -67,6 +70,7 @@ def testComplementarySquadCapturesMergePlayersAndAttributes() -> None:
 
 
 def testComplementarySquadCaptureConflictsAreReported() -> None:
+
     first = ImportResult(
         "first",
         ScreenType.SQUAD_ATTRIBUTES,
@@ -85,6 +89,7 @@ def testComplementarySquadCaptureConflictsAreReported() -> None:
 
 
 def testSquadCaptureMergeAccumulatesEverySourceImage() -> None:
+
     player = ExtractedPlayer("Max Power", "DM", "114", "130", {}, 0.98)
     captures = [
         ImportResult(

@@ -21,9 +21,11 @@ class FakeOcr(OcrEngine):
         self.batches = iter(batches)
         self._suppliesGeometry = suppliesGeometry
 
-    def recognize(self, image: np.ndarray) -> list[OcrResult]:
+    def ocrRecognize(self, image: np.ndarray) -> list[OcrResult]:
         del image
         return next(self.batches, [])
+
+    recognize = ocrRecognize
 
     @property
     def suppliesGeometry(self) -> bool:

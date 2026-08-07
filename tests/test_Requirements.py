@@ -35,6 +35,7 @@ def _plannerCreate() -> TacticScreenshotPlanner:
 
 
 def testNewTacticListsRequiredScreenshot() -> None:
+
     plan = _plannerCreate().plan("High Press", set())
 
     assert not plan.isComplete
@@ -47,6 +48,7 @@ def testNewTacticListsRequiredScreenshot() -> None:
 
 
 def testRecognisedTacticDoesNotRequireCompletedScreenshot() -> None:
+
     plan = _plannerCreate().plan("High Press", {ScreenType.SQUAD_ATTRIBUTES})
 
     assert not plan.isComplete
@@ -54,6 +56,7 @@ def testRecognisedTacticDoesNotRequireCompletedScreenshot() -> None:
 
 
 def testConfiguredTacticInstructionsExplainClipboardCapture() -> None:
+
     planner = TacticScreenshotPlanner.fromMapping(Configuration().screens["workflow"])
     tacticRequirements = [
         requirement
@@ -67,6 +70,7 @@ def testConfiguredTacticInstructionsExplainClipboardCapture() -> None:
 
 
 def testConfiguredSquadColumnsAreSeparateAndAttributesFollowBaseFields() -> None:
+
     settings = Configuration().regions["squadAttributes"]
     columns = settings["columns"]
     tolerance = 1e-9

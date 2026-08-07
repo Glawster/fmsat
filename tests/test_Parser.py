@@ -9,7 +9,9 @@ from fmsat.tests.conftest import FakeOcr
 
 
 def testParserMapsAttributesByYamlDefinitionNotHardcodedOrder() -> None:
+
     # One row has name, positions, CA, PA, and one attribute. Three empty rows end parsing.
+
     ocr = FakeOcr(
         [
             [OcrResult(" .- Ada Keeper", 0.99)],
@@ -50,7 +52,8 @@ def testParserMapsAttributesByYamlDefinitionNotHardcodedOrder() -> None:
 
 
 def testParserUsesHeadersAndOcrBoxesInsteadOfFixedRowSteps() -> None:
-    def result(
+
+    def ocrResult(
         text: str,
         x: float,
         y: float,
@@ -61,22 +64,22 @@ def testParserUsesHeadersAndOcrBoxesInsteadOfFixedRowSteps() -> None:
     ocr = FakeOcr(
         [
             [
-                result("Position", 250, 100),
-                result("Player", 80, 100),
-                result("CA", 380, 100),
-                result("PA", 430, 100),
-                result("Cro...", 500, 100),
-                result("O", 82, 140),
-                result("eMax Power", 120, 140),
-                result("DM, M (C)", 250, 140),
-                result("114", 380, 140),
-                result("130", 430, 140),
-                result("13", 500, 140),
-                result("Joe Wright", 120, 179),
-                result("D (C)", 250, 179),
-                result("112", 380, 179),
-                result("118", 430, 179),
-                result("7", 500, 179),
+                ocrResult("Position", 250, 100),
+                ocrResult("Player", 80, 100),
+                ocrResult("CA", 380, 100),
+                ocrResult("PA", 430, 100),
+                ocrResult("Cro...", 500, 100),
+                ocrResult("O", 82, 140),
+                ocrResult("eMax Power", 120, 140),
+                ocrResult("DM, M (C)", 250, 140),
+                ocrResult("114", 380, 140),
+                ocrResult("130", 430, 140),
+                ocrResult("13", 500, 140),
+                ocrResult("Joe Wright", 120, 179),
+                ocrResult("D (C)", 250, 179),
+                ocrResult("112", 380, 179),
+                ocrResult("118", 430, 179),
+                ocrResult("7", 500, 179),
             ]
         ],
         suppliesGeometry=True,
@@ -99,14 +102,15 @@ def testParserUsesHeadersAndOcrBoxesInsteadOfFixedRowSteps() -> None:
 
 
 def testParserKeepsFullTableNamesWhenFocusedOcrFragmentsCoverOneRow() -> None:
-    def result(text: str, x: float, y: float) -> OcrResult:
+
+    def ocrResult(text: str, x: float, y: float) -> OcrResult:
         return OcrResult(text, 0.99, (x - 8, y - 4, x + 8, y + 4))
 
     fullResults = [
-        result("Player", 80, 20),
-        result("Position", 250, 20),
-        result("CA", 380, 20),
-        result("PA", 430, 20),
+        ocrResult("Player", 80, 20),
+        ocrResult("Position", 250, 20),
+        ocrResult("CA", 380, 20),
+        ocrResult("PA", 430, 20),
     ]
     for name, y, ca, pa in (
         ("George Goodman", 60, "75", "123"),
@@ -115,16 +119,16 @@ def testParserKeepsFullTableNamesWhenFocusedOcrFragmentsCoverOneRow() -> None:
     ):
         fullResults.extend(
             (
-                result(name, 120, y),
-                result("D (C)", 250, y),
-                result(ca, 380, y),
-                result(pa, 430, y),
+                ocrResult(name, 120, y),
+                ocrResult("D (C)", 250, y),
+                ocrResult(ca, 380, y),
+                ocrResult(pa, 430, y),
             )
         )
     focusedFragments = [
-        result("George", 40, 20),
-        result("Good", 80, 20),
-        result("man", 120, 20),
+        ocrResult("George", 40, 20),
+        ocrResult("Good", 80, 20),
+        ocrResult("man", 120, 20),
     ]
     parser = SquadAttributesParser(
         FakeOcr([fullResults, focusedFragments], suppliesGeometry=True),
@@ -142,7 +146,8 @@ def testParserKeepsFullTableNamesWhenFocusedOcrFragmentsCoverOneRow() -> None:
 
 
 def testParserMergesDenseScreenshotStripsWithoutDuplicatingOverlap() -> None:
-    def result(text: str, x: float, y: float) -> OcrResult:
+
+    def ocrResult(text: str, x: float, y: float) -> OcrResult:
         scale = 1.5
         return OcrResult(
             text,
@@ -156,35 +161,35 @@ def testParserMergesDenseScreenshotStripsWithoutDuplicatingOverlap() -> None:
         )
 
     firstResults = [
-        result("Position", 250, 100),
-        result("CA", 380, 100),
-        result("PA", 430, 100),
-        result("Max Power", 120, 200),
-        result("DM", 250, 200),
-        result("114", 380, 200),
-        result("130", 430, 200),
+        ocrResult("Position", 250, 100),
+        ocrResult("CA", 380, 100),
+        ocrResult("PA", 430, 100),
+        ocrResult("Max Power", 120, 200),
+        ocrResult("DM", 250, 200),
+        ocrResult("114", 380, 200),
+        ocrResult("130", 430, 200),
     ]
     secondResults = [
-        result("Shared Player", 120, 284),
-        result("D (C)", 250, 284),
-        result("105", 380, 284),
-        result("120", 430, 284),
+        ocrResult("Shared Player", 120, 284),
+        ocrResult("D (C)", 250, 284),
+        ocrResult("105", 380, 284),
+        ocrResult("120", 430, 284),
     ]
     thirdResults = [
-        result("Shared Player", 120, 84),
-        result("D (C)", 250, 84),
-        result("105", 380, 84),
-        result("120", 430, 84),
-        result("Lower Player", 120, 264),
-        result("ST (C)", 250, 264),
-        result("100", 380, 264),
-        result("110", 430, 264),
+        ocrResult("Shared Player", 120, 84),
+        ocrResult("D (C)", 250, 84),
+        ocrResult("105", 380, 84),
+        ocrResult("120", 430, 84),
+        ocrResult("Lower Player", 120, 264),
+        ocrResult("ST (C)", 250, 264),
+        ocrResult("100", 380, 264),
+        ocrResult("110", 430, 264),
     ]
     fourthResults = [
-        result("Lower Player", 120, 64),
-        result("ST (C)", 250, 64),
-        result("100", 380, 64),
-        result("110", 430, 64),
+        ocrResult("Lower Player", 120, 64),
+        ocrResult("ST (C)", 250, 64),
+        ocrResult("100", 380, 64),
+        ocrResult("110", 430, 64),
     ]
     parser = SquadAttributesParser(
         FakeOcr(

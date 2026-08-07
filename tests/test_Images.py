@@ -9,6 +9,7 @@ from fmsat.core.images import ImagePreprocessor, PreprocessingOptions
 
 
 def testProcessKeepsThreeChannelsAndCropsBorder() -> None:
+
     image = np.zeros((100, 200, 3), dtype=np.uint8)
     options = PreprocessingOptions(
         cropBorders=True,
@@ -24,5 +25,6 @@ def testProcessKeepsThreeChannelsAndCropsBorder() -> None:
 
 
 def testEmptyImageIsRejected() -> None:
+
     with pytest.raises(RuntimeError, match="empty image"):
         ImagePreprocessor().process(np.array([], dtype=np.uint8))

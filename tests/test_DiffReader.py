@@ -1,7 +1,8 @@
 from fmsat.diff import bytesChanged, changesGroup
 
 
-def test_changed_bytes_handles_replacements_and_growth() -> None:
+def testChangedBytesHandlesReplacementsAndGrowth() -> None:
+
     changes = bytesChanged(b"abc", b"axcd")
 
     assert [(item.offset, item.old, item.new) for item in changes] == [
@@ -10,7 +11,8 @@ def test_changed_bytes_handles_replacements_and_growth() -> None:
     ]
 
 
-def test_group_changes_clusters_nearby_offsets() -> None:
+def testGroupChangesClustersNearbyOffsets() -> None:
+
     groups = changesGroup(bytesChanged(bytes([1, 2, 3, 4]), bytes([1, 9, 8, 4])))
 
     assert len(groups) == 1

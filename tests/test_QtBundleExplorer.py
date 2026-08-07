@@ -36,6 +36,7 @@ def _assetCreate(path_id: int, name: str, asset_type: str) -> AssetInfo:
 
 
 def testAssetTableModelExposesColumns() -> None:
+
     _applicationCreate()
     model = AssetTableModel((_assetCreate(2, "Beta", "Texture2D"),))
 
@@ -46,6 +47,7 @@ def testAssetTableModelExposesColumns() -> None:
 
 
 def testAssetFilterProxyFiltersAssets() -> None:
+
     _applicationCreate()
     model = AssetTableModel(
         (
@@ -63,6 +65,7 @@ def testAssetFilterProxyFiltersAssets() -> None:
 
 
 def testAssetFilterProxyFiltersSerializedSearchText() -> None:
+
     _applicationCreate()
     model = AssetTableModel(
         (
@@ -81,6 +84,7 @@ def testAssetFilterProxyFiltersSerializedSearchText() -> None:
 
 
 def testTypeCountsSortsByCountThenType() -> None:
+
     assets = (
         _assetCreate(1, "PlayerPanel", "VisualTreeAsset"),
         _assetCreate(2, "PlayerIcon", "Texture2D"),
@@ -91,6 +95,7 @@ def testTypeCountsSortsByCountThenType() -> None:
 
 
 def testReferenceTableModelExposesReferences() -> None:
+
     _applicationCreate()
     model = ReferenceTableModel(
         (
@@ -111,6 +116,7 @@ def testReferenceTableModelExposesReferences() -> None:
 
 
 def testReferencesSignalAcceptsLargeUnityPathIds() -> None:
+
     _applicationCreate()
     signals = _ReferencesSignals()
     emitted: list[tuple[int, int, object]] = []

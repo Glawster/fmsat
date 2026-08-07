@@ -8,12 +8,12 @@ import pytest
 from fmsat.bundles import BundleFormatError, UnityPyBundleReader
 
 
-class _Type:
+class BundleType:
     def __init__(self, name: str) -> None:
         self.name = name
 
 
-class _Object:
+class BundleObject:
     byte_size = 42
 
     def __init__(
@@ -24,21 +24,27 @@ class _Object:
         structure: dict[str, object] | None = None,
     ) -> None:
         self.path_id = path_id
-        self.type = _Type(asset_type)
+        self.type = BundleType(asset_type)
         self._name = name
         self._structure = structure or {"m_Name": name}
 
-    def peek_name(self) -> str:
+    def objectPeekName(self) -> str:
         return self._name
 
-    def read(self) -> SimpleNamespace:
+    def objectRead(self) -> SimpleNamespace:
         return SimpleNamespace(name="hello", script=b"hello world")
 
-    def read_typetree(self) -> dict[str, object]:
+    def objectReadTypeTree(self) -> dict[str, object]:
         return self._structure
 
 
+setattr(BundleObject, "peek_name", BundleObject.objectPeekName)
+setattr(BundleObject, "read", BundleObject.objectRead)
+setattr(BundleObject, "read_typetree", BundleObject.objectReadTypeTree)
+
+
 def testBundleReaderValidatesMissingPath(tmp_path: Path) -> None:
+
     reader = UnityPyBundleReader()
 
     with pytest.raises(FileNotFoundError):
@@ -46,24 +52,32 @@ def testBundleReaderValidatesMissingPath(tmp_path: Path) -> None:
 
 
 def testBundleReaderConvertsAdapterErrors(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+
     sample = tmp_path / "sample.bundle"
     sample.write_bytes(b"UnityFS\x00")
 
-    def load(path: str) -> object:
+    def adapterLoad(path: str) -> object:
         del path
         raise ValueError("bad bundle")
 
-    monkeypatch.setitem(sys.modules, "UnityPy", SimpleNamespace(load=load))
+    monkeypatch.setitem(sys.modules, "UnityPy", SimpleNamespace(load=adapterLoad))
 
     with pytest.raises(BundleFormatError, match="Could not open Unity bundle"):
         UnityPyBundleReader().open(sample)
 
 
 def testBundleReaderListsAndReadsAssets(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+
     sample = tmp_path / "sample.bundle"
     sample.write_bytes(b"UnityFS\x00")
-    unity_object = _Object(structure={"m_Name": "hello", "target": {"m_PathID": 456}})
-    target_object = _Object(path_id=456, name="target", asset_type="VisualTreeAsset")
+    unity_object = BundleObject(
+        structure={"m_Name": "hello", "target": {"m_PathID": 456}}
+    )
+    target_object = BundleObject(
+        path_id=456,
+        name="target",
+        asset_type="VisualTreeAsset",
+    )
     environment = SimpleNamespace(
         objects=[unity_object, target_object],
         container={"assets/ui/hello.txt": unity_object},

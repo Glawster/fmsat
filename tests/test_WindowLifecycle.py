@@ -35,6 +35,7 @@ def _mainWindowCreate() -> MainWindow:
 
 
 def testManagementWindowIsOwnedAndClosedByMainWindow(qtbot) -> None:  # type: ignore[no-untyped-def]
+
     window = _mainWindowCreate()
     qtbot.addWidget(window)
 
@@ -51,6 +52,7 @@ def testManagementWindowIsOwnedAndClosedByMainWindow(qtbot) -> None:  # type: ig
 
 
 def testManagementWindowClosesItsScreenshotViewers(qtbot) -> None:  # type: ignore[no-untyped-def]
+
     database = Mock()
     database.tacticRecords.return_value = []
     database.squadRecords.return_value = []
@@ -65,6 +67,7 @@ def testManagementWindowClosesItsScreenshotViewers(qtbot) -> None:  # type: igno
 
 
 def testSuccessfulDeletionUsesStatusMessageWithoutCompletionDialog(
+
     qtbot, monkeypatch
 ) -> None:  # type: ignore[no-untyped-def]
     database = Mock()
@@ -90,6 +93,7 @@ def testSuccessfulDeletionUsesStatusMessageWithoutCompletionDialog(
 
 
 def testTacticTableUsesWideColumnsAndLargeFormationRows(qtbot) -> None:  # type: ignore[no-untyped-def]
+
     database = Mock()
     tactic = Mock()
     tactic.name = "High Press"
@@ -108,6 +112,7 @@ def testTacticTableUsesWideColumnsAndLargeFormationRows(qtbot) -> None:  # type:
 
 
 def testTacticSelectionControlsUpdateChecksCountAndDeleteState(qtbot) -> None:  # type: ignore[no-untyped-def]
+
     database = Mock()
     database.tacticRecords.return_value = [
         SimpleNamespace(name="High Press", formationImage=None, captureCount=3),
@@ -143,6 +148,7 @@ def testTacticSelectionControlsUpdateChecksCountAndDeleteState(qtbot) -> None:  
 
 
 def testTacticDeletionCannotStartWithoutSelection(qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+
     database = Mock()
     database.tacticRecords.return_value = []
     database.squadRecords.return_value = []
@@ -158,6 +164,7 @@ def testTacticDeletionCannotStartWithoutSelection(qtbot, monkeypatch) -> None:  
 
 
 def testCancellingTacticDeletionChangesNothing(qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+
     database = Mock()
     database.tacticRecords.return_value = []
     database.squadRecords.return_value = []
@@ -177,6 +184,7 @@ def testCancellingTacticDeletionChangesNothing(qtbot, monkeypatch) -> None:  # t
 
 
 def testConfirmedTacticDeletionRemovesManagedImageFile(
+
     qtbot, tmp_path, monkeypatch
 ) -> None:  # type: ignore[no-untyped-def]
     imagePath = tmp_path / "formation.png"
@@ -205,6 +213,7 @@ def testConfirmedTacticDeletionRemovesManagedImageFile(
 
 
 def testMainDataChangeRefreshesOpenTacticEditor(qtbot) -> None:  # type: ignore[no-untyped-def]
+
     window = _mainWindowCreate()
     qtbot.addWidget(window)
     window.managementShow("Tactics")
@@ -218,6 +227,7 @@ def testMainDataChangeRefreshesOpenTacticEditor(qtbot) -> None:  # type: ignore[
 
 
 def testSquadListUsesOneQuarterOfAvailableTableSpace(qtbot) -> None:  # type: ignore[no-untyped-def]
+
     database = Mock()
     database.tacticRecords.return_value = []
     database.squadRecords.return_value = []
@@ -230,6 +240,7 @@ def testSquadListUsesOneQuarterOfAvailableTableSpace(qtbot) -> None:  # type: ig
 
 
 def testSquadManagementTablesUseFullPaneWidth(qtbot) -> None:  # type: ignore[no-untyped-def]
+
     database = Mock()
     database.tacticRecords.return_value = []
     database.squadRecords.return_value = []
@@ -249,6 +260,7 @@ def testSquadManagementTablesUseFullPaneWidth(qtbot) -> None:  # type: ignore[no
 
 
 def testCleanSelectedSquadRunsPersistedCleanup(qtbot) -> None:  # type: ignore[no-untyped-def]
+
     database = Mock()
     database.tacticRecords.return_value = []
     squad = SimpleNamespace(name="First Team", captureCount=4, playerCount=81)
@@ -285,6 +297,7 @@ def testCleanSelectedSquadRunsPersistedCleanup(qtbot) -> None:  # type: ignore[n
 
 
 def testSquadReviewShowsOnlyCollectedAttributeColumns(qtbot) -> None:  # type: ignore[no-untyped-def]
+
     attributes = (
         AttributeDefinition("passing", "Pas", 1),
         AttributeDefinition("vision", "Vis", 2),
@@ -319,6 +332,7 @@ def testSquadReviewShowsOnlyCollectedAttributeColumns(qtbot) -> None:  # type: i
 
 
 def testSquadReviewPopulationDoesNotEmitPartialRowChanges(qtbot) -> None:  # type: ignore[no-untyped-def]
+
     attributes = (AttributeDefinition("passing", "Pas", 1),)
     window = MainWindow(Mock(), Mock(), attributes, PlayerValidator(), Mock(), Mock())
     qtbot.addWidget(window)
@@ -339,6 +353,7 @@ def testSquadReviewPopulationDoesNotEmitPartialRowChanges(qtbot) -> None:  # typ
 
 
 def testManualCorrectionImmediatelyClearsBlockingRowHighlight(qtbot) -> None:  # type: ignore[no-untyped-def]
+
     window = MainWindow(Mock(), Mock(), (), PlayerValidator(), Mock(), Mock())
     qtbot.addWidget(window)
     result = ImportResult(
@@ -357,6 +372,7 @@ def testManualCorrectionImmediatelyClearsBlockingRowHighlight(qtbot) -> None:  #
 
 
 def testAttributeViewTransitionOffersBackButton(qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+
     window = _mainWindowCreate()
     qtbot.addWidget(window)
     labels: list[str] = []
@@ -378,6 +394,7 @@ def testAttributeViewTransitionOffersBackButton(qtbot, monkeypatch) -> None:  # 
 
 
 def testAdaptiveSquadCaptureUsesGenericChoices(qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+
     window = _mainWindowCreate()
     qtbot.addWidget(window)
     labels: list[str] = []
@@ -397,6 +414,7 @@ def testAdaptiveSquadCaptureUsesGenericChoices(qtbot, monkeypatch) -> None:  # t
 
 
 def testEmptyClipboardPromptsForScreenshotInsteadOfFile(qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+
     window = _mainWindowCreate()
     qtbot.addWidget(window)
     clipboard = Mock()
@@ -419,6 +437,7 @@ def testEmptyClipboardPromptsForScreenshotInsteadOfFile(qtbot, monkeypatch) -> N
 
 
 def testMissingPlayerRowsPromptsForImmediateRetake(qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+
     importService = Mock()
     imported = ImportResult(
         "clipboard",
@@ -454,6 +473,7 @@ def testMissingPlayerRowsPromptsForImmediateRetake(qtbot, monkeypatch) -> None: 
 
 
 def testExistingSquadIsDefaultImportChoice(qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+
     window = _mainWindowCreate()
     qtbot.addWidget(window)
     window.database.squadsList.return_value = ["bcafc", "Under 21s"]
@@ -474,6 +494,7 @@ def testExistingSquadIsDefaultImportChoice(qtbot, monkeypatch) -> None:  # type:
 
 
 def testExistingSquadImportAppendsAfterStoredPlayers(qtbot) -> None:  # type: ignore[no-untyped-def]
+
     window = _mainWindowCreate()
     qtbot.addWidget(window)
     window.database.squadsList.return_value = ["bcafc"]
@@ -488,6 +509,7 @@ def testExistingSquadImportAppendsAfterStoredPlayers(qtbot) -> None:  # type: ig
 
 
 def testNewSquadCapturesClubInformationWithoutOcr(qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+
     window = _mainWindowCreate()
     qtbot.addWidget(window)
     image = QImage(20, 20, QImage.Format.Format_RGB32)

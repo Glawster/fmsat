@@ -18,6 +18,7 @@ from fmsat.database import (
 
 
 def testConfirmedImportIsSavedAtomically(tmp_path) -> None:
+
     database = Database(tmp_path / "test.sqlite3")
     database.initialize()
     extracted = ExtractedPlayer(
@@ -48,6 +49,7 @@ def testConfirmedImportIsSavedAtomically(tmp_path) -> None:
 
 
 def testUpdatedScreenshotReusesTacticAndKeepsImportHistory(tmp_path) -> None:
+
     database = Database(tmp_path / "test.sqlite3")
     database.initialize()
     player = ExtractedPlayer("Jo Example", "D (C)", "3", "4", {}, 0.98)
@@ -61,6 +63,7 @@ def testUpdatedScreenshotReusesTacticAndKeepsImportHistory(tmp_path) -> None:
 
 
 def testThreeTacticScreensAreStoredWithoutPlayerRows(tmp_path) -> None:
+
     database = Database(tmp_path / "test.sqlite3")
     database.initialize()
 
@@ -84,6 +87,7 @@ def testThreeTacticScreensAreStoredWithoutPlayerRows(tmp_path) -> None:
 
 
 def testSquadImportIsIndependentFromTactics(tmp_path) -> None:
+
     database = Database(tmp_path / "test.sqlite3")
     database.initialize()
     player = ExtractedPlayer("Jo Example", "D (C)", "3", "4", {}, 0.98)
@@ -105,6 +109,7 @@ def testSquadImportIsIndependentFromTactics(tmp_path) -> None:
 
 
 def testPlayerNamesForSquadDoNotIncludeOtherSquads(tmp_path) -> None:
+
     database = Database(tmp_path / "test.sqlite3")
     database.initialize()
     database.squadImportSave(
@@ -124,6 +129,7 @@ def testPlayerNamesForSquadDoNotIncludeOtherSquads(tmp_path) -> None:
 
 
 def testPairedSquadImportPreservesBothCapturesAndOnePlayerSnapshot(tmp_path) -> None:
+
     database = Database(tmp_path / "test.sqlite3")
     database.initialize()
     player = ExtractedPlayer("Jo Example", "D (C)", "3", "4", {"passing": 12}, 0.98)
@@ -141,6 +147,7 @@ def testPairedSquadImportPreservesBothCapturesAndOnePlayerSnapshot(tmp_path) -> 
 
 
 def testSquadCaptureBatchPreservesEveryPageAndOnePlayerSnapshot(tmp_path) -> None:
+
     database = Database(tmp_path / "test.sqlite3")
     database.initialize()
     player = ExtractedPlayer("Jo Example", "D (C)", "3", "4", {"passing": 12}, 0.98)
@@ -157,6 +164,7 @@ def testSquadCaptureBatchPreservesEveryPageAndOnePlayerSnapshot(tmp_path) -> Non
 
 
 def testSquadCaptureBatchAllowsOneScreenshotAppend(tmp_path) -> None:
+
     database = Database(tmp_path / "test.sqlite3")
     database.initialize()
     player = ExtractedPlayer("Jo Example", "D (C)", "3", "4", {"passing": 12}, 0.98)
@@ -174,6 +182,7 @@ def testSquadCaptureBatchAllowsOneScreenshotAppend(tmp_path) -> None:
 
 
 def testStoredSquadCleanupCorrectsAndMergesExactIdentityDuplicates(tmp_path) -> None:
+
     database = Database(tmp_path / "test.sqlite3")
     database.initialize()
     database.squadImportSave(
@@ -206,6 +215,7 @@ def testStoredSquadCleanupCorrectsAndMergesExactIdentityDuplicates(tmp_path) -> 
 
 
 def testStoredSquadCleanupRetainsAmbiguousSameNamePlayers(tmp_path) -> None:
+
     database = Database(tmp_path / "test.sqlite3")
     database.initialize()
     database.squadImportSave(
@@ -227,6 +237,7 @@ def testStoredSquadCleanupRetainsAmbiguousSameNamePlayers(tmp_path) -> None:
 
 
 def testStoredSquadCleanupResolvesAndRemovesCompositeOcrRows(tmp_path) -> None:
+
     database = Database(tmp_path / "test.sqlite3")
     database.initialize()
     trusted = [
@@ -289,6 +300,7 @@ def testStoredSquadCleanupResolvesAndRemovesCompositeOcrRows(tmp_path) -> None:
 
 
 def testTacticCanBeAppliedToSquadWithoutChangingOwnership(tmp_path) -> None:
+
     database = Database(tmp_path / "test.sqlite3")
     database.initialize()
     player = ExtractedPlayer("Jo Example", "D (C)", "3", "4", {}, 0.98)
@@ -308,6 +320,7 @@ def testTacticCanBeAppliedToSquadWithoutChangingOwnership(tmp_path) -> None:
 
 
 def testManagementRecordsIncludeScreenshotProvenance(tmp_path) -> None:
+
     database = Database(tmp_path / "test.sqlite3")
     database.initialize()
     player = ExtractedPlayer("Jo Example", "D (C)", "3", "4", {}, 0.98)
@@ -334,6 +347,7 @@ def testManagementRecordsIncludeScreenshotProvenance(tmp_path) -> None:
 
 
 def testDeletingTacticRemovesOwnedImportsButLeavesSquad(tmp_path) -> None:
+
     database = Database(tmp_path / "test.sqlite3")
     database.initialize()
     player = ExtractedPlayer("Jo Example", "D (C)", "3", "4", {}, 0.98)
@@ -355,6 +369,7 @@ def testDeletingTacticRemovesOwnedImportsButLeavesSquad(tmp_path) -> None:
 
 
 def testBulkDeletingTacticsLeavesUncheckedTacticSquadAndRelationship(tmp_path) -> None:
+
     database = Database(tmp_path / "test.sqlite3")
     database.initialize()
     player = ExtractedPlayer("Jo Example", "D (C)", "3", "4", {}, 0.98)
@@ -382,6 +397,7 @@ def testBulkDeletingTacticsLeavesUncheckedTacticSquadAndRelationship(tmp_path) -
 
 
 def testFormationImagePersistsAcrossDatabaseRestart(tmp_path) -> None:
+
     databasePath = tmp_path / "test.sqlite3"
     firstDatabase = Database(databasePath)
     firstDatabase.initialize()
@@ -401,6 +417,7 @@ def testFormationImagePersistsAcrossDatabaseRestart(tmp_path) -> None:
 
 
 def testDeletingSquadRemovesOwnedPlayersButLeavesTactic(tmp_path) -> None:
+
     database = Database(tmp_path / "test.sqlite3")
     database.initialize()
     player = ExtractedPlayer("Jo Example", "D (C)", "3", "4", {}, 0.98)
