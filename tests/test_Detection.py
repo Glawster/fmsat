@@ -10,6 +10,7 @@ from fmsat.tests.conftest import FakeOcr
 
 
 def testDetectsSquadAttributesFromConfiguredKeywords() -> None:
+
     detector = KeywordScreenDetector(
         FakeOcr([[OcrResult("Squad Attributes", 0.99), OcrResult("Name", 0.98)]]),
         ["Squad", "Attributes", "Name", "Position"],
@@ -19,6 +20,7 @@ def testDetectsSquadAttributesFromConfiguredKeywords() -> None:
 
 
 def testDetectsCroppedSquadTableFromStableColumnHeaders() -> None:
+
     detector = KeywordScreenDetector(
         FakeOcr([[OcrResult("Position CA PA", 0.99)]]),
         ["Squad", "Attributes", "Name", "Position", "CA", "PA"],
@@ -28,6 +30,7 @@ def testDetectsCroppedSquadTableFromStableColumnHeaders() -> None:
 
 
 def testUnknownWhenKeywordEvidenceIsInsufficient() -> None:
+
     detector = KeywordScreenDetector(
         FakeOcr([[OcrResult("Tactics", 0.99)]]),
         ["Squad", "Attributes", "Name", "Position"],
@@ -37,6 +40,7 @@ def testUnknownWhenKeywordEvidenceIsInsufficient() -> None:
 
 
 def testDetectionAreaIncludesTheFirstTeamInstructionsRow() -> None:
+
     ocr = Mock()
     ocr.recognize.return_value = []
     detector = KeywordScreenDetector(ocr, ["Squad", "Attributes", "Name", "Position"])
@@ -47,6 +51,7 @@ def testDetectionAreaIncludesTheFirstTeamInstructionsRow() -> None:
 
 
 def testDetectsConfiguredTacticScreenTypes() -> None:
+
     detector = KeywordScreenDetector(
         FakeOcr([[OcrResult("Tactics In Possession Passing", 0.99)]]),
         {
@@ -62,6 +67,7 @@ def testDetectsConfiguredTacticScreenTypes() -> None:
 
 
 def testTacticsPlannerBothViewIsDetectedAsFormation() -> None:
+
     detector = KeywordScreenDetector(
         FakeOcr(
             [
@@ -85,6 +91,7 @@ def testTacticsPlannerBothViewIsDetectedAsFormation() -> None:
 
 
 def testTacticsPlannerFormationWinsWhenOcrMissesSomeOverviewLabels() -> None:
+
     detector = KeywordScreenDetector(
         FakeOcr(
             [
@@ -107,6 +114,7 @@ def testTacticsPlannerFormationWinsWhenOcrMissesSomeOverviewLabels() -> None:
 
 
 def testInPossessionInstructionsOverrideDimmedPlannerBackground() -> None:
+
     detector = KeywordScreenDetector(
         FakeOcr(
             [
@@ -144,6 +152,7 @@ def testInPossessionInstructionsOverrideDimmedPlannerBackground() -> None:
 
 
 def testOutOfPossessionInstructionsOverrideDimmedInPossessionBackground() -> None:
+
     detector = KeywordScreenDetector(
         FakeOcr(
             [

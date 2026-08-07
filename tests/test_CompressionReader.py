@@ -4,6 +4,7 @@ from fmsat.compression import compressionProbe
 
 
 def testProbeCompressionReportsSuccess() -> None:
+
     payload = zlib.compress(b"football manager tactic")
 
     attempts = compressionProbe(payload)

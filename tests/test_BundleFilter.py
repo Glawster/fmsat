@@ -15,6 +15,7 @@ def _assetCreate(path_id: int, name: str, asset_type: str, container: str) -> As
 
 
 def testAssetsFilterMatchesNameTypeContainerAndPathId() -> None:
+
     assets = (
         _assetCreate(10, "PlayerPanel", "VisualTreeAsset", "ui/player.uxml"),
         _assetCreate(20, "ClubLogo", "Texture2D", "ui/images/club.png"),
@@ -27,9 +28,10 @@ def testAssetsFilterMatchesNameTypeContainerAndPathId() -> None:
 
 
 def testAssetsFilterAppliesTypeFilter() -> None:
+
     assets = (
         _assetCreate(10, "PlayerPanel", "VisualTreeAsset", "ui/player.uxml"),
         _assetCreate(20, "PlayerIcon", "Texture2D", "ui/player.png"),
     )
 
-    assert assetsFilter(assets, text="player", asset_type="VisualTree") == (assets[0],)
+    assert assetsFilter(assets, text="player", assetType="VisualTree") == (assets[0],)

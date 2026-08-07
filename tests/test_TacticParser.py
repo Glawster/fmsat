@@ -9,6 +9,7 @@ from fmsat.tests.conftest import FakeOcr
 
 
 def testTacticNameIsReadFromConfiguredRegion() -> None:
+
     parser = TacticParser(
         FakeOcr([[OcrResult(" .- 3-3-3-1", 0.98), OcrResult("High Press", 0.96)]]),
         {"tactic": {"name": {"x": 0.1, "y": 0.2, "width": 0.4, "height": 0.1}}},
@@ -21,6 +22,7 @@ def testTacticNameIsReadFromConfiguredRegion() -> None:
 
 
 def testEmptyTacticNameIsRejected() -> None:
+
     parser = TacticParser(
         FakeOcr([[]]),
         {"tactic": {"name": {"x": 0, "y": 0, "width": 1, "height": 1}}},
@@ -31,6 +33,7 @@ def testEmptyTacticNameIsRejected() -> None:
 
 
 def testConfiguredTacticNameRegionCropsThePlannerSelector() -> None:
+
     image = np.zeros((1004, 2048, 3), dtype=np.uint8)
     region = Configuration().regions["tactic"]["name"]
 

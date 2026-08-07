@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSignalBlocker, Qt, Signal
 from PySide6.QtGui import QAction, QCloseEvent, QIcon, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -76,6 +76,8 @@ class ManagementWindow(QMainWindow):
         except DatabaseError as exc:
             QMessageBox.critical(self, "Database error", str(exc))
             return
+        tacticSignalBlocker = QSignalBlocker(self.tacticTable)
+        squadSignalBlocker = QSignalBlocker(self.squadTable)
         self.tacticTable.setRowCount(len(tacticRecords))
         for row, record in enumerate(tacticRecords):
             selected = QTableWidgetItem()
@@ -110,6 +112,8 @@ class ManagementWindow(QMainWindow):
             self.squadTable.setItem(row, 1, QTableWidgetItem(record.name))
             self.squadTable.setItem(row, 2, QTableWidgetItem(str(record.captureCount)))
             self.squadTable.setItem(row, 3, QTableWidgetItem(str(record.playerCount)))
+        del tacticSignalBlocker
+        del squadSignalBlocker
         self.playerTable.setRowCount(0)
         if selectedSquad is not None:
             for row in range(self.squadTable.rowCount()):

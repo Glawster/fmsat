@@ -5,6 +5,7 @@ from fmsat.cli import main
 
 
 def testCliNoArgumentsShowsHelp(capsys) -> None:  # type: ignore[no-untyped-def]
+
     assert main([]) == 2
     output = capsys.readouterr().out
 
@@ -13,6 +14,7 @@ def testCliNoArgumentsShowsHelp(capsys) -> None:  # type: ignore[no-untyped-def]
 
 
 def testCliTacticPathCanBeStoredAsDefault(
+
     tmp_path: Path,
     monkeypatch,  # type: ignore[no-untyped-def]
     capsys,  # type: ignore[no-untyped-def]
@@ -30,6 +32,7 @@ def testCliTacticPathCanBeStoredAsDefault(
 
 
 def testCliInspectUsesConfiguredTactic(
+
     tmp_path: Path,
     monkeypatch,  # type: ignore[no-untyped-def]
     capsys,  # type: ignore[no-untyped-def]
@@ -48,6 +51,7 @@ def testCliInspectUsesConfiguredTactic(
 
 
 def testCliSaveStoresTacticWhileRunningAction(
+
     tmp_path: Path,
     monkeypatch,  # type: ignore[no-untyped-def]
     capsys,  # type: ignore[no-untyped-def]
@@ -65,6 +69,7 @@ def testCliSaveStoresTacticWhileRunningAction(
 
 
 def testCliCompareUsesFlagLedWorkflow(tmp_path: Path, capsys) -> None:  # type: ignore[no-untyped-def]
+
     old = tmp_path / "old.fmf"
     new = tmp_path / "new.fmf"
     old.write_bytes(b"abc")
@@ -79,6 +84,7 @@ def testCliCompareUsesFlagLedWorkflow(tmp_path: Path, capsys) -> None:  # type: 
 
 
 def testCliRejectsMixedTacticAndUnityModes(
+
     tmp_path: Path,
     capsys,  # type: ignore[no-untyped-def]
 ) -> None:

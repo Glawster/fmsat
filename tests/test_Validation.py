@@ -8,6 +8,7 @@ from fmsat.core.validation import player as playerValidation
 
 
 def testLowConfidenceRowIsReported() -> None:
+
     player = ExtractedPlayer("Alex Example", "DM", "3", "4", {"passing": 15}, 0.94)
 
     issues = PlayerValidator(0.95).validate(player)
@@ -16,6 +17,7 @@ def testLowConfidenceRowIsReported() -> None:
 
 
 def testMissingNameAndInvalidAttributeAreReported() -> None:
+
     player = ExtractedPlayer("", "DM", "", "", {"passing": 21}, 1.0)
 
     issues = PlayerValidator().validate(player)
@@ -25,6 +27,7 @@ def testMissingNameAndInvalidAttributeAreReported() -> None:
 
 
 def testSafeOcrCorrectionsAreAppliedAndLogged(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+
     auditLogger = Mock()
     monkeypatch.setattr(playerValidation, "logger", auditLogger)
     players = [
@@ -54,6 +57,7 @@ def testSafeOcrCorrectionsAreAppliedAndLogged(monkeypatch) -> None:  # type: ign
 
 
 def testRepeatedIconContaminatedNameIsCorrected() -> None:
+
     player = ExtractedPlayer(
         "Oe Ethan Wheatley Qe Ethan Wheatley",
         "AM (RL), ST (C)",
@@ -69,6 +73,7 @@ def testRepeatedIconContaminatedNameIsCorrected() -> None:
 
 
 def testMalformedAndDuplicateRowsAreBlocking() -> None:
+
     players = [
         ExtractedPlayer("Max Power", "DM, M (C)", "114", "130", {}, 0.98),
         ExtractedPlayer("Max Power", "DM, M (C)", "114", "130", {}, 0.98),
@@ -91,6 +96,7 @@ def testMalformedAndDuplicateRowsAreBlocking() -> None:
 
 
 def testMissingDataReportIdentifiesAffectedPlayers() -> None:
+
     players = [
         ExtractedPlayer("Max Power", "DM", "114", "130", {"passing": None}, 0.98),
         ExtractedPlayer("Joe Wright", "D (C)", "112", "118", {"passing": 12}, 0.98),
@@ -103,6 +109,7 @@ def testMissingDataReportIdentifiesAffectedPlayers() -> None:
 
 
 def testExactDuplicateRowsMergeComplementaryAttributes() -> None:
+
     players = [
         ExtractedPlayer("Max Power", "DM", "114", "130", {"passing": 15}, 0.96),
         ExtractedPlayer("Max Power", "DM", "114", "130", {"vision": 16}, 0.99),
@@ -117,6 +124,7 @@ def testExactDuplicateRowsMergeComplementaryAttributes() -> None:
 
 
 def testObviousNameAndAbilityOcrArtifactsAreCorrected() -> None:
+
     player = ExtractedPlayer(
         "De Thomas cissa",
         "D (C)",
@@ -133,6 +141,7 @@ def testObviousNameAndAbilityOcrArtifactsAreCorrected() -> None:
 
 
 def testDuplicatedAbilityUsesFinalValueOnlyForSimplePlayerName() -> None:
+
     simple = ExtractedPlayer(
         "Stephen Humphrys", "AM (RLC), ST (C)", "109", "130 120", {}, 0.98
     )
@@ -153,6 +162,7 @@ def testDuplicatedAbilityUsesFinalValueOnlyForSimplePlayerName() -> None:
 
 
 def testPlayerNamesAllowOneToThreeWordsButRejectMergedRows() -> None:
+
     validator = PlayerValidator()
 
     for name in ("Priscila", "Lauren Hemp", "Laura Blindkilde Brown"):
@@ -173,6 +183,7 @@ def testPlayerNamesAllowOneToThreeWordsButRejectMergedRows() -> None:
 
 
 def testSplitMcSurnameAndPositionSeparatorAreCorrected() -> None:
+
     player = ExtractedPlayer(
         "Libbi Mc Innes", "M (RL). AM (LC)", "150", "159", {}, 0.98
     )

@@ -21,6 +21,7 @@ def _labelTexts(view: WelcomeView) -> list[str]:
 
 
 def testWelcomeViewEmptyDatabase(qtbot) -> None:  # type: ignore[no-untyped-def]
+
     window = _mainWindowCreate()
     qtbot.addWidget(window)
 
@@ -31,6 +32,7 @@ def testWelcomeViewEmptyDatabase(qtbot) -> None:  # type: ignore[no-untyped-def]
 
 
 def testWorkspaceImportButtonsAreEqualProminentActions(qtbot) -> None:  # type: ignore[no-untyped-def]
+
     window = _mainWindowCreate()
     qtbot.addWidget(window)
 
@@ -46,6 +48,7 @@ def testWorkspaceImportButtonsAreEqualProminentActions(qtbot) -> None:  # type: 
 
 
 def testMainMenuBarIsAvailableWithFileAndViewMenus(qtbot) -> None:  # type: ignore[no-untyped-def]
+
     window = _mainWindowCreate()
     qtbot.addWidget(window)
 
@@ -53,6 +56,7 @@ def testMainMenuBarIsAvailableWithFileAndViewMenus(qtbot) -> None:  # type: igno
 
 
 def testWelcomeViewPopulated(qtbot) -> None:  # type: ignore[no-untyped-def]
+
     database = Mock()
     database.tacticRecords.return_value = [
         SimpleNamespace(name="High Press", captureCount=3, formationImage=None)
@@ -72,6 +76,7 @@ def testWelcomeViewPopulated(qtbot) -> None:  # type: ignore[no-untyped-def]
 
 
 def testWelcomeViewRefreshesFromService(qtbot) -> None:  # type: ignore[no-untyped-def]
+
     database = Mock()
     database.tacticRecords.side_effect = [
         [],

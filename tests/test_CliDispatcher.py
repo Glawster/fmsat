@@ -4,6 +4,7 @@ from fmsat.cli import main
 
 
 def testCliHex(tmp_path: Path, capsys) -> None:  # type: ignore[no-untyped-def]
+
     sample = tmp_path / "sample.fmf"
     sample.write_bytes(b"abcdef")
 

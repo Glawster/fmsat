@@ -8,6 +8,7 @@ from fmsat.core.ocr import PaddleOcrEngine
 
 
 def testPaddleAdapterPreservesRecognizedTextBounds() -> None:
+
     engine = Mock()
     engine.ocr.return_value = [
         [
