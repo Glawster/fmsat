@@ -1,0 +1,24 @@
+- id: false_nine
+  name: False Nine
+  abbreviation: F9
+
+  description: >
+    Withdraws from the forward line to link midfield and attack,
+    creating space for runners beyond.
+
+  movement:
+    vertical: drops
+    width: central
+
+  primary_functions:
+    - Link Play
+    - Create Space
+
+  attack_focus:
+    finishing: low
+    creativity: high
+    movement: high
+
+  behaviour:
+    - Moves Back to AMC
+    - Links Play

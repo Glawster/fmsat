@@ -2,7 +2,7 @@
 
 ## Status
 
-Backlog
+In Progress
 
 ## Objective
 
@@ -86,6 +86,22 @@ from those fixtures.
 10. Retain unmatched phase slots and create an issue when a cross-phase link is
     uncertain; never silently manufacture a match.
 
+## Role knowledge gaps
+
+1. After extracting and normalizing formation roles, compare every detected
+   role and position pairing with the validated role knowledge base defined by
+   requirement 010.
+2. Represent a missing role definition as an explicit knowledge gap attached to
+   the relevant tactic slot; do not discard the slot or invent role semantics.
+3. Prompt the user for a Football Manager role-profile screenshot for each
+   distinct missing role and position pairing, without requesting the same
+   evidence once per duplicated tactic slot.
+4. Tell the role-profile workflow which position, role name and abbreviation
+   were observed on the tactic screen so it can validate the submitted evidence.
+5. A missing role definition may be saved in a structured tactic draft but must
+   remain visible as an unresolved issue until the definition is supplied or the
+   detected role is corrected.
+
 ## Team-instruction extraction
 
 1. Parse the labelled cards in the In Possession and Out of Possession screens.
@@ -124,6 +140,8 @@ from those fixtures.
 9. Provide **Save Draft** and **Confirm Structured Tactic** actions.
 10. Allow incomplete drafts to be saved. Block confirmation for serious
     unresolved errors and require acknowledgement for permitted warnings.
+11. Provide a direct action from each missing-role issue to submit and review a
+    role-profile screenshot as defined by requirement 010.
 
 ## Validation
 
@@ -189,6 +207,9 @@ warning or information. At minimum validate:
 12. Ruff, Black and the complete applicable automated test suite pass.
 13. User and architecture documentation accurately describe the delivered
     workflow, schema upgrade, configuration, limitations and future consumers.
+14. A tactic containing a role absent from the knowledge base prompts once for
+    suitable evidence and can resolve the issue after a verified role profile is
+    confirmed.
 
 ## Out of scope
 

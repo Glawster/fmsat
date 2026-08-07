@@ -1,0 +1,90 @@
+position:
+  id: AMC
+  name: Attacking Midfielder (Centre)
+
+roles:
+
+  - id: attacking_midfielder
+    name: Attacking Midfielder
+    abbreviation: AM
+    family: Attacking Midfielder
+
+    behaviour:
+      - Finds Space Between Lines
+      - Goal Threat
+
+    tactical_tags:
+      goal_threat: true
+      creative_threat: false
+      expressive: false
+      finds_space_between_lines: true
+      moves_to_st: false
+      runs_into_channels: false
+
+  - id: advanced_playmaker
+    name: Advanced Playmaker
+    abbreviation: AP
+    family: Attacking Midfielder
+
+    behaviour:
+      - Finds Space Between Lines
+      - Expressive
+
+    tactical_tags:
+      goal_threat: false
+      creative_threat: true
+      expressive: true
+      finds_space_between_lines: true
+      moves_to_st: false
+      runs_into_channels: false
+
+  - id: free_role
+    name: Free Role
+    abbreviation: FR
+    family: Attacking Midfielder
+
+    behaviour:
+      - Expressive
+      - Creative Threat
+
+    tactical_tags:
+      goal_threat: false
+      creative_threat: true
+      expressive: true
+      finds_space_between_lines: false
+      moves_to_st: false
+      runs_into_channels: false
+
+  - id: second_striker
+    name: Second Striker
+    abbreviation: SS
+    family: Attacking Midfielder
+
+    behaviour:
+      - Moves Up to ST
+      - Goal Threat
+
+    tactical_tags:
+      goal_threat: true
+      creative_threat: false
+      expressive: false
+      finds_space_between_lines: false
+      moves_to_st: true
+      runs_into_channels: false
+
+  - id: channel_midfielder
+    name: Channel Midfielder
+    abbreviation: ChM
+    family: Attacking Midfielder
+
+    behaviour:
+      - Runs Into Channels
+      - Creative Threat
+
+    tactical_tags:
+      goal_threat: false
+      creative_threat: true
+      expressive: false
+      finds_space_between_lines: false
+      moves_to_st: false
+      runs_into_channels: true
