@@ -74,7 +74,7 @@ roles:
 
   - id: channel_midfielder
     name: Channel Midfielder
-    abbreviation: ChM
+    abbreviation: CHM
     family: Attacking Midfielder
 
     behaviour:

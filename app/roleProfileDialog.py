@@ -44,7 +44,8 @@ class RoleProfileReviewDialog(QDialog):
         self.setWindowTitle("Review Role Profile")
         self.resize(620, 560)
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel(f"Expected: {expectedPosition} / {expectedRole}"))
+        expectedRoleLabel = expectedRole or "New role"
+        layout.addWidget(QLabel(f"Expected: {expectedPosition} / {expectedRoleLabel}"))
         phase = evidence.phase.value if evidence.phase is not None else "Unresolved"
         layout.addWidget(QLabel(f"Detected phase: {phase}"))
         form = QFormLayout()

@@ -30,7 +30,7 @@ positions:
   AMCL: [left central attacking midfielder]
   AML: [left attacking midfielder]
   STCR: [right striker]
-  STC: [striker, centre forward]
+  STC: [striker, centre forward, st (c), st(c)]
   STCL: [left striker]
 
 roles:
@@ -132,7 +132,7 @@ roles:
     duties: [SUPPORT, ATTACK]
   channelForward:
     displayName: Channel Forward
-    abbreviations: [ChF]
+    abbreviations: [CHF]
     aliases: [channel forward]
     positions: [STCR, STC, STCL]
     duties: [SUPPORT, ATTACK]

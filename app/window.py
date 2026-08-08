@@ -469,14 +469,13 @@ class MainWindow(QMainWindow):
             self.tacticVocabulary.roles.values(),
             key=lambda role: (
                 self.roleKnowledgeService.definitionExists(role.code),
-                role.displayName.casefold(),
+                WelcomeService.roleSortKey(role),
             ),
         )
-        roleLabels = {}
+        roleLabels = {"New role…": None}
         for role in roleEntries:
-            state = "Known" if self.roleKnowledgeService.definitionExists(role.code) else "Missing"
             abbreviation = role.abbreviations[0] if role.abbreviations else role.code
-            roleLabels[f"{state} · {role.displayName} ({abbreviation})"] = role
+            roleLabels[f"{role.displayName} ({abbreviation})"] = role
         selected, accepted = QInputDialog.getItem(
             self,
             "Expected role",
@@ -488,12 +487,22 @@ class MainWindow(QMainWindow):
         if not accepted:
             return
         role = roleLabels[selected]
-        replaceExisting = self.roleKnowledgeService.definitionExists(role.code)
+        replaceExisting = (
+            self.roleKnowledgeService.definitionExists(role.code) if role is not None else False
+        )
+        positions = (
+            list(role.positions)
+            if role is not None
+            else sorted(
+                set(self.tacticVocabulary.positions.values()),
+                key=WelcomeService.positionSortKey,
+            )
+        )
         position, accepted = QInputDialog.getItem(
             self,
             "Expected position",
             "Choose the position shown in Football Manager:",
-            list(role.positions),
+            positions,
             0,
             False,
         )
@@ -502,8 +511,10 @@ class MainWindow(QMainWindow):
         result = self._screenshotAcquire(ScreenType.ROLE_PROFILE, "Import Role")
         if result is None or result.roleProfile is None:
             return
+        expectedRole = role.code if role is not None else ""
+        storageName = role.code if role is not None else "newRole"
         try:
-            screenshotPath = self._screenshotPersist(result, "role", role.code)
+            screenshotPath = self._screenshotPersist(result, "role", storageName)
         except ScreenshotStoreError as exc:
             self._errorShow("Screenshot storage error", str(exc))
             return
@@ -511,7 +522,7 @@ class MainWindow(QMainWindow):
         dialog = RoleProfileReviewDialog(
             evidence,
             position,
-            role.code,
+            expectedRole,
             self.roleKnowledgeService,
             self,
             replaceExisting=replaceExisting,
@@ -523,6 +534,7 @@ class MainWindow(QMainWindow):
             f"Saved confirmed role definition: {dialog.savedPath}",
             10000,
         )
+        self.dataChanged.emit()
 
     def managementShow(self, tabName: str, recordName: str | None = None) -> None:
         """Open or refresh the non-modal tactic and squad management window."""

@@ -53,6 +53,7 @@ def testVocabularyNormalizesAliasesAndPreservesObservedText() -> None:
     assert position.value == "AML"
     assert duty.value == "ATTACK"
     assert instruction.value == "much higher"
+    assert vocabulary.positionNormalize("ST (C)").value == "STC"
 
 
 def testRoleAbbreviationNormalizesToStableNamedIdentity() -> None:
@@ -60,6 +61,7 @@ def testRoleAbbreviationNormalizesToStableNamedIdentity() -> None:
 
     assert vocabulary.roleNormalize("AP").value == "advancedPlaymaker"
     assert vocabulary.roleNormalize("Advanced Playmaker").value == "advancedPlaymaker"
+    assert vocabulary.roles["channelForward"].abbreviations == ("CHF",)
 
 
 def testUnknownVocabularyDoesNotInventMeaning() -> None:

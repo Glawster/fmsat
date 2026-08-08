@@ -70,7 +70,7 @@ roles:
 
   - id: channel_forward
     name: Channel Forward
-    abbreviation: ChF
+    abbreviation: CHF
 
     family: Striker
 

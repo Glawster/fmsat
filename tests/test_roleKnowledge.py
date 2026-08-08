@@ -125,6 +125,53 @@ def testConfirmedDefinitionExcludesPlayerValuesStarsAndWeights(tmp_path: Path) -
     assert "weights" not in content
 
 
+def testRoleAbbreviationIsStoredInUppercase(tmp_path: Path) -> None:
+    service = _serviceCreate(tmp_path)
+    evidence = RoleProfileEvidence(
+        position="ST (C)",
+        roleName="Channel Forward",
+        phase=TacticalPhase.IN_POSSESSION,
+        abbreviation="ChF",
+        keyAttributes=("passing",),
+    )
+
+    draft = service.evidenceVerify(evidence, "STC", "channelForward")
+    path = service.definitionConfirm(draft)
+    content = yaml.safe_load(path.read_text(encoding="utf-8"))
+
+    assert draft.abbreviations == ("CHF",)
+    assert content["abbreviations"] == ["CHF"]
+
+
+def testExistingRoleAbbreviationsAreNormalizedWhenReplaced(tmp_path: Path) -> None:
+    service = _serviceCreate(tmp_path)
+    path = tmp_path / "channelForward.yaml"
+    path.write_text(
+        yaml.safe_dump(
+            {
+                "id": "channelForward",
+                "displayName": "Channel Forward",
+                "inPossession": True,
+                "abbreviations": ["ChF"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    evidence = RoleProfileEvidence(
+        position="ST (C)",
+        roleName="Channel Forward",
+        phase=TacticalPhase.IN_POSSESSION,
+        abbreviation="CHF",
+        keyAttributes=("passing",),
+    )
+
+    draft = service.evidenceVerify(evidence, "STC", "channelForward")
+    service.definitionConfirm(draft, replace=True)
+    content = yaml.safe_load(path.read_text(encoding="utf-8"))
+
+    assert content["abbreviations"] == ["CHF"]
+
+
 def testExistingDefinitionRequiresExplicitReplacement(tmp_path: Path) -> None:
     service = _serviceCreate(tmp_path)
     draft = service.evidenceVerify(_advancedPlaymakerEvidence(), "MC", "advancedPlaymaker")

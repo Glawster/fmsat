@@ -103,7 +103,7 @@ class RoleKnowledgeService:
             )
         roleId = role.code if role is not None else self._identifier(evidence.roleName)
         abbreviations = (
-            (evidence.abbreviation,)
+            (evidence.abbreviation.upper(),)
             if evidence.abbreviation
             else role.abbreviations if role is not None else ()
         )
@@ -163,7 +163,9 @@ class RoleKnowledgeService:
             or bool(existing.get("inPossession", False)),
             "outOfPossession": draft.phase.value == "outOfPossession"
             or bool(existing.get("outOfPossession", False)),
-            "abbreviations": self._valuesMerge(existing.get("abbreviations"), draft.abbreviations),
+            "abbreviations": self._abbreviationsMerge(
+                existing.get("abbreviations"), draft.abbreviations
+            ),
             "positions": self._valuesMerge(existing.get("positions"), draft.positions),
             "description": draft.description or existing.get("description"),
             "behaviours": self._valuesMerge(existing.get("behaviours"), draft.behaviours),
@@ -183,6 +185,11 @@ class RoleKnowledgeService:
             temporaryPath.unlink(missing_ok=True)
             raise RoleKnowledgeError(f"Unable to save role definition {draft.id}: {exc}") from exc
         return path
+
+    @staticmethod
+    def _abbreviationsMerge(existing: object, added: tuple[str, ...]) -> list[str]:
+        values = RoleKnowledgeService._valuesMerge(existing, added)
+        return list(dict.fromkeys(value.upper() for value in values))
 
     @staticmethod
     def _valuesMerge(existing: object, added: tuple[str, ...]) -> list[str]:

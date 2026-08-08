@@ -144,7 +144,7 @@ class TacticVocabulary:
                 roles[str(code)] = RoleDefinition(
                     code=str(code),
                     displayName=str(values["displayName"]),
-                    abbreviations=tuple(str(item) for item in values["abbreviations"]),
+                    abbreviations=tuple(str(item).upper() for item in values["abbreviations"]),
                     aliases=tuple(str(item) for item in values.get("aliases", [])),
                     positions=tuple(str(item) for item in values["positions"]),
                     duties=tuple(str(item) for item in values["duties"]),

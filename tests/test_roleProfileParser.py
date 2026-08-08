@@ -79,3 +79,24 @@ def testRoleProfileParserRecognizesOutOfPossessionPhase() -> None:
     evidence = parser.parse(np.zeros((768, 1024, 3), dtype=np.uint8))
 
     assert evidence.phase.value == "outOfPossession"
+
+
+def testRoleProfileParserRecognizesCentralStrikerPosition() -> None:
+    results = [
+        _result("ST (C)", 100, 30),
+        _result("In Possession Role", 100, 50),
+        _result("Channel Forward", 720, 100),
+        _result("Role Ability", 620, 140),
+        _result("Key Attributes", 620, 180),
+        _result("Finishing", 620, 220),
+    ]
+    parser = RoleProfileParser(
+        FakeOcr([results], suppliesGeometry=True),
+        TacticVocabulary(),
+        (AttributeDefinition("finishing", "Fin", 1),),
+    )
+
+    evidence = parser.parse(np.zeros((768, 1024, 3), dtype=np.uint8))
+
+    assert evidence.position == "STC"
+    assert evidence.roleName == "Channel Forward"
