@@ -3,11 +3,20 @@
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from PySide6.QtWidgets import QLabel, QInputDialog, QTableWidget, QToolButton
+from PySide6.QtCore import Qt
+from PySide6.QtTest import QSignalSpy
+from PySide6.QtWidgets import (
+    QDialog,
+    QLabel,
+    QInputDialog,
+    QPushButton,
+    QTableWidget,
+    QToolButton,
+)
 
-from fmsat.app.welcomeView import WelcomeService, WelcomeView
+from fmsat.app.welcomeView import SummaryCard, WelcomeService, WelcomeView
 from fmsat.app.window import MainWindow
-from fmsat.core.parser import TacticVocabulary
+from fmsat.core.parser import RoleProfileEvidence, TacticalPhase, TacticVocabulary
 
 
 def _mainWindowCreate() -> MainWindow:
@@ -60,6 +69,113 @@ def testMainMenuBarIsAvailableWithFileAndViewMenus(qtbot) -> None:  # type: igno
     assert [action.text() for action in window.menuBar().actions()] == ["&File", "&View"]
 
 
+def testViewMenuIncludesRolesAndShowsWelcomeRolesPanel(qtbot) -> None:  # type: ignore[no-untyped-def]
+
+    window = _mainWindowCreate()
+    qtbot.addWidget(window)
+    menuActions = window.menuBar().actions()
+    viewMenu = menuActions[1].menu()
+    window.contentStack.setCurrentWidget(window.reviewWidget)
+
+    assert viewMenu is not None
+    assert [action.text() for action in viewMenu.actions()] == [
+        "Tactics",
+        "Squads",
+        "Roles",
+        "Players",
+        "Settings",
+    ]
+
+    window.rolesAction.trigger()
+
+    assert window.contentStack.currentWidget() is window.welcomeView
+
+
+def testConfirmedRoleCaptureRefreshesWelcomePanel(qtbot, monkeypatch, tmp_path) -> None:  # type: ignore[no-untyped-def]
+
+    database = Mock()
+    database.tacticRecords.return_value = []
+    database.squadRecords.return_value = []
+    roleKnowledge = Mock()
+    roleKnowledge.definitionExists.return_value = False
+    vocabulary = TacticVocabulary()
+    window = MainWindow(
+        Mock(),
+        database,
+        (),
+        Mock(),
+        Mock(),
+        Mock(),
+        roleKnowledge,
+        vocabulary,
+    )
+    qtbot.addWidget(window)
+    selections = iter((("Channel Forward (CHF)", True), ("STC", True)))
+    monkeypatch.setattr(QInputDialog, "getItem", lambda *args: next(selections))
+    evidence = RoleProfileEvidence(
+        position="ST (C)",
+        roleName="Channel Forward",
+        phase=TacticalPhase.IN_POSSESSION,
+        abbreviation="CHF",
+        keyAttributes=("finishing",),
+    )
+    monkeypatch.setattr(
+        window,
+        "_screenshotAcquire",
+        lambda *args: SimpleNamespace(roleProfile=evidence),
+    )
+    monkeypatch.setattr(window, "_screenshotPersist", lambda *args: tmp_path / "role.png")
+    dialog = Mock()
+    dialog.exec.return_value = QDialog.DialogCode.Accepted
+    dialog.savedPath = tmp_path / "channelForward.yaml"
+    monkeypatch.setattr("fmsat.app.window.RoleProfileReviewDialog", lambda *args, **kwargs: dialog)
+    changed = QSignalSpy(window.dataChanged)
+
+    window.roleProfileImport()
+
+    assert changed.count() == 1
+
+
+def testRoleSelectionLoadsCapturedDefinitionForEditing(qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+
+    database = Mock()
+    database.tacticRecords.return_value = []
+    database.squadRecords.return_value = []
+    roleKnowledge = Mock()
+    roleKnowledge.definitionExists.return_value = True
+    roleKnowledge.definitionLoad.return_value = {
+        "displayName": "Inside Forward",
+        "abbreviations": ["IF"],
+        "positions": ["AML", "AMR"],
+        "behaviours": ["movesInside", "goalThreat"],
+        "keyAttributes": ["off_the_ball"],
+        "playerInstructions": ["getFurtherForward"],
+    }
+    window = MainWindow(
+        Mock(),
+        database,
+        (),
+        Mock(),
+        Mock(),
+        Mock(),
+        roleKnowledge,
+        TacticVocabulary(),
+    )
+    qtbot.addWidget(window)
+    dialog = Mock()
+    dialog.exec.return_value = QDialog.DialogCode.Rejected
+    dialogCreate = Mock(return_value=dialog)
+    monkeypatch.setattr("fmsat.app.window.RoleProfileReviewDialog", dialogCreate)
+
+    window.roleShow("insideForward")
+
+    evidence = dialogCreate.call_args.args[0]
+    assert evidence.phase is None
+    assert evidence.behaviours == ("movesInside", "goalThreat")
+    assert dialogCreate.call_args.kwargs["supportedPositions"] == ("AML", "AMR")
+    assert dialogCreate.call_args.kwargs["replaceExisting"] is True
+
+
 def testWelcomeViewPopulated(qtbot) -> None:  # type: ignore[no-untyped-def]
 
     database = Mock()
@@ -86,7 +202,7 @@ def testWelcomeViewShowsOnlyCapturedRolesInTacticalOrder(qtbot) -> None:  # type
     database.tacticRecords.return_value = []
     database.squadRecords.return_value = []
     captured = {
-        "completeForward",
+        "centreForward",
         "attackingMidfielder",
         "boxToBoxMidfielder",
         "defensiveMidfielder",
@@ -109,7 +225,7 @@ def testWelcomeViewShowsOnlyCapturedRolesInTacticalOrder(qtbot) -> None:  # type
         for text in labels
         if text
         in {
-            "Complete Forward",
+            "Centre Forward",
             "Attacking Midfielder",
             "Box-to-Box Midfielder",
             "Defensive Midfielder",
@@ -120,7 +236,7 @@ def testWelcomeViewShowsOnlyCapturedRolesInTacticalOrder(qtbot) -> None:  # type
 
     assert "Roles (6)" in labels
     assert roleNames == [
-        "Complete Forward",
+        "Centre Forward",
         "Attacking Midfielder",
         "Box-to-Box Midfielder",
         "Defensive Midfielder",
@@ -128,6 +244,61 @@ def testWelcomeViewShowsOnlyCapturedRolesInTacticalOrder(qtbot) -> None:  # type
         "Sweeper Keeper",
     ]
     assert "Ball-Playing Goalkeeper" not in labels
+
+
+def testCapturedRoleCardShowsBehavioursAndOpensEditor(qtbot) -> None:  # type: ignore[no-untyped-def]
+
+    database = Mock()
+    database.tacticRecords.return_value = []
+    database.squadRecords.return_value = []
+    roleKnowledge = Mock()
+    roleKnowledge.definitionExists.side_effect = lambda role: role == "insideForward"
+    roleKnowledge.definitionLoad.return_value = {"behaviours": ["movesInside", "goalThreat"]}
+    roleOpen = Mock()
+    view = WelcomeView(
+        WelcomeService(database, TacticVocabulary(), roleKnowledge),
+        (),
+        Mock(),
+        Mock(),
+        roleOpen,
+    )
+    qtbot.addWidget(view)
+    card = next(
+        card
+        for card in view.findChildren(SummaryCard)
+        if card.property("summaryName") == "Inside Forward"
+    )
+
+    assert any("Behaviours: Moves Inside, Goal Threat" in text for text in _labelTexts(view))
+    assert not card.findChildren(QPushButton)
+
+    qtbot.mouseClick(card, Qt.MouseButton.LeftButton)
+
+    roleOpen.assert_called_once_with("insideForward")
+
+
+def testTacticAndSquadCardsOpenWhenSelected(qtbot) -> None:  # type: ignore[no-untyped-def]
+
+    database = Mock()
+    database.tacticRecords.return_value = [
+        SimpleNamespace(name="Press", captureCount=1, formationImage=None)
+    ]
+    database.squadRecords.return_value = [
+        SimpleNamespace(name="First Team", captureCount=1, playerCount=20)
+    ]
+    tacticOpen = Mock()
+    squadOpen = Mock()
+    view = WelcomeView(WelcomeService(database), (), tacticOpen, squadOpen)
+    qtbot.addWidget(view)
+    cards = {card.property("summaryName"): card for card in view.findChildren(SummaryCard)}
+
+    qtbot.mouseClick(cards["Press"], Qt.MouseButton.LeftButton)
+    qtbot.mouseClick(cards["First Team"], Qt.MouseButton.LeftButton)
+
+    tacticOpen.assert_called_once_with("Press")
+    squadOpen.assert_called_once_with("First Team")
+    assert not cards["Press"].findChildren(QPushButton)
+    assert not cards["First Team"].findChildren(QPushButton)
 
 
 def testWelcomeViewRefreshesFromService(qtbot) -> None:  # type: ignore[no-untyped-def]

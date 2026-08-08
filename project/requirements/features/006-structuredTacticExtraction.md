@@ -57,7 +57,7 @@ The initial role vocabulary must include observed FM26 identities for:
 - Deep-Lying Playmaker, Box-to-Box Midfielder, Defensive Midfielder and
   Pressing Defensive Midfielder;
 - Wide Midfielder, Winger, Inside Forward and Attacking Midfielder; and
-- Complete Forward, Target Forward, Channel Forward and Tracking Centre
+- Centre Forward, Target Forward, Channel Forward and Tracking Centre
   Forward.
 
 Use the actual FM26 display names and abbreviations confirmed by fixtures. The

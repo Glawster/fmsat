@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from collections import defaultdict
 from collections.abc import Collection, Iterable
 from pathlib import Path
@@ -53,10 +52,12 @@ class RoleKnowledgeService:
         self.vocabulary = vocabulary
         self.attributeIds = frozenset(attributeIds)
 
-    def definitionExists(self, roleId: str, phase=None) -> bool:
+    def definitionExists(self, roleCode: str, phase=None) -> bool:
         """Return whether a confirmed user definition exists for a role and phase."""
 
-        path = self.directory / f"{roleId}.yaml"
+        path = self._definitionPathFind(roleCode)
+        if path is None:
+            return False
         if phase is not None:
             if not path.is_file():
                 return False
@@ -67,6 +68,106 @@ class RoleKnowledgeService:
             return bool(content.get(phase.value, False))
         return path.is_file()
 
+    def definitionLoad(self, roleCode: str) -> dict[str, object] | None:
+        """Load one confirmed definition by stable vocabulary role code."""
+
+        path = self._definitionPathFind(roleCode)
+        if path is None:
+            return None
+        try:
+            content = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        except (OSError, yaml.YAMLError):
+            return None
+        return content if isinstance(content, dict) else None
+
+    def weightsLoad(self, roleID: int) -> dict[str, int]:
+        """Load FMSAT-owned attribute weights for one stable role identity."""
+
+        path = self.directory.parent / "requirements" / f"role-{roleID:03d}.yaml"
+        try:
+            content = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        except (OSError, yaml.YAMLError):
+            return {}
+        weights = content.get("attributeWeights") if isinstance(content, dict) else None
+        if not isinstance(weights, dict):
+            return {}
+        return {
+            str(attribute): int(weight)
+            for attribute, weight in weights.items()
+            if isinstance(weight, int) and 0 <= weight <= 5
+        }
+
+    def importanceLoad(self, roleID: int) -> dict[str, str]:
+        """Load explicit assessment importance groups keyed by attribute."""
+
+        path = self.directory.parent / "requirements" / f"role-{roleID:03d}.yaml"
+        try:
+            content = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        except (OSError, yaml.YAMLError):
+            return {}
+        groups = content.get("importanceGroups") if isinstance(content, dict) else None
+        if not isinstance(groups, dict):
+            return {}
+        return {
+            str(attribute): str(group)
+            for group, attributes in groups.items()
+            if group in {"topThree", "important", "niceToHave"} and isinstance(attributes, list)
+            for attribute in attributes
+        }
+
+    def weightsConfirm(
+        self,
+        roleID: int,
+        weights: dict[str, int],
+        importance: dict[str, str] | None = None,
+    ) -> Path | None:
+        """Atomically save transparent 0–5 assessment weights separately from role facts."""
+
+        importance = self.importanceLoad(roleID) if importance is None else importance
+        if not weights and not importance:
+            return None
+        unknown = sorted((set(weights) | set(importance)) - self.attributeIds)
+        if unknown:
+            raise RoleKnowledgeError(f"Unknown weighted attributes: {unknown}")
+        invalid = {name: value for name, value in weights.items() if not 0 <= value <= 5}
+        if invalid:
+            raise RoleKnowledgeError(f"Attribute weights must be between 0 and 5: {invalid}")
+        invalidGroups = {
+            name: group
+            for name, group in importance.items()
+            if group not in {"topThree", "important", "niceToHave"}
+        }
+        if invalidGroups:
+            raise RoleKnowledgeError(f"Unknown importance groups: {invalidGroups}")
+        topThree = [name for name, group in importance.items() if group == "topThree"]
+        if len(topThree) > 3:
+            raise RoleKnowledgeError("Top three may contain at most three attributes")
+        directory = self.directory.parent / "requirements"
+        path = directory / f"role-{roleID:03d}.yaml"
+        temporaryPath = directory / f".role-{roleID:03d}-{uuid4().hex}.tmp"
+        try:
+            directory.mkdir(parents=True, exist_ok=True)
+            with temporaryPath.open("x", encoding="utf-8") as stream:
+                yaml.safe_dump(
+                    {
+                        "roleID": roleID,
+                        "attributeWeights": weights,
+                        "importanceGroups": {
+                            group: [
+                                name for name, assigned in importance.items() if assigned == group
+                            ]
+                            for group in ("topThree", "important", "niceToHave")
+                        },
+                    },
+                    stream,
+                    sort_keys=False,
+                )
+            temporaryPath.replace(path)
+        except OSError as exc:
+            temporaryPath.unlink(missing_ok=True)
+            raise RoleKnowledgeError(f"Unable to save role weights {roleID}: {exc}") from exc
+        return path
+
     def evidenceVerify(
         self,
         evidence: RoleProfileEvidence,
@@ -74,6 +175,7 @@ class RoleKnowledgeService:
         expectedRole: str,
         *,
         adoptDetectedRole: bool = False,
+        supportedPositions: tuple[str, ...] = (),
     ) -> RoleDefinitionDraft:
         """Return a factual draft when evidence matches the requested knowledge gap."""
 
@@ -101,18 +203,39 @@ class RoleKnowledgeService:
             raise RoleKnowledgeError(
                 f"Role {role.code} is not configured for position {expectedPosition}"
             )
-        roleId = role.code if role is not None else self._identifier(evidence.roleName)
+        positions = []
+        for position in supportedPositions:
+            normalizedPosition = self.vocabulary.positionNormalize(position)
+            if not normalizedPosition.resolved:
+                raise RoleKnowledgeError(f"Unknown supported position: {position}")
+            positions.append(normalizedPosition.value)
+        positions = list(dict.fromkeys(positions))
+        if positions and expectedPosition not in positions:
+            raise RoleKnowledgeError(
+                f"Supported positions must include the detected position {expectedPosition}"
+            )
+        if role is not None:
+            unsupported = sorted(set(positions) - set(role.positions))
+            if unsupported:
+                raise RoleKnowledgeError(
+                    f"Role {role.code} does not support positions: {unsupported}"
+                )
+        roleID = role.roleID if role is not None else self._roleIDNext()
         abbreviations = (
             (evidence.abbreviation.upper(),)
             if evidence.abbreviation
             else role.abbreviations if role is not None else ()
         )
         return RoleDefinitionDraft(
-            id=roleId,
+            roleID=roleID,
             displayName=role.displayName if role is not None else evidence.roleName,
             phase=evidence.phase,
             abbreviations=abbreviations,
-            positions=(expectedPosition,),
+            positions=(
+                tuple(positions)
+                if positions
+                else role.positions if role is not None else (expectedPosition,)
+            ),
             description=evidence.description,
             behaviours=evidence.behaviours,
             keyAttributes=evidence.keyAttributes,
@@ -120,31 +243,33 @@ class RoleKnowledgeService:
             sourceImport=evidence.sourceImport,
         )
 
-    @staticmethod
-    def _identifier(value: str) -> str:
-        words = re.findall(r"[A-Za-z0-9]+", value)
-        if not words:
-            raise RoleKnowledgeError("The detected role name is empty")
-        return words[0].casefold() + "".join(word.title() for word in words[1:])
-
     def definitionConfirm(self, draft: RoleDefinitionDraft, *, replace: bool = False) -> Path:
         """Atomically write a user-confirmed factual definition as YAML."""
 
-        path = self.directory / f"{draft.id}.yaml"
+        path = self.directory / f"role-{draft.roleID:03d}.yaml"
         existing: dict[str, object] = {}
-        if path.exists():
+        sourcePath = path
+        if not sourcePath.exists():
+            role = next(
+                (role for role in self.vocabulary.roles.values() if role.roleID == draft.roleID),
+                None,
+            )
+            legacyPath = self.directory / f"{role.code}.yaml" if role is not None else None
+            if legacyPath is not None and legacyPath.is_file():
+                sourcePath = legacyPath
+        if sourcePath.exists():
             try:
-                loaded = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+                loaded = yaml.safe_load(sourcePath.read_text(encoding="utf-8")) or {}
             except (OSError, yaml.YAMLError) as exc:
                 raise RoleKnowledgeError(
-                    f"Unable to read role definition {draft.id}: {exc}"
+                    f"Unable to read role definition {draft.roleID}: {exc}"
                 ) from exc
             if not isinstance(loaded, dict):
-                raise RoleKnowledgeError(f"Role definition is not a YAML mapping: {draft.id}")
+                raise RoleKnowledgeError(f"Role definition is not a YAML mapping: {draft.roleID}")
             existing = loaded
         if existing.get(draft.phase.value) is True and not replace:
             raise RoleKnowledgeError(
-                f"Role definition already contains {draft.phase.value}: {draft.id}"
+                f"Role definition already contains {draft.phase.value}: {draft.roleID}"
             )
         provenance = existing.get("provenance", {})
         if not isinstance(provenance, dict):
@@ -157,7 +282,7 @@ class RoleKnowledgeService:
             sources["inPossession"] = legacySource
         sources[draft.phase.value] = draft.sourceImport
         content: dict[str, object] = {
-            "id": draft.id,
+            "roleID": draft.roleID,
             "displayName": draft.displayName,
             "inPossession": draft.phase.value == "inPossession"
             or bool(existing.get("inPossession", False)),
@@ -175,7 +300,7 @@ class RoleKnowledgeService:
             ),
             "provenance": {"sources": sources, "reviewState": "confirmed"},
         }
-        temporaryPath = self.directory / f".{draft.id}-{uuid4().hex}.tmp"
+        temporaryPath = self.directory / f".{draft.roleID}-{uuid4().hex}.tmp"
         try:
             self.directory.mkdir(parents=True, exist_ok=True)
             with temporaryPath.open("x", encoding="utf-8") as stream:
@@ -183,8 +308,32 @@ class RoleKnowledgeService:
             temporaryPath.replace(path)
         except OSError as exc:
             temporaryPath.unlink(missing_ok=True)
-            raise RoleKnowledgeError(f"Unable to save role definition {draft.id}: {exc}") from exc
+            raise RoleKnowledgeError(
+                f"Unable to save role definition {draft.roleID}: {exc}"
+            ) from exc
         return path
+
+    def _roleIDNext(self) -> int:
+        roleIDs = {role.roleID for role in self.vocabulary.roles.values()}
+        if self.directory.is_dir():
+            for path in self.directory.glob("*.yaml"):
+                try:
+                    content = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+                except (OSError, yaml.YAMLError):
+                    continue
+                if isinstance(content, dict) and isinstance(content.get("roleID"), int):
+                    roleIDs.add(content["roleID"])
+        return max(roleIDs, default=0) + 1
+
+    def _definitionPathFind(self, roleCode: str) -> Path | None:
+        role = self.vocabulary.roles.get(roleCode)
+        if role is None:
+            return None
+        path = self.directory / f"role-{role.roleID:03d}.yaml"
+        if path.is_file():
+            return path
+        legacyPath = self.directory / f"{roleCode}.yaml"
+        return legacyPath if legacyPath.is_file() else None
 
     @staticmethod
     def _abbreviationsMerge(existing: object, added: tuple[str, ...]) -> list[str]:

@@ -100,3 +100,71 @@ def testRoleProfileParserRecognizesCentralStrikerPosition() -> None:
 
     assert evidence.position == "STC"
     assert evidence.roleName == "Channel Forward"
+
+
+def testRoleProfileParserPrefersRoleTitleOverAbilityRating() -> None:
+    results = [
+        _result("D (C)", 100, 30),
+        _result("In Possession Role", 100, 50),
+        _result("Ball-Playing Centre-Back", 720, 100),
+        _result("Fairly Good", 800, 130),
+        _result("Role Ability", 620, 140),
+        _result("Key Attributes", 620, 180),
+        _result("Passing", 620, 220),
+    ]
+    parser = RoleProfileParser(
+        FakeOcr([results], suppliesGeometry=True),
+        TacticVocabulary(),
+        (AttributeDefinition("passing", "Pas", 1),),
+    )
+
+    evidence = parser.parse(np.zeros((768, 1024, 3), dtype=np.uint8))
+
+    assert evidence.position == "DC"
+    assert evidence.roleName == "Ball-Playing Centre-Back"
+    assert evidence.abbreviation == "BCB"
+
+
+def testRoleProfileParserCombinesSplitParenthesizedPosition() -> None:
+    results = [
+        _result("AM (", 80, 30),
+        _result("C)", 120, 30),
+        _result("In Possession Role", 100, 50),
+        _result("Attacking Midfielder", 720, 100),
+        _result("Role Ability", 620, 140),
+        _result("Key Attributes", 620, 180),
+        _result("Passing", 620, 220),
+    ]
+    parser = RoleProfileParser(
+        FakeOcr([results], suppliesGeometry=True),
+        TacticVocabulary(),
+        (AttributeDefinition("passing", "Pas", 1),),
+    )
+
+    evidence = parser.parse(np.zeros((768, 1024, 3), dtype=np.uint8))
+
+    assert evidence.position == "AMC"
+
+
+def testRoleProfileParserCapturesAndDeduplicatesRoleIndicators() -> None:
+    results = [
+        _result("AM (L)", 100, 30),
+        _result("In Possession Role", 100, 50),
+        _result("Moves Inside", 180, 90),
+        _result("Goal Threat", 180, 110),
+        _result("Inside Forward", 720, 100),
+        _result("Role Ability", 620, 140),
+        _result("Moves Inside", 650, 155),
+        _result("Goal Threat", 760, 155),
+        _result("Key Attributes", 620, 180),
+        _result("Off The Ball", 620, 220),
+    ]
+    parser = RoleProfileParser(
+        FakeOcr([results], suppliesGeometry=True),
+        TacticVocabulary(),
+        (AttributeDefinition("off_the_ball", "OtB", 1),),
+    )
+
+    evidence = parser.parse(np.zeros((768, 1024, 3), dtype=np.uint8))
+
+    assert evidence.behaviours == ("movesInside", "goalThreat")

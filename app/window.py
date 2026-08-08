@@ -32,7 +32,12 @@ from fmsat.app.roleProfileDialog import RoleProfileReviewDialog
 from fmsat.app.welcomeView import WelcomeService, WelcomeView
 from fmsat.core.config import AttributeDefinition
 from fmsat.core.detection import ScreenType
-from fmsat.core.parser import ExtractedPlayer, TacticVocabulary
+from fmsat.core.parser import (
+    ExtractedPlayer,
+    RoleProfileEvidence,
+    TacticalPhase,
+    TacticVocabulary,
+)
 from fmsat.core.requirements import ScreenshotRequirement, TacticScreenshotPlanner
 from fmsat.core.roleKnowledge import RoleKnowledgeService
 from fmsat.core.screenshotStore import ScreenshotStore, ScreenshotStoreError
@@ -526,6 +531,7 @@ class MainWindow(QMainWindow):
             self.roleKnowledgeService,
             self,
             replaceExisting=replaceExisting,
+            attributeDefinitions=self.attributes,
         )
         if dialog.exec() != QDialog.DialogCode.Accepted:
             self.screenshotStore.capturesRemove([screenshotPath])
@@ -534,6 +540,63 @@ class MainWindow(QMainWindow):
             f"Saved confirmed role definition: {dialog.savedPath}",
             10000,
         )
+        self.dataChanged.emit()
+
+    def rolesShow(self) -> None:
+        """Show the refreshed captured-roles panel on the welcome workspace."""
+
+        self.welcomeView.refresh()
+        self.contentStack.setCurrentWidget(self.welcomeView)
+
+    def roleShow(self, roleCode: str) -> None:
+        """Load one captured role definition into the review dialog for editing."""
+
+        if self.roleKnowledgeService is None or self.tacticVocabulary is None:
+            self._errorShow("Roles unavailable", "Role-profile knowledge is not configured")
+            return
+        role = self.tacticVocabulary.roles.get(roleCode)
+        content = self.roleKnowledgeService.definitionLoad(roleCode)
+        if role is None or content is None:
+            self._errorShow("Role unavailable", "The captured role definition could not be loaded")
+            return
+        positions = self._stringsTuple(content.get("positions")) or role.positions
+        phases = tuple(
+            phase
+            for phase, field in (
+                (TacticalPhase.IN_POSSESSION, "inPossession"),
+                (TacticalPhase.OUT_OF_POSSESSION, "outOfPossession"),
+            )
+            if content.get(field) is True
+        )
+        abbreviations = self._stringsTuple(content.get("abbreviations"))
+        evidence = RoleProfileEvidence(
+            position=positions[0],
+            roleName=str(content.get("displayName") or role.displayName),
+            phase=phases[0] if phases else None,
+            abbreviation=abbreviations[0] if abbreviations else None,
+            description=(
+                str(content["description"]) if content.get("description") is not None else None
+            ),
+            behaviours=self._stringsTuple(content.get("behaviours")),
+            keyAttributes=self._stringsTuple(content.get("keyAttributes")),
+            playerInstructions=self._stringsTuple(content.get("playerInstructions")),
+        )
+        dialog = RoleProfileReviewDialog(
+            evidence,
+            positions[0],
+            roleCode,
+            self.roleKnowledgeService,
+            self,
+            replaceExisting=True,
+            supportedPositions=positions,
+            attributeWeights=self.roleKnowledgeService.weightsLoad(role.roleID),
+            attributeImportance=self.roleKnowledgeService.importanceLoad(role.roleID),
+            attributeDefinitions=self.attributes,
+            phases=phases,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        self.statusBar().showMessage(f"Updated role definition: {dialog.savedPath}", 10000)
         self.dataChanged.emit()
 
     def managementShow(self, tabName: str, recordName: str | None = None) -> None:
@@ -679,6 +742,8 @@ class MainWindow(QMainWindow):
         self.tacticsAction.triggered.connect(lambda: self.managementShow("Tactics"))
         self.squadsAction = QAction("Squads", self)
         self.squadsAction.triggered.connect(lambda: self.managementShow("Squads"))
+        self.rolesAction = QAction("Roles", self)
+        self.rolesAction.triggered.connect(self.rolesShow)
         self.settingsAction = QAction("Settings", self)
         self.settingsAction.triggered.connect(self.settingsShow)
         self.saveAction = QAction("Save Confirmed Data", self)
@@ -703,6 +768,7 @@ class MainWindow(QMainWindow):
             ),
             lambda name: self.managementShow("Tactics", name),
             lambda name: self.managementShow("Squads", name),
+            self.roleShow,
             self,
         )
         self.contentStack.addWidget(self.welcomeView)
@@ -910,6 +976,7 @@ class MainWindow(QMainWindow):
         viewMenu = self.menuBar().addMenu("&View")
         viewMenu.addAction(self.tacticsAction)
         viewMenu.addAction(self.squadsAction)
+        viewMenu.addAction(self.rolesAction)
         viewMenu.addAction(self.playersAction)
         viewMenu.addAction(self.settingsAction)
 
@@ -1121,6 +1188,14 @@ class MainWindow(QMainWindow):
         """Normalize a player name for overlap comparisons."""
 
         return " ".join(name.split()).casefold()
+
+    @staticmethod
+    def _stringsTuple(value: object) -> tuple[str, ...]:
+        """Return non-empty strings from a stored YAML sequence."""
+
+        if not isinstance(value, list):
+            return ()
+        return tuple(str(item) for item in value if str(item).strip())
 
     def _tablePlayersRead(self) -> list[ExtractedPlayer]:
         if self.currentResult is None:

@@ -74,7 +74,7 @@ class RoleKnowledgeGap:
 class RoleDefinitionDraft:
     """Reviewed factual role data eligible for confirmation as YAML."""
 
-    id: str
+    roleID: int
     displayName: str
     phase: TacticalPhase
     abbreviations: tuple[str, ...]
@@ -108,6 +108,7 @@ class RoleProfileParser:
         position = self._positionFind(results)
         phase = self._phaseRead(results)
         roleName, abbreviation = self._roleRead(results, image.shape[1])
+        behaviours = self._behavioursRead(results)
         keyAttributes, displayedValues = self._keyAttributesRead(results)
         if not keyAttributes:
             raise ParserError("No Key Attributes could be extracted from the role profile")
@@ -119,12 +120,21 @@ class RoleProfileParser:
             roleName=roleName,
             phase=phase,
             abbreviation=abbreviation,
+            behaviours=behaviours,
             description=description,
             keyAttributes=keyAttributes,
             playerInstructions=instructions,
             displayedPlayerAttributes=displayedValues,
             confidence=sum(confidenceValues) / len(confidenceValues),
         )
+
+    def _behavioursRead(self, results: list[OcrResult]) -> tuple[str, ...]:
+        behaviours = []
+        for result in results:
+            normalized = self.vocabulary.roleIndicatorNormalize(result.text)
+            if normalized.resolved:
+                behaviours.append(normalized.value)
+        return tuple(dict.fromkeys(behaviours))
 
     def _instructionsRead(self, results: list[OcrResult]) -> tuple[str, ...]:
         headingIndex = self._headingIndex(results, "player instructions")
@@ -189,6 +199,15 @@ class RoleProfileParser:
             normalized = self.vocabulary.positionNormalize(result.text)
             if normalized.resolved:
                 return normalized.value
+        for index, result in enumerate(results[:-1]):
+            following = results[index + 1]
+            for combined in (
+                f"{result.text}{following.text}",
+                f"{result.text} {following.text}",
+            ):
+                normalized = self.vocabulary.positionNormalize(combined)
+                if normalized.resolved:
+                    return normalized.value
         raise ParserError("No supported position could be extracted from the role profile")
 
     @staticmethod
@@ -265,18 +284,45 @@ class RoleProfileParser:
                 and result.text.strip()
             ]
             if candidates:
-                title = max(candidates, key=lambda result: result.center[1]).text.strip(
-                    " \t\r\n.,:;"
-                )
-                normalized = self.vocabulary.roleNormalize(title)
-                abbreviation = None
-                if normalized.resolved:
+                recognized = [
+                    (result, self.vocabulary.roleNormalize(result.text.strip(" \t\r\n.,:;")))
+                    for result in candidates
+                ]
+                recognized = [item for item in recognized if item[1].resolved]
+                if recognized:
+                    result, normalized = max(
+                        recognized,
+                        key=lambda item: item[0].center[1],
+                    )
+                    title = result.text.strip(" \t\r\n.,:;")
                     role = self.vocabulary.roles[normalized.value]
                     abbreviation = role.abbreviations[0] if role.abbreviations else None
-                return title, abbreviation
+                    return title, abbreviation
+                candidates = [
+                    result for result in candidates if not self._abilityRating(result.text)
+                ]
+                if candidates:
+                    title = max(candidates, key=lambda result: result.center[1]).text.strip(
+                        " \t\r\n.,:;"
+                    )
+                    return title, None
         role = self._roleFind(results)
         abbreviation = role.abbreviations[0] if role.abbreviations else None
         return role.displayName, abbreviation
+
+    @staticmethod
+    def _abilityRating(value: str) -> bool:
+        return RoleProfileParser._textKey(value) in {
+            "awful",
+            "poor",
+            "below average",
+            "decent",
+            "fairly good",
+            "good",
+            "very good",
+            "excellent",
+            "outstanding",
+        }
 
     @staticmethod
     def _headingIndex(results: list[OcrResult], heading: str) -> int | None:

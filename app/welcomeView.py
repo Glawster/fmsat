@@ -2,21 +2,28 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
 from organiseMyProjects.logUtils import getLogger
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QPixmap
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QAction, QKeyEvent, QMouseEvent, QPixmap
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
-    QPushButton,
     QScrollArea,
     QToolButton,
     QVBoxLayout,
     QWidget,
+)
+
+from fmsat.app.colourPalette import (
+    button as buttonColour,
+    buttonBorder,
+    buttonSelected,
 )
 
 from fmsat.core.parser import RoleDefinition, TacticVocabulary
@@ -25,6 +32,34 @@ from fmsat.database import Database, DatabaseError
 from fmsat.database.records import SquadRecord, TacticRecord
 
 logger = getLogger()
+
+
+@dataclass(frozen=True, slots=True)
+class CapturedRoleSummary:
+    """One configured role enriched with confirmed captured facts."""
+
+    role: RoleDefinition
+    behaviours: tuple[str, ...]
+
+
+class SummaryCard(QFrame):
+    """Keyboard- and pointer-selectable welcome summary card."""
+
+    activated = Signal()
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        if event.key() in {Qt.Key.Key_Enter, Qt.Key.Key_Return, Qt.Key.Key_Space}:
+            self.activated.emit()
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        if event.button() is Qt.MouseButton.LeftButton:
+            self.activated.emit()
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
 
 
 class WelcomeService:
@@ -42,20 +77,34 @@ class WelcomeService:
 
     def summariesLoad(
         self,
-    ) -> tuple[list[TacticRecord], list[SquadRecord], list[RoleDefinition]]:
+    ) -> tuple[list[TacticRecord], list[SquadRecord], list[CapturedRoleSummary]]:
         """Return dashboard summaries without loading player snapshots."""
 
         tactics = self.database.tacticRecords()
         squads = self.database.squadRecords()
         roles = []
         if self.tacticVocabulary is not None and self.roleKnowledgeService is not None:
+            capturedRoles = (
+                (
+                    role,
+                    self.roleKnowledgeService.definitionLoad(role.code),
+                )
+                for role in self.tacticVocabulary.roles.values()
+                if self.roleKnowledgeService.definitionExists(role.code)
+            )
             roles = sorted(
                 (
-                    role
-                    for role in self.tacticVocabulary.roles.values()
-                    if self.roleKnowledgeService.definitionExists(role.code)
+                    CapturedRoleSummary(
+                        role,
+                        (
+                            tuple(str(value) for value in content.get("behaviours", []))
+                            if isinstance(content, dict)
+                            else ()
+                        ),
+                    )
+                    for role, content in capturedRoles
                 ),
-                key=self.roleSortKey,
+                key=lambda summary: self.roleSortKey(summary.role),
             )
         return (
             tactics if isinstance(tactics, list) else [],
@@ -100,12 +149,14 @@ class WelcomeView(QWidget):
         actions: tuple[QAction, ...],
         tacticOpen: Callable[[str], None],
         squadOpen: Callable[[str], None],
+        roleOpen: Callable[[str], None] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.service = service
         self.tacticOpen = tacticOpen
         self.squadOpen = squadOpen
+        self.roleOpen = roleOpen
         self.actionsByText = {action.text(): action for action in actions}
         self.setObjectName("welcomeView")
 
@@ -126,23 +177,24 @@ class WelcomeView(QWidget):
             button.setFixedSize(220, 54)
             button.setStyleSheet(
                 "QToolButton#workspaceActionButton {"
-                "background-color: #2563eb; color: white; border: 2px solid #1d4ed8; "
+                f"background-color: {buttonColour}; color: white; "
+                f"border: 2px solid {buttonBorder}; "
                 "border-radius: 10px; font-size: 15px; font-weight: 600; padding: 8px 18px;"
                 "}"
                 "QToolButton#workspaceActionButton:hover {"
-                "background-color: #3b82f6; border-color: #1e40af;"
+                f"background-color: {buttonSelected}; border-color: {buttonBorder};"
                 "}"
                 "QToolButton#workspaceActionButton:pressed {"
-                "background-color: #1d4ed8;"
+                f"background-color: {buttonBorder};"
                 "}"
                 "QToolButton#workspaceActionButton:focus {"
-                "background-color: #2563eb; border-color: #93c5fd;"
+                f"background-color: {buttonColour}; border-color: {buttonBorder};"
                 "}"
                 "QToolButton#workspaceActionButton:focus:hover {"
-                "background-color: #3b82f6; border-color: #93c5fd;"
+                f"background-color: {buttonSelected}; border-color: {buttonBorder};"
                 "}"
                 "QToolButton#workspaceActionButton:focus:pressed {"
-                "background-color: #1d4ed8; border-color: #93c5fd;"
+                f"background-color: {buttonBorder}; border-color: {buttonBorder};"
                 "}"
             )
             buttonRow = QHBoxLayout()
@@ -234,7 +286,7 @@ class WelcomeView(QWidget):
         heading.setObjectName(f"{title.lower()}Heading")
         self.summaryLayout.addWidget(heading)
 
-    def _rolesAdd(self, roles: list[RoleDefinition]) -> None:
+    def _rolesAdd(self, roles: list[CapturedRoleSummary]) -> None:
         count = QLabel(f"Roles ({len(roles)})")
         count.setObjectName("rolesHeading")
         count.setStyleSheet("font-weight: bold;")
@@ -245,14 +297,23 @@ class WelcomeView(QWidget):
             self.rolesLayout.addWidget(empty)
             self.rolesLayout.addStretch()
             return
-        for role in roles:
+        for summary in roles:
+            role = summary.role
             abbreviation = role.abbreviations[0] if role.abbreviations else role.code
             positions = ", ".join(role.positions)
             duties = ", ".join(duty.title() for duty in role.duties)
+            behaviours = ", ".join(self._behaviourLabel(value) for value in summary.behaviours)
+            detail = f"Positions: {positions} · Duties: {duties}"
+            if behaviours:
+                detail += f"\nBehaviours: {behaviours}"
             self._summaryAdd(
                 role.displayName,
-                f"Positions: {positions} · Duties: {duties}",
-                None,
+                detail,
+                (
+                    lambda _checked=False, code=role.code: (
+                        self.roleOpen(code) if self.roleOpen is not None else None
+                    )
+                ),
                 placeholder=abbreviation,
                 targetLayout=self.rolesLayout,
                 targetParent=self.rolesWidget,
@@ -285,9 +346,15 @@ class WelcomeView(QWidget):
         targetParent: QWidget | None = None,
     ) -> None:
         parent = targetParent if targetParent is not None else self.summaryWidget
-        card = QFrame(parent)
+        card = SummaryCard(parent)
         card.setFrameShape(QFrame.Shape.StyledPanel)
         card.setObjectName("summaryCard")
+        card.setProperty("summaryName", name)
+        if opened is not None:
+            card.setAccessibleName(name)
+            card.setCursor(Qt.CursorShape.PointingHandCursor)
+            card.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+            card.activated.connect(opened)
         layout = QHBoxLayout(card)
         thumbnail = QLabel(placeholder)
         thumbnail.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -310,13 +377,13 @@ class WelcomeView(QWidget):
         textLayout.addWidget(nameLabel)
         textLayout.addWidget(QLabel(detail))
         layout.addLayout(textLayout, 1)
-        if opened is not None:
-            openButton = QPushButton("Open")
-            openButton.setAccessibleName(f"Open {name}")
-            openButton.clicked.connect(opened)
-            layout.addWidget(openButton)
         destination = targetLayout if targetLayout is not None else self.summaryLayout
         destination.addWidget(card)
+
+    @staticmethod
+    def _behaviourLabel(value: str) -> str:
+        words = re.sub(r"(?<!^)(?=[A-Z])", " ", value).replace("_", " ")
+        return words.title()
 
     def _tacticsAdd(self, records: list[TacticRecord]) -> None:
         self._sectionHeadingAdd("Tactics", len(records))

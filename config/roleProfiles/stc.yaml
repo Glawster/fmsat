@@ -22,7 +22,7 @@ roles:
 
   - id: centre_forward
     name: Centre Forward
-    abbreviation: CF
+    abbreviation: CFD
     family: Striker
 
     behaviour:

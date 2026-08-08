@@ -90,7 +90,7 @@ def testVerifiedEvidenceCanAdoptANewDetectedRole(tmp_path: Path) -> None:
     service = _serviceCreate(tmp_path)
     evidence = RoleProfileEvidence(
         position="D (C)",
-        roleName="Ball-Playing Centre-Back.",
+        roleName="Libero.",
         phase=TacticalPhase.IN_POSSESSION,
         keyAttributes=("passing",),
     )
@@ -98,13 +98,31 @@ def testVerifiedEvidenceCanAdoptANewDetectedRole(tmp_path: Path) -> None:
     draft = service.evidenceVerify(
         evidence,
         "DC",
-        "ballPlayingDefender",
+        "ballPlayingCentreBack",
         adoptDetectedRole=True,
     )
 
-    assert draft.id == "ballPlayingCentreBack"
-    assert draft.displayName == "Ball-Playing Centre-Back."
+    assert draft.roleID == 20
+    assert draft.displayName == "Libero."
     assert draft.phase is TacticalPhase.IN_POSSESSION
+    assert service.definitionConfirm(draft).name == "role-020.yaml"
+
+
+def testLegacyTextNamedDefinitionRemainsRecognized(tmp_path: Path) -> None:
+    (tmp_path / "centreForward.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "id": "centreForward",
+                "displayName": "Centre Forward",
+                "inPossession": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+    service = _serviceCreate(tmp_path)
+
+    assert service.definitionExists("centreForward")
+    assert service.definitionExists("centreForward", TacticalPhase.IN_POSSESSION)
 
 
 def testConfirmedDefinitionExcludesPlayerValuesStarsAndWeights(tmp_path: Path) -> None:
@@ -114,8 +132,9 @@ def testConfirmedDefinitionExcludesPlayerValuesStarsAndWeights(tmp_path: Path) -
     path = service.definitionConfirm(draft)
     content = yaml.safe_load(path.read_text(encoding="utf-8"))
 
-    assert content["id"] == "advancedPlaymaker"
-    assert content["positions"] == ["MC"]
+    assert content["roleID"] == 19
+    assert "id" not in content
+    assert content["positions"] == ["MCR", "MC", "MCL", "AMCR", "AMC", "AMCL"]
     assert content["inPossession"] is True
     assert content["outOfPossession"] is False
     assert content["keyAttributes"] == ["offTheBall", "passing", "vision", "decisions"]
@@ -123,6 +142,49 @@ def testConfirmedDefinitionExcludesPlayerValuesStarsAndWeights(tmp_path: Path) -
     assert "displayedPlayerAttributes" not in content
     assert "suitabilityStars" not in content
     assert "weights" not in content
+
+
+def testKnownRoleDefinitionRetainsAllSupportedPositionsAndIndicators(tmp_path: Path) -> None:
+    service = _serviceCreate(tmp_path)
+    evidence = RoleProfileEvidence(
+        position="AM (L)",
+        roleName="Inside Forward",
+        phase=TacticalPhase.IN_POSSESSION,
+        abbreviation="IF",
+        behaviours=("movesInside", "goalThreat"),
+        keyAttributes=("offTheBall",),
+    )
+
+    draft = service.evidenceVerify(
+        evidence,
+        "AML",
+        "insideForward",
+        supportedPositions=("AML", "AMR"),
+    )
+    path = service.definitionConfirm(draft)
+    content = yaml.safe_load(path.read_text(encoding="utf-8"))
+
+    assert draft.positions == ("AML", "AMR")
+    assert content["positions"] == ["AML", "AMR"]
+    assert content["behaviours"] == ["movesInside", "goalThreat"]
+
+
+def testSupportedPositionsRejectUnknownCode(tmp_path: Path) -> None:
+    service = _serviceCreate(tmp_path)
+    evidence = RoleProfileEvidence(
+        position="AM (L)",
+        roleName="Inside Forward",
+        phase=TacticalPhase.IN_POSSESSION,
+        keyAttributes=("offTheBall",),
+    )
+
+    with pytest.raises(RoleKnowledgeError, match="Unknown supported position: AMT"):
+        service.evidenceVerify(
+            evidence,
+            "AML",
+            "insideForward",
+            supportedPositions=("AML", "AMT"),
+        )
 
 
 def testRoleAbbreviationIsStoredInUppercase(tmp_path: Path) -> None:
@@ -166,10 +228,13 @@ def testExistingRoleAbbreviationsAreNormalizedWhenReplaced(tmp_path: Path) -> No
     )
 
     draft = service.evidenceVerify(evidence, "STC", "channelForward")
-    service.definitionConfirm(draft, replace=True)
-    content = yaml.safe_load(path.read_text(encoding="utf-8"))
+    migratedPath = service.definitionConfirm(draft, replace=True)
+    content = yaml.safe_load(migratedPath.read_text(encoding="utf-8"))
 
     assert content["abbreviations"] == ["CHF"]
+    assert content["roleID"] == 17
+    assert "id" not in content
+    assert migratedPath.name == "role-017.yaml"
 
 
 def testExistingDefinitionRequiresExplicitReplacement(tmp_path: Path) -> None:
@@ -210,10 +275,47 @@ def testPossessionPhaseDefinitionsForOneRoleCanCoexist(tmp_path: Path) -> None:
         service.evidenceVerify(outOfPossession, "MC", "advancedPlaymaker")
     )
 
-    assert first.name == "advancedPlaymaker.yaml"
+    assert first.name == "role-019.yaml"
     assert second == first
     assert service.definitionExists("advancedPlaymaker", TacticalPhase.IN_POSSESSION)
     assert service.definitionExists("advancedPlaymaker", TacticalPhase.OUT_OF_POSSESSION)
     content = yaml.safe_load(first.read_text(encoding="utf-8"))
     assert content["inPossession"] is True
     assert content["outOfPossession"] is True
+
+
+def testAssessmentWeightsAreStoredSeparatelyFromRoleFacts(tmp_path: Path) -> None:
+    service = _serviceCreate(tmp_path / "roles")
+    draft = service.evidenceVerify(_advancedPlaymakerEvidence(), "MC", "advancedPlaymaker")
+    rolePath = service.definitionConfirm(draft)
+    weightsPath = service.weightsConfirm(
+        19,
+        {"passing": 5, "vision": 4},
+        {"passing": "topThree", "vision": "important"},
+    )
+
+    assert weightsPath is not None
+    assert weightsPath.name == "role-019.yaml"
+    assert weightsPath.parent.name == "requirements"
+    assert service.weightsLoad(19) == {"passing": 5, "vision": 4}
+    assert service.importanceLoad(19) == {
+        "passing": "topThree",
+        "vision": "important",
+    }
+    assert "attributeWeights" not in yaml.safe_load(rolePath.read_text(encoding="utf-8"))
+
+
+def testAssessmentRejectsMoreThanThreeTopAttributes(tmp_path: Path) -> None:
+    service = _serviceCreate(tmp_path / "roles")
+
+    with pytest.raises(RoleKnowledgeError, match="at most three"):
+        service.weightsConfirm(
+            19,
+            {},
+            {
+                "offTheBall": "topThree",
+                "passing": "topThree",
+                "vision": "topThree",
+                "decisions": "topThree",
+            },
+        )

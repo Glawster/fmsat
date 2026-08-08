@@ -16,6 +16,7 @@ class RoleDefinition:
     """A role identity and its allowed tactical context."""
 
     code: str
+    roleID: int
     displayName: str
     abbreviations: tuple[str, ...]
     aliases: tuple[str, ...]
@@ -46,6 +47,7 @@ class TacticVocabulary:
         self.version = int(data.get("version", 0))
         self.duties = self._aliasMap(data.get("duties"), "duties")
         self.positions = self._aliasMap(data.get("positions"), "positions")
+        self.roleIndicators = self._aliasMapOptional(data.get("roleIndicators"), "roleIndicators")
         self.roles = self._rolesLoad(data.get("roles"))
         self.instructions = self._instructionsLoad(data.get("instructions"))
         self._validate()
@@ -80,6 +82,11 @@ class TacticVocabulary:
                 self._aliasAdd(values, alias, code, "roles")
         return self._normalize(observedText, values)
 
+    def roleIndicatorNormalize(self, observedText: str) -> NormalizedValue:
+        """Normalize an observed role-performance indicator."""
+
+        return self._normalize(observedText, self.roleIndicators)
+
     @classmethod
     def _aliasAdd(
         cls,
@@ -107,6 +114,12 @@ class TacticVocabulary:
                 cls._aliasAdd(aliases, alias, str(canonical), fieldName)
         return aliases
 
+    @classmethod
+    def _aliasMapOptional(cls, rawValues: Any, fieldName: str) -> dict[str, str]:
+        if rawValues is None:
+            return {}
+        return cls._aliasMap(rawValues, fieldName)
+
     def _instructionsLoad(self, rawInstructions: Any) -> dict[str, dict[str, dict[str, str]]]:
         if not isinstance(rawInstructions, dict):
             raise ConfigurationError("tacticalVocabulary.yaml must contain instructions")
@@ -127,7 +140,8 @@ class TacticVocabulary:
 
     @staticmethod
     def _key(value: str) -> str:
-        return " ".join(value.casefold().replace("-", " ").split())
+        normalized = " ".join(value.casefold().replace("-", " ").split())
+        return normalized.replace(" (", "(").replace("( ", "(").replace(" )", ")")
 
     @classmethod
     def _normalize(cls, observedText: str, values: dict[str, str]) -> NormalizedValue:
@@ -143,6 +157,7 @@ class TacticVocabulary:
             try:
                 roles[str(code)] = RoleDefinition(
                     code=str(code),
+                    roleID=int(values["roleID"]),
                     displayName=str(values["displayName"]),
                     abbreviations=tuple(str(item).upper() for item in values["abbreviations"]),
                     aliases=tuple(str(item) for item in values.get("aliases", [])),
@@ -156,6 +171,9 @@ class TacticVocabulary:
     def _validate(self) -> None:
         positionCodes = set(self.positions.values())
         dutyCodes = set(self.duties.values())
+        roleIDs = [role.roleID for role in self.roles.values()]
+        if any(roleID < 1 for roleID in roleIDs) or len(roleIDs) != len(set(roleIDs)):
+            raise ConfigurationError("Role IDs must be unique positive integers")
         for role in self.roles.values():
             unknownPositions = set(role.positions) - positionCodes
             unknownDuties = set(role.duties) - dutyCodes

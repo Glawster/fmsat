@@ -54,6 +54,10 @@ def testVocabularyNormalizesAliasesAndPreservesObservedText() -> None:
     assert duty.value == "ATTACK"
     assert instruction.value == "much higher"
     assert vocabulary.positionNormalize("ST (C)").value == "STC"
+    assert vocabulary.positionNormalize("AM ( C )").value == "AMC"
+    assert vocabulary.positionNormalize("AM(C)").value == "AMC"
+    assert vocabulary.positionNormalize("AM (L)").value == "AML"
+    assert vocabulary.roleIndicatorNormalize("Moves Inside").value == "movesInside"
 
 
 def testRoleAbbreviationNormalizesToStableNamedIdentity() -> None:
@@ -62,6 +66,11 @@ def testRoleAbbreviationNormalizesToStableNamedIdentity() -> None:
     assert vocabulary.roleNormalize("AP").value == "advancedPlaymaker"
     assert vocabulary.roleNormalize("Advanced Playmaker").value == "advancedPlaymaker"
     assert vocabulary.roles["channelForward"].abbreviations == ("CHF",)
+    assert vocabulary.roleNormalize("BCB").value == "ballPlayingCentreBack"
+    assert vocabulary.roleNormalize("Ball-Playing Defender").value is None
+    assert vocabulary.roleNormalize("CFD").value == "centreForward"
+    assert vocabulary.roleNormalize("Complete Forward").value is None
+    assert vocabulary.roles["centreForward"].roleID == 15
 
 
 def testUnknownVocabularyDoesNotInventMeaning() -> None:
@@ -126,6 +135,7 @@ duties: {DEFEND: [defend]}
 positions: {GK: [goalkeeper]}
 roles:
   SK:
+    roleID: 1
     displayName: Sweeper Keeper
     abbreviations: [SK]
     positions: [MISSING]
