@@ -679,7 +679,11 @@ class MainWindow(QMainWindow):
     def _contentCreate(self) -> None:
         self.contentStack = QStackedWidget(self)
         self.welcomeView = WelcomeView(
-            WelcomeService(self.database),
+            WelcomeService(
+                self.database,
+                self.tacticVocabulary,
+                self.roleKnowledgeService,
+            ),
             (
                 self.importTacticAction,
                 self.importSquadAction,

@@ -53,7 +53,7 @@ The initial canonical position vocabulary must include:
 The initial role vocabulary must include observed FM26 identities for:
 
 - Ball-Playing Goalkeeper and Sweeper Keeper;
-- Full-Back, Wing-Back, Centre-Back and Ball-Playing Defender;
+- Full-Back, Wing-Back, Centre-Back and Ball-Playing Centre-Back;
 - Deep-Lying Playmaker, Box-to-Box Midfielder, Defensive Midfielder and
   Pressing Defensive Midfielder;
 - Wide Midfielder, Winger, Inside Forward and Attacking Midfielder; and
