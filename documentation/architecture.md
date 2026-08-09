@@ -27,6 +27,14 @@ features can therefore pair one squad with multiple tactics without duplicating 
 `SquadTacticApplication` records those explicit many-to-many pairings. It deliberately has
 no arbitrary score until tactic positions, roles and instructions have typed parsers.
 
+Each tactic may also own one current `StructuredTacticDefinition`. Its normalized child
+tables retain phase-specific formation slots, team instructions, validation issues,
+confidence, correction state and source-import provenance. These persistence models remain
+separate from the framework-independent parser models and Qt display models. Database
+initialization applies this upgrade additively with SQLAlchemy metadata creation: missing
+structured-tactic tables are created while existing tactics, imports, squads and players
+remain untouched.
+
 New squads may also own `SquadClubScreenshot` records. The associated Club Information
 screenshot supplies the squad-card badge image. It is previewed and persisted through
 `ScreenshotStore` without screen detection, OCR or player parsing. Keeping this provenance

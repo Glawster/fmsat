@@ -33,6 +33,7 @@ from .records import (
     SquadCleanupRecord,
     SquadPlayerRecord,
     SquadRecord,
+    TacticDetailRecord,
     TacticRecord,
 )
 
@@ -56,7 +57,7 @@ class Database:
             raise DatabaseError(f"Unable to initialize database: {exc}") from exc
 
     def initialize(self) -> None:
-        """Create tables that do not yet exist."""
+        """Add missing schema tables without replacing existing user data."""
 
         try:
             Base.metadata.create_all(self.engine)
@@ -183,7 +184,9 @@ class Database:
                 if not cleanName:
                     raise DatabaseError("A squad name is required")
                 normalizedName = cleanName.casefold()
-                squad = session.scalar(select(Squad).where(Squad.normalizedName == normalizedName))
+                squad = session.scalar(
+                    select(Squad).where(Squad.normalizedName == normalizedName)
+                )
                 if squad is None:
                     squad = Squad(name=cleanName, normalizedName=normalizedName)
                     session.add(squad)
@@ -271,9 +274,7 @@ class Database:
                 if not cleanName:
                     raise DatabaseError("A squad name is required")
                 normalizedName = cleanName.casefold()
-                squad = session.scalar(
-                    select(Squad).where(Squad.normalizedName == normalizedName)
-                )
+                squad = session.scalar(select(Squad).where(Squad.normalizedName == normalizedName))
                 if squad is None:
                     squad = Squad(name=cleanName, normalizedName=normalizedName)
                     session.add(squad)
@@ -372,6 +373,48 @@ class Database:
                 return records
         except SQLAlchemyError as exc:
             raise DatabaseError(f"Unable to list tactic records: {exc}") from exc
+
+    def tacticDetailRecord(self, tacticName: str) -> TacticDetailRecord | None:
+        """Return persisted detail facts for one tactic without invoking OCR."""
+
+        normalizedName = tacticName.strip().casefold()
+        try:
+            with Session(self.engine) as session:
+                tactic = session.scalar(
+                    select(Tactic)
+                    .where(Tactic.normalizedName == normalizedName)
+                    .options(
+                        selectinload(Tactic.screenshots).selectinload(
+                            TacticScreenshot.importSession
+                        ),
+                        selectinload(Tactic.squadApplications).selectinload(
+                            SquadTacticApplication.squad
+                        ),
+                    )
+                )
+                if tactic is None:
+                    return None
+                imports = [screenshot.importSession for screenshot in tactic.screenshots]
+                capturedScreenTypes = tuple(
+                    sorted({screenshot.screenType for screenshot in tactic.screenshots})
+                )
+                updatedAt = (
+                    max(imports, key=lambda item: (item.date, item.id)).date if imports else None
+                )
+                return TacticDetailRecord(
+                    name=tactic.name,
+                    capturedScreenTypes=capturedScreenTypes,
+                    captureCount=len(tactic.screenshots),
+                    assignedSquads=tuple(
+                        sorted(
+                            (application.squad.name for application in tactic.squadApplications),
+                            key=str.casefold,
+                        )
+                    ),
+                    updatedAt=updatedAt,
+                )
+        except SQLAlchemyError as exc:
+            raise DatabaseError(f"Unable to load tactic details: {exc}") from exc
 
     def squadsList(self) -> list[str]:
         """Return recognised squad names alphabetically."""

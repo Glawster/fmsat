@@ -67,7 +67,7 @@ class TacticDetailView(QWidget):
 
     def _headerCreate(self) -> QHBoxLayout:
         header = QHBoxLayout()
-        back = QPushButton("←  All tactics")
+        back = QPushButton("←  FMSAT Workspace")
         back.setObjectName("quietButton")
         back.clicked.connect(self.backRequested.emit)
         header.addWidget(back)

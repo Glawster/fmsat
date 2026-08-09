@@ -10,6 +10,10 @@ from .models import (
     SquadClubScreenshot,
     SquadScreenshot,
     SquadTacticApplication,
+    StructuredFormationSlot,
+    StructuredTacticDefinition,
+    StructuredTacticIssue,
+    StructuredTeamInstruction,
     Tactic,
     TacticScreenshot,
 )
@@ -18,6 +22,7 @@ from .records import (
     SquadCleanupRecord,
     SquadPlayerRecord,
     SquadRecord,
+    TacticDetailRecord,
     TacticRecord,
 )
 
@@ -36,7 +41,12 @@ __all__ = [
     "SquadRecord",
     "SquadScreenshot",
     "SquadTacticApplication",
+    "StructuredFormationSlot",
+    "StructuredTacticDefinition",
+    "StructuredTacticIssue",
+    "StructuredTeamInstruction",
     "Tactic",
+    "TacticDetailRecord",
     "TacticRecord",
     "TacticScreenshot",
 ]

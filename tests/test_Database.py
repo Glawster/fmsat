@@ -346,6 +346,47 @@ def testManagementRecordsIncludeScreenshotProvenance(tmp_path) -> None:
     assert storedPlayer.imageFilename == "/captures/squad.png"
 
 
+def testTacticDetailRecordIncludesCapturesAssignmentsAndLatestUpdate(tmp_path) -> None:
+
+    database = Database(tmp_path / "test.sqlite3")
+    database.initialize()
+    database.tacticImportSave(
+        "/captures/formation.png",
+        ScreenType.TACTIC_FORMATION,
+        "High Press",
+    )
+    latest = database.tacticImportSave(
+        "/captures/in-possession.png",
+        ScreenType.TACTIC_IN_POSSESSION,
+        "HIGH PRESS",
+    )
+    player = ExtractedPlayer("Jo Example", "D (C)", "3", "4", {}, 0.98)
+    database.squadImportSave("/captures/first-team.png", [player], "First Team")
+    database.squadImportSave("/captures/under-21s.png", [player], "Under 21s")
+    database.tacticApplyToSquad("Under 21s", "High Press")
+    database.tacticApplyToSquad("First Team", "High Press")
+
+    record = database.tacticDetailRecord(" high press ")
+
+    assert record is not None
+    assert record.name == "High Press"
+    assert record.capturedScreenTypes == (
+        ScreenType.TACTIC_FORMATION.value,
+        ScreenType.TACTIC_IN_POSSESSION.value,
+    )
+    assert record.captureCount == 2
+    assert record.assignedSquads == ("First Team", "Under 21s")
+    assert record.updatedAt == latest.date
+
+
+def testTacticDetailRecordReturnsNoneForUnknownTactic(tmp_path) -> None:
+
+    database = Database(tmp_path / "test.sqlite3")
+    database.initialize()
+
+    assert database.tacticDetailRecord("Unknown") is None
+
+
 def testDeletingTacticRemovesOwnedImportsButLeavesSquad(tmp_path) -> None:
 
     database = Database(tmp_path / "test.sqlite3")

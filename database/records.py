@@ -16,6 +16,17 @@ class TacticRecord:
 
 
 @dataclass(frozen=True, slots=True)
+class TacticDetailRecord:
+    """Stored facts needed to describe one tactic without running OCR."""
+
+    name: str
+    capturedScreenTypes: tuple[str, ...]
+    captureCount: int
+    assignedSquads: tuple[str, ...]
+    updatedAt: datetime | None
+
+
+@dataclass(frozen=True, slots=True)
 class SquadRecord:
     """Management-list details for one squad."""
 
