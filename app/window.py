@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
 
 from fmsat.app.managementWindow import ManagementWindow
 from fmsat.app.roleProfileDialog import RoleProfileReviewDialog
+from fmsat.app.tacticDetailView import TacticDetailView
 from fmsat.app.welcomeView import WelcomeService, WelcomeView
 from fmsat.core.config import AttributeDefinition
 from fmsat.core.detection import ScreenType
@@ -548,6 +549,18 @@ class MainWindow(QMainWindow):
         self.welcomeView.refresh()
         self.contentStack.setCurrentWidget(self.welcomeView)
 
+    def tacticShow(self, tacticName: str) -> None:
+        """Open the dedicated tactic prototype for one stored tactic."""
+
+        self.tacticDetailView.tacticShow(tacticName)
+        self.contentStack.setCurrentWidget(self.tacticDetailView)
+
+    def _tacticDetailBack(self) -> None:
+        """Return from tactic detail to the refreshed workspace."""
+
+        self.welcomeView.refresh()
+        self.contentStack.setCurrentWidget(self.welcomeView)
+
     def roleShow(self, roleCode: str) -> None:
         """Load one captured role definition into the review dialog for editing."""
 
@@ -766,12 +779,16 @@ class MainWindow(QMainWindow):
                 self.importSquadAction,
                 self.importRoleProfileAction,
             ),
-            lambda name: self.managementShow("Tactics", name),
+            self.tacticShow,
             lambda name: self.managementShow("Squads", name),
             self.roleShow,
             self,
         )
         self.contentStack.addWidget(self.welcomeView)
+        self.tacticDetailView = TacticDetailView(self)
+        self.tacticDetailView.backRequested.connect(self._tacticDetailBack)
+        self.tacticDetailView.assignmentRequested.connect(self.tacticApplyToSquad)
+        self.contentStack.addWidget(self.tacticDetailView)
         self.reviewWidget = QWidget(self)
         layout = QVBoxLayout(self.reviewWidget)
         self.instructions = QLabel(

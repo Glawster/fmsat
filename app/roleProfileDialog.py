@@ -106,9 +106,9 @@ class RoleProfileReviewDialog(QDialog):
         form.addRow("Behaviours", self.behavioursEdit)
         layout.addLayout(form)
         importance = attributeImportance or {}
-        definitions = {definition.name: definition for definition in attributeDefinitions}
+        definitions = {definition.name: definition for definition in attributeDefinitions} # type: ignore
         groupOrder = {"topThree": 0, "important": 1, "niceToHave": 2}
-        attributes = sorted(
+        attributes = sorted( # type: ignore
             evidence.keyAttributes,
             key=lambda attribute: (
                 groupOrder.get(importance.get(attribute, ""), 3),

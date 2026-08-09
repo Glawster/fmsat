@@ -62,6 +62,7 @@ include-package-data = true
 
 [tool.setuptools.package-data]
 fmsat = [
+  "app/*.qss",
   "config/*.yaml",
   "config/roleProfiles/*.yaml",
 ]

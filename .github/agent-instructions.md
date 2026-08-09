@@ -5,6 +5,7 @@
 1.  [Overview](#overview)\
 2.  [Architecture Principles](#architecture-principles)\
 3.  [Development Standards](#development-standards)\
+   3.1 [User Interface File Organisation](#user-interface-file-organisation)\
 4.  [Project Structure Standard](#project-structure-standard)\
 5.  [CLI Design Standards](#cli-design-standards)\
 6.  [Environment & Dependency Policy](#environment--dependency-policy)\
@@ -50,12 +51,187 @@ If any other repository guidance contradicts this file, this file takes preceden
 -   Use type hints\
 -   Use docstrings for public functions/classes
 
+## Commenting & Code Documentation Process
+
+-   Treat comments as first-class code documentation, not optional decoration\
+-   Add intent-level comments through non-trivial logic so readers can follow the workflow without reverse-engineering it\
+-   Prefer comments that explain why a block exists, the expected flow, and important assumptions\
+-   Avoid obvious comments that restate syntax line-by-line\
+-   Keep comments current when code changes; stale comments are defects and must be updated in the same change\
+-   For generated or agent-edited code, include concise inline guidance at each major step of the implementation
+
 ## Separation of Concerns
 
 -   UI separate from business logic\
 -   Core logic has no framework dependencies\
 -   Utilities isolated in dedicated modules\
 -   Tests mirror source structure
+
+## User Interface File Organisation
+
+### Goal
+
+User interface source files should be easy to understand from the top-level
+class alone.
+
+The structure of a file should reveal the application architecture rather than
+implementation details.
+
+### Single Responsibility
+
+A UI file should primarily define a single view or a tightly related UI concern.
+
+Avoid embedding unrelated widgets, dialogs, prototype data or styling within the
+same file.
+
+Instead, create reusable components.
+
+Good:
+
+views/
+    tactic/
+        tacticDetailView.py
+
+widgets/
+    pitchWidget.py
+
+dialogs/
+    roleProfileDialog.py
+
+styles/
+    tacticDetail.qss
+
+Bad:
+
+tacticDetailView.py
+    PitchWidget
+    DisplaySlot
+    StyleSheet
+    SampleData
+    Four Tab Implementations
+
+### View Structure within the UI
+
+A view should read like an outline of the interface.
+
+Preferred structure
+
+class MyView(QWidget):
+
+    __init__()
+
+    _createLayout()
+
+    _createHeader()
+
+    _createContent()
+
+    _createFooter()
+
+Implementation details should live in helper classes or separate widgets.
+
+The first 100 lines of a view should describe the UI structure, not implement every control.
+
+### Custom Widgets
+
+Any widget that could reasonably be reused elsewhere should live in
+widgets/.
+
+Examples
+
+PitchWidget
+
+PlayerCard
+
+RoleCard
+
+FormationView
+
+InstructionPanel
+
+Do not define reusable widgets inside another view.
+
+### Tab Organisation
+
+Each significant tab should be its own QWidget subclass.
+
+Avoid methods such as
+
+_createOverviewTab()
+
+_createAnalysisTab()
+
+when the implementation exceeds approximately 50 lines.
+
+Instead
+
+OverviewTab
+
+AnalysisTab
+
+InstructionsTab
+
+ShapeTab
+
+### Styling
+
+Do not embed long stylesheets inside Python.
+
+Use .qss files.
+
+Short style fragments (<10 lines) are acceptable.
+
+Application themes belong in dedicated style resources.
+
+### Sample Data
+
+Prototype or demonstration data must never be embedded in production views.
+
+Store prototype data under
+
+prototype/
+
+or
+
+tests/data/
+
+Views should receive models rather than construct them.
+
+### File Readability
+
+The purpose of a source file should be understandable by reading:
+
+- imports
+- class names
+- public methods
+
+without reading implementation details.
+
+If understanding requires scrolling through hundreds of lines of drawing code,
+stylesheets or sample data, the file should be refactored.
+
+### Refactoring Rule
+
+When modifying an existing file, consider whether the change introduces a new
+responsibility.
+
+If a file begins to contain multiple distinct concerns, prefer extracting new
+classes rather than extending the existing file.
+
+The preferred solution is decomposition rather than growth.
+
+### Architectural Preference
+
+Prefer composition over accumulation.
+
+When adding new functionality:
+
+1. Reuse an existing component if it has the same responsibility.
+2. Create a new component if the responsibility is different.
+3. Extend a file only if the new code serves the file's existing purpose.
+
+Avoid creating "God classes" that combine views, widgets, styling, sample data,
+business logic and persistence.
 
 ## Code Organisation & Function Naming Pattern
 
