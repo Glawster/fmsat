@@ -98,11 +98,11 @@ class OverviewTab(QWidget):
         super().__init__(parent)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 14, 0, 0)
-        layout.addWidget(self._pitchPanel(model), 3)
+        layout.addWidget(self._pitchPanel(model), 2)
         side = QVBoxLayout()
-        side.addWidget(self._summaryPanel(model), 2)
+        side.addWidget(self._summaryPanel(model), 1)
         side.addWidget(self._notesPanel(model.notes), 1)
-        layout.addLayout(side, 2)
+        layout.addLayout(side, 4)
 
     @staticmethod
     def _notesPanel(notes: str) -> QFrame:
@@ -116,6 +116,7 @@ class OverviewTab(QWidget):
         note.setObjectName("mutedText")
         note.setWordWrap(True)
         layout.addWidget(note)
+        layout.addStretch()
         return panel
 
     @staticmethod
@@ -126,7 +127,11 @@ class OverviewTab(QWidget):
         title = QLabel("Current Formation")
         title.setObjectName("cardTitle")
         layout.addWidget(title)
-        layout.addWidget(PitchWidget(model.formationSlots))
+        pitch = PitchWidget(model.formationSlots)
+        # The overview owns 40% of its responsive row, so its pitch must not
+        # force that proportion wider through the reusable pitch minimum.
+        pitch.setMinimumWidth(0)
+        layout.addWidget(pitch)
         return panel
 
     @staticmethod

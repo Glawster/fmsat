@@ -1,4 +1,4 @@
-<!-- synced from Glawster/organiseMyProjects -- do not edit directly -->
+<!-- deployed from Glawster/organiseMyProjects release 0.3 -- do not edit directly -->
 # Repository layout
 
 This managed guide explains what belongs in each top-level directory and where

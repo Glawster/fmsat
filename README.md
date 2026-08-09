@@ -12,7 +12,10 @@ application.
 
 - [Architecture](documentation/architecture.md)
 - [Sample screenshot guidance](documentation/sampleScreenshots.md)
-- [Football Manager file transfer requirement](project/requirements/features/001-footballManagerFileTransfer.md)
+- [Project records and delivery status](project/README.md)
+- [Repository layout](.github/repositoryLayout.md)
+- [Requirements management](.github/requirementsManagement.md)
+- [Release process](.github/howToRelease.md)
 
 ## Workspace and import workflow
 
@@ -81,16 +84,16 @@ data rather than inferred from screenshot presence alone.
 From the repository root, create and activate the supplied Conda environment:
 
 ```bash
-conda env create -f fmsatEnvironment.yml
+conda env create -f environment.yml
 conda activate fmsat
 ```
 
 The environment installs FMSAT in editable mode with its development and optional `.fmf`
-compression dependencies. After changing `fmsatEnvironment.yml` or `pyproject.toml`, update
+compression dependencies. After changing `environment.yml` or `pyproject.toml`, update
 it with:
 
 ```bash
-conda env update -f fmsatEnvironment.yml --prune
+conda env update -f environment.yml --prune
 ```
 
 ### Standard Python installation

@@ -2,7 +2,7 @@
 
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QSignalSpy
-from PySide6.QtWidgets import QLabel, QTabWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QTabWidget
 
 from fmsat.app.tacticDetailView import PitchWidget, TacticDetailView
 
@@ -49,17 +49,21 @@ def testShapeHasSeparatePhasePitches(qtbot) -> None:  # type: ignore[no-untyped-
     assert len(shape.findChildren(PitchWidget)) == 2
 
 
-def testOverviewPitchCanExpandBeyondPreviousWidthLimit(qtbot) -> None:  # type: ignore[no-untyped-def]
+def testOverviewFormationUsesFortyPercentOfResponsiveRow(qtbot) -> None:  # type: ignore[no-untyped-def]
     view = TacticDetailView()
     qtbot.addWidget(view)
     tabs = view.findChild(QTabWidget, "tacticTabs")
 
     assert tabs is not None
-    pitch = tabs.widget(0).findChild(PitchWidget)
+    overview = tabs.widget(0)
+    pitch = overview.findChild(PitchWidget)
+    layout = overview.layout()
 
     assert pitch is not None
-    assert pitch.minimumWidth() == 520
-    assert pitch.parentWidget().maximumWidth() > 690
+    assert isinstance(layout, QHBoxLayout)
+    assert layout.stretch(0) == 2
+    assert layout.stretch(1) == 3
+    assert pitch.minimumWidth() == 0
 
 
 def testAnalysisExplainsGeneratedEmptyState(qtbot) -> None:  # type: ignore[no-untyped-def]
