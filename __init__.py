@@ -10,4 +10,11 @@ except RuntimeError:
 from fmsat.fmf.parser import FMFParser, FMFTactic
 from fmsat.fmf.structures import FileInspection, TacticMetadata
 
-__all__ = ["FMFTactic", "FMFParser", "FileInspection", "TacticMetadata"]
+import importlib
+
+try:
+    cli = importlib.import_module("fmsat.cli")
+except Exception:  # pragma: no cover - import-time compatibility fallback
+    cli = None
+
+__all__ = ["FMFTactic", "FMFParser", "FileInspection", "TacticMetadata", "cli"]

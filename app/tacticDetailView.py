@@ -105,8 +105,8 @@ class TacticDetailView(QWidget):
         tabs = QTabWidget()
         tabs.setObjectName("tacticTabs")
         tabs.addTab(OverviewTab(self.model), "Overview")
-        tabs.addTab(ShapeTab(self.model), "Team Shape")
-        tabs.addTab(InstructionsTab(self.model), "Team Instructions")
+        tabs.addTab(ShapeTab(self.model), "Shape")
+        tabs.addTab(InstructionsTab(self.model), "Instructions")
         tabs.addTab(AnalysisTab(), "Analysis")
         return tabs
 

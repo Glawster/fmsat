@@ -26,7 +26,7 @@ from fmsat.app.colourPalette import (
     buttonSelected,
 )
 
-from fmsat.core.parser import RoleDefinition, TacticVocabulary
+from fmsat.core.parser import TacticVocabulary
 from fmsat.core.roleKnowledge import RoleKnowledgeService
 from fmsat.database import Database, DatabaseError
 from fmsat.database.records import SquadRecord, TacticRecord
@@ -36,9 +36,13 @@ logger = getLogger()
 
 @dataclass(frozen=True, slots=True)
 class CapturedRoleSummary:
-    """One configured role enriched with confirmed captured facts."""
+    """One confirmed role definition shown on the welcome dashboard."""
 
-    role: RoleDefinition
+    reference: str
+    displayName: str
+    abbreviations: tuple[str, ...]
+    positions: tuple[str, ...]
+    duties: tuple[str, ...]
     behaviours: tuple[str, ...]
 
 
@@ -84,28 +88,53 @@ class WelcomeService:
         squads = self.database.squadRecords()
         roles = []
         if self.tacticVocabulary is not None and self.roleKnowledgeService is not None:
-            capturedRoles = (
-                (
-                    role,
-                    self.roleKnowledgeService.definitionLoad(role.code),
+            definitions = self.roleKnowledgeService.definitionsList()
+            if isinstance(definitions, (list, tuple)):
+                roles = sorted(
+                    (
+                        CapturedRoleSummary(
+                            reference=(
+                                definition.roleCode
+                                if definition.roleCode is not None
+                                else f"roleID:{definition.roleID}"
+                            ),
+                            displayName=definition.displayName,
+                            abbreviations=definition.abbreviations,
+                            positions=definition.positions,
+                            duties=definition.duties,
+                            behaviours=definition.behaviours,
+                        )
+                        for definition in definitions
+                    ),
+                    key=self.roleSortKey,
                 )
-                for role in self.tacticVocabulary.roles.values()
-                if self.roleKnowledgeService.definitionExists(role.code)
-            )
-            roles = sorted(
-                (
-                    CapturedRoleSummary(
+            else:
+                capturedRoles = (
+                    (
                         role,
-                        (
-                            tuple(str(value) for value in content.get("behaviours", []))
-                            if isinstance(content, dict)
-                            else ()
-                        ),
+                        self.roleKnowledgeService.definitionLoad(role.code),
                     )
-                    for role, content in capturedRoles
-                ),
-                key=lambda summary: self.roleSortKey(summary.role),
-            )
+                    for role in self.tacticVocabulary.roles.values()
+                    if self.roleKnowledgeService.definitionExists(role.code)
+                )
+                roles = sorted(
+                    (
+                        CapturedRoleSummary(
+                            reference=role.code,
+                            displayName=role.displayName,
+                            abbreviations=role.abbreviations,
+                            positions=role.positions,
+                            duties=role.duties,
+                            behaviours=(
+                                tuple(str(value) for value in content.get("behaviours", []))
+                                if isinstance(content, dict)
+                                else ()
+                            ),
+                        )
+                        for role, content in capturedRoles
+                    ),
+                    key=self.roleSortKey,
+                )
         return (
             tactics if isinstance(tactics, list) else [],
             squads if isinstance(squads, list) else [],
@@ -133,7 +162,7 @@ class WelcomeService:
         return rank, position
 
     @classmethod
-    def roleSortKey(cls, role: RoleDefinition) -> tuple[int, str]:
+    def roleSortKey(cls, role) -> tuple[int, str]:
         """Order one role by its highest tactical line and then its name."""
 
         rank = min((cls.positionSortKey(position)[0] for position in role.positions), default=6)
@@ -298,20 +327,27 @@ class WelcomeView(QWidget):
             self.rolesLayout.addStretch()
             return
         for summary in roles:
-            role = summary.role
-            abbreviation = role.abbreviations[0] if role.abbreviations else role.code
-            positions = ", ".join(role.positions)
-            duties = ", ".join(duty.title() for duty in role.duties)
+            abbreviation = (
+                summary.abbreviations[0]
+                if summary.abbreviations
+                else summary.reference.replace("roleID:", "Role ")
+            )
+            positions = ", ".join(summary.positions)
+            duties = ", ".join(duty.title() for duty in summary.duties)
             behaviours = ", ".join(self._behaviourLabel(value) for value in summary.behaviours)
-            detail = f"Positions: {positions} · Duties: {duties}"
-            if behaviours:
-                detail += f"\nBehaviours: {behaviours}"
+            detail = "\n".join(
+                (
+                    f"Behaviours: {behaviours or 'None'}",
+                    f"Positions: {positions}",
+                    f"Duties: {duties or 'Unknown'}",
+                )
+            )
             self._summaryAdd(
-                role.displayName,
+                summary.displayName,
                 detail,
                 (
-                    lambda _checked=False, code=role.code: (
-                        self.roleOpen(code) if self.roleOpen is not None else None
+                    lambda _checked=False, reference=summary.reference: (
+                        self.roleOpen(reference) if self.roleOpen is not None else None
                     )
                 ),
                 placeholder=abbreviation,

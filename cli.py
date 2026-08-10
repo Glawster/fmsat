@@ -10,15 +10,15 @@ from fmsat.core.logUtils import getLogger
 
 logger = getLogger()
 
-from fmsat.bundleFilter import assetsFilter  # noqa: E402
-from fmsat.bundles import BundleError, UnityPyBundleReader  # noqa: E402
-from fmsat.diff import filesDiff  # noqa: E402
-from fmsat.parser import FMFTactic, FMFParser  # noqa: E402
-from fmsat.report import diffReport, inspectionReport, structuresReport  # noqa: E402
-from fmsat.signatures import asciiStrings  # noqa: E402
+from fmsat.fmf.bundleFilter import assetsFilter  # noqa: E402
+from fmsat.fmf.bundles import BundleError, UnityPyBundleReader  # noqa: E402
+from fmsat.fmf.diff import filesDiff  # noqa: E402
+from fmsat.fmf.parser import FMFTactic, FMFParser  # noqa: E402
+from fmsat.fmf.report import diffReport, inspectionReport, structuresReport  # noqa: E402
+from fmsat.fmf.signatures import asciiStrings  # noqa: E402
 from fmsat.fmf.structures import AssetData, AssetInfo, BundleInfo  # noqa: E402
 from fmsat.fmf.structuresDiscovery import structuresRepeated  # noqa: E402
-from fmsat.tacticConfig import tacticDefaultGet, tacticDefaultSet  # noqa: E402
+from fmsat.fmf.tacticConfig import tacticDefaultGet, tacticDefaultSet  # noqa: E402
 
 
 def buildParser() -> argparse.ArgumentParser:
@@ -213,7 +213,7 @@ def _unityActionRun(args: argparse.Namespace) -> int:
     if args.unity is None and not args.gui:
         raise FileNotFoundError("No Unity bundle supplied. Use --unity PATH.")
     if args.gui:
-        from fmsat.qtBundleExplorer import main as qtMain
+        from fmsat.fmf.qtBundleExplorer import main as qtMain
 
         return qtMain([str(args.unity)] if args.unity else [])
 

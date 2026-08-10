@@ -496,26 +496,15 @@ class MainWindow(QMainWindow):
         replaceExisting = (
             self.roleKnowledgeService.definitionExists(role.code) if role is not None else False
         )
-        positions = (
-            list(role.positions)
-            if role is not None
-            else sorted(
-                set(self.tacticVocabulary.positions.values()),
-                key=WelcomeService.positionSortKey,
-            )
-        )
-        position, accepted = QInputDialog.getItem(
-            self,
-            "Expected position",
-            "Choose the position shown in Football Manager:",
-            positions,
-            0,
-            False,
-        )
-        if not accepted:
-            return
         result = self._screenshotAcquire(ScreenType.ROLE_PROFILE, "Import Role")
         if result is None or result.roleProfile is None:
+            return
+        normalizedPosition = self.tacticVocabulary.positionNormalize(result.roleProfile.position)
+        if not normalizedPosition.resolved:
+            self._errorShow(
+                "Role unavailable",
+                "The imported role profile does not contain a recognized position.",
+            )
             return
         expectedRole = role.code if role is not None else ""
         storageName = role.code if role is not None else "newRole"
@@ -527,7 +516,7 @@ class MainWindow(QMainWindow):
         evidence = replace(result.roleProfile, sourceImport=str(screenshotPath))
         dialog = RoleProfileReviewDialog(
             evidence,
-            position,
+            normalizedPosition.value,
             expectedRole,
             self.roleKnowledgeService,
             self,
@@ -568,11 +557,25 @@ class MainWindow(QMainWindow):
             self._errorShow("Roles unavailable", "Role-profile knowledge is not configured")
             return
         role = self.tacticVocabulary.roles.get(roleCode)
-        content = self.roleKnowledgeService.definitionLoad(roleCode)
-        if role is None or content is None:
+        roleID = role.roleID if role is not None else self._roleIDParse(roleCode)
+        content = (
+            self.roleKnowledgeService.definitionLoad(roleCode)
+            if role is not None
+            else (
+                self.roleKnowledgeService.definitionLoadByRoleID(roleID)
+                if roleID is not None
+                else None
+            )
+        )
+        if content is None:
             self._errorShow("Role unavailable", "The captured role definition could not be loaded")
             return
-        positions = self._stringsTuple(content.get("positions")) or role.positions
+        positions = self._stringsTuple(content.get("positions")) or (
+            role.positions if role is not None else ()
+        )
+        if not positions:
+            self._errorShow("Role unavailable", "The captured role definition has no positions")
+            return
         phases = tuple(
             phase
             for phase, field in (
@@ -597,20 +600,31 @@ class MainWindow(QMainWindow):
         dialog = RoleProfileReviewDialog(
             evidence,
             positions[0],
-            roleCode,
+            roleCode if role is not None else "",
             self.roleKnowledgeService,
             self,
+            existingRoleID=roleID,
             replaceExisting=True,
             supportedPositions=positions,
-            attributeWeights=self.roleKnowledgeService.weightsLoad(role.roleID),
-            attributeImportance=self.roleKnowledgeService.importanceLoad(role.roleID),
+            attributeWeights=self.roleKnowledgeService.weightsLoad(roleID or 0),
+            attributeImportance=self.roleKnowledgeService.importanceLoad(roleID or 0),
             attributeDefinitions=self.attributes,
             phases=phases,
         )
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
-        self.statusBar().showMessage(f"Updated role definition: {dialog.savedPath}", 10000)
+        if dialog.profileDeleted:
+            self.statusBar().showMessage("Deleted role definition", 10000)
+        else:
+            self.statusBar().showMessage(f"Updated role definition: {dialog.savedPath}", 10000)
         self.dataChanged.emit()
+
+    @staticmethod
+    def _roleIDParse(reference: str) -> int | None:
+        if not reference.startswith("roleID:"):
+            return None
+        suffix = reference.removeprefix("roleID:").strip()
+        return int(suffix) if suffix.isdigit() else None
 
     def managementShow(self, tabName: str, recordName: str | None = None) -> None:
         """Open or refresh the non-modal tactic and squad management window."""

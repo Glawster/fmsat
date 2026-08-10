@@ -319,3 +319,22 @@ def testAssessmentRejectsMoreThanThreeTopAttributes(tmp_path: Path) -> None:
                 "decisions": "topThree",
             },
         )
+
+
+def testDefinitionDeleteRemovesRoleAndRequirements(tmp_path: Path) -> None:
+    service = _serviceCreate(tmp_path / "roles")
+    draft = service.evidenceVerify(_advancedPlaymakerEvidence(), "MC", "advancedPlaymaker")
+    rolePath = service.definitionConfirm(draft)
+    weightsPath = service.weightsConfirm(
+        19,
+        {"passing": 5},
+        {"passing": "topThree"},
+    )
+
+    deletedPaths = service.definitionDelete(19)
+
+    assert rolePath in deletedPaths
+    assert weightsPath in deletedPaths
+    assert not rolePath.exists()
+    assert weightsPath is not None
+    assert not weightsPath.exists()

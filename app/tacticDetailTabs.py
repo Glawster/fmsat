@@ -102,7 +102,7 @@ class OverviewTab(QWidget):
         side = QVBoxLayout()
         side.addWidget(self._summaryPanel(model), 1)
         side.addWidget(self._notesPanel(model.notes), 1)
-        layout.addLayout(side, 4)
+        layout.addLayout(side, 3)
 
     @staticmethod
     def _notesPanel(notes: str) -> QFrame:

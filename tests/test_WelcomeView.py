@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 from fmsat.app.welcomeView import SummaryCard, WelcomeService, WelcomeView
 from fmsat.app.window import MainWindow
 from fmsat.core.parser import RoleProfileEvidence, TacticalPhase, TacticVocabulary
+from fmsat.core.roleKnowledge import RoleKnowledgeService
 
 
 def _mainWindowCreate() -> MainWindow:
@@ -110,7 +111,7 @@ def testConfirmedRoleCaptureRefreshesWelcomePanel(qtbot, monkeypatch, tmp_path) 
         vocabulary,
     )
     qtbot.addWidget(window)
-    selections = iter((("Channel Forward (CHF)", True), ("STC", True)))
+    selections = iter((("Channel Forward (CHF)", True),))
     monkeypatch.setattr(QInputDialog, "getItem", lambda *args: next(selections))
     evidence = RoleProfileEvidence(
         position="ST (C)",
@@ -134,6 +135,55 @@ def testConfirmedRoleCaptureRefreshesWelcomePanel(qtbot, monkeypatch, tmp_path) 
     window.roleProfileImport()
 
     assert changed.count() == 1
+
+
+def testRoleImportUsesDetectedScreenshotPosition(qtbot, monkeypatch, tmp_path) -> None:  # type: ignore[no-untyped-def]
+
+    database = Mock()
+    database.tacticRecords.return_value = []
+    database.squadRecords.return_value = []
+    roleKnowledge = Mock()
+    roleKnowledge.definitionExists.return_value = False
+    vocabulary = TacticVocabulary()
+    window = MainWindow(
+        Mock(),
+        database,
+        (),
+        Mock(),
+        Mock(),
+        Mock(),
+        roleKnowledge,
+        vocabulary,
+    )
+    qtbot.addWidget(window)
+    monkeypatch.setattr(QInputDialog, "getItem", lambda *args: ("Channel Forward (CHF)", True))
+    evidence = RoleProfileEvidence(
+        position="ST (C)",
+        roleName="Channel Forward",
+        phase=TacticalPhase.IN_POSSESSION,
+        abbreviation="CHF",
+        keyAttributes=("finishing",),
+    )
+    monkeypatch.setattr(
+        window,
+        "_screenshotAcquire",
+        lambda *args: SimpleNamespace(roleProfile=evidence),
+    )
+    monkeypatch.setattr(window, "_screenshotPersist", lambda *args: tmp_path / "role.png")
+    observed = {}
+
+    def dialogCreate(*args, **kwargs):  # type: ignore[no-untyped-def]
+        observed["expectedPosition"] = args[1]
+        dialog = Mock()
+        dialog.exec.return_value = QDialog.DialogCode.Accepted
+        dialog.savedPath = tmp_path / "channelForward.yaml"
+        return dialog
+
+    monkeypatch.setattr("fmsat.app.window.RoleProfileReviewDialog", dialogCreate)
+
+    window.roleProfileImport()
+
+    assert observed["expectedPosition"] == "STC"
 
 
 def testRoleSelectionLoadsCapturedDefinitionForEditing(qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
@@ -275,6 +325,54 @@ def testCapturedRoleCardShowsBehavioursAndOpensEditor(qtbot) -> None:  # type: i
     qtbot.mouseClick(card, Qt.MouseButton.LeftButton)
 
     roleOpen.assert_called_once_with("insideForward")
+
+
+def testWelcomeViewShowsUserDefinedRolesFromConfirmedYaml(qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+
+    database = Mock()
+    database.tacticRecords.return_value = []
+    database.squadRecords.return_value = []
+    service = RoleKnowledgeService(tmp_path, TacticVocabulary(), {"marking"})
+    evidence = RoleProfileEvidence(
+        position="DM",
+        roleName="Dropping Defensive Midfielder",
+        phase=TacticalPhase.OUT_OF_POSSESSION,
+        abbreviation="DDM",
+        behaviours=("movesBackToCB",),
+        keyAttributes=("marking",),
+    )
+    draft = service.evidenceVerify(
+        evidence,
+        "DM",
+        "defensiveMidfielder",
+        adoptDetectedRole=True,
+        supportedPositions=("DM",),
+    )
+    service.definitionConfirm(draft)
+    roleOpen = Mock()
+    view = WelcomeView(
+        WelcomeService(database, TacticVocabulary(), service),
+        (),
+        Mock(),
+        Mock(),
+        roleOpen,
+    )
+    qtbot.addWidget(view)
+
+    labels = _labelTexts(view)
+    card = next(
+        card
+        for card in view.findChildren(SummaryCard)
+        if card.property("summaryName") == "Dropping Defensive Midfielder"
+    )
+
+    assert "Roles (1)" in labels
+    assert "Dropping Defensive Midfielder" in labels
+    assert any("Behaviours: Moves Back To" in text for text in labels)
+
+    qtbot.mouseClick(card, Qt.MouseButton.LeftButton)
+
+    roleOpen.assert_called_once_with(f"roleID:{draft.roleID}")
 
 
 def testTacticAndSquadCardsOpenWhenSelected(qtbot) -> None:  # type: ignore[no-untyped-def]

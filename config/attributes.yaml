@@ -32,6 +32,9 @@ attributes:
   anticipation:
     abbreviation: Ant
     order: 11
+  aggression:
+    abbreviation: Agg
+    order: 31
   composure:
     abbreviation: Com
     order: 12
