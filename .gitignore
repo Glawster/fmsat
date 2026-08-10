@@ -40,3 +40,4 @@ logs/*.log*
 fmsat/samples/*.png
 fmsat/samples/*.jpg
 fmsat/samples/*.jpeg
+fmsat.egg-info/
