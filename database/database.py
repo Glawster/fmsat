@@ -6,7 +6,7 @@ import re
 from difflib import SequenceMatcher
 from pathlib import Path
 
-from organiseMyProjects.logUtils import getLogger
+from fmsat.core.logUtils import getLogger
 from sqlalchemy import create_engine as createEngine
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError

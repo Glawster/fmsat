@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from fmsat.structures import AssetInfo, AssetReference
+from fmsat.fmf.structures import AssetInfo, AssetReference
 
 pytest.importorskip("PySide6")
 

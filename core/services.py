@@ -8,7 +8,7 @@ from difflib import SequenceMatcher
 from pathlib import Path
 
 import numpy as np
-from organiseMyProjects.logUtils import getLogger
+from fmsat.core.logUtils import getLogger
 
 from .detection import ScreenDetector, ScreenType
 from .images import ImagePreprocessor, imageLoad

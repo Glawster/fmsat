@@ -6,9 +6,9 @@ import math
 import re
 from collections.abc import Iterable
 
-from organiseMyProjects.logUtils import getLogger
+from fmsat.core.logUtils import getLogger
 
-from fmsat.structures import ASCIIString, EntropyWindow, HeaderInfo, SectionCandidate
+from fmsat.fmf.structures import ASCIIString, EntropyWindow, HeaderInfo, SectionCandidate
 
 LOGGER = getLogger()
 

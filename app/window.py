@@ -6,7 +6,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
-from organiseMyProjects.logUtils import getLogger
+from fmsat.core.logUtils import getLogger
 from PySide6.QtCore import QSignalBlocker, Qt, Signal
 from PySide6.QtGui import QAction, QCloseEvent, QColor, QImage, QPixmap
 from PySide6.QtWidgets import (

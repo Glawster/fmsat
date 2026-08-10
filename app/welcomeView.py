@@ -7,7 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from organiseMyProjects.logUtils import getLogger
+from fmsat.core.logUtils import getLogger
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction, QKeyEvent, QMouseEvent, QPixmap
 from PySide6.QtWidgets import (

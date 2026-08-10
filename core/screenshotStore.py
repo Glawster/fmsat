@@ -8,7 +8,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import numpy as np
-from organiseMyProjects.logUtils import getLogger
+from fmsat.core.logUtils import getLogger
 
 from .images.pipeline import ImageProcessingError, _cv2
 

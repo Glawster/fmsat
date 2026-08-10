@@ -7,9 +7,9 @@ import lzma
 import zlib
 from collections.abc import Callable
 
-from organiseMyProjects.logUtils import getLogger
+from fmsat.core.logUtils import getLogger
 
-from fmsat.structures import CompressionAttempt
+from fmsat.fmf.structures import CompressionAttempt
 
 LOGGER = getLogger()
 

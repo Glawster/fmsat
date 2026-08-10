@@ -6,17 +6,17 @@ import hashlib
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from organiseMyProjects.logUtils import getLogger
+from fmsat.core.logUtils import getLogger
 
-from fmsat.compression import compressionProbe
-from fmsat.signatures import (
+from fmsat.fmf.compression import compressionProbe
+from fmsat.fmf.signatures import (
     asciiStrings,
     entropy,
     entropyWindows,
     headerInfo,
     sectionCandidates,
 )
-from fmsat.structures import FileInspection, PlayerSlot, TacticMetadata
+from fmsat.fmf.structures import FileInspection, PlayerSlot, TacticMetadata
 
 LOGGER = getLogger()
 

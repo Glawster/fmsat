@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from organiseMyProjects.logUtils import getLogger
+from fmsat.core.logUtils import getLogger
 
 logger = getLogger()
 
@@ -16,8 +16,8 @@ from fmsat.diff import filesDiff  # noqa: E402
 from fmsat.parser import FMFTactic, FMFParser  # noqa: E402
 from fmsat.report import diffReport, inspectionReport, structuresReport  # noqa: E402
 from fmsat.signatures import asciiStrings  # noqa: E402
-from fmsat.structures import AssetData, AssetInfo, BundleInfo  # noqa: E402
-from fmsat.structuresDiscovery import structuresRepeated  # noqa: E402
+from fmsat.fmf.structures import AssetData, AssetInfo, BundleInfo  # noqa: E402
+from fmsat.fmf.structuresDiscovery import structuresRepeated  # noqa: E402
 from fmsat.tacticConfig import tacticDefaultGet, tacticDefaultSet  # noqa: E402
 
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from organiseMyProjects.logUtils import getLogger
+from fmsat.core.logUtils import getLogger
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from fmsat.app.window import MainWindow

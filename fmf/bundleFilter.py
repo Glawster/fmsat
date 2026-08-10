@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from fmsat.structures import AssetInfo
+from fmsat.fmf.structures import AssetInfo
 
 
 def assetsFilter(
