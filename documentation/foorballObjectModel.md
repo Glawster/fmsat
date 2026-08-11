@@ -1,3 +1,8 @@
+# Football Object Model
+
+An Ada type package sepcification defining the football object model.
+
+``` ada
 -----------------------------------------------------------------------------
 -- Football Object Model
 --
@@ -39,11 +44,15 @@ package Tactics is
 
     type Trait_List; -- of array of Trait
 
-    type Instruction_Value_List; -- of array of Instruction_Value
+    -- an Instruction has a title and then a number of selectors
+    -- for example, Tempo has values 
+    -- Much Lower, Lower, Standard, Higher, Much Higher
+
+    type Instruction_Value_List; -- of array of Text 
 
     type Instruction is record
-        Name : Text;
-        Values : Instruction_Value_List;
+        Name : Text; -- eg. Tempo
+        Values : Instruction_Value_List; -- eg. Much Lower, Lower, Standard, Higher, Much Higher
     end record;
 
     type Team_Instruction_List; -- of array of Instruction
@@ -114,3 +123,4 @@ package Tactics is
 private
 
 end Tactics;
+```
