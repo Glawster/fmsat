@@ -2,12 +2,31 @@
 
 from __future__ import annotations
 
+import cv2
+import numpy as np
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from fmsat.core.builder.tacticScreenshotExtractor import TacticScreenshotExtractor
 from fmsat.core.detection import ScreenType
+from fmsat.core.ocr import OcrEngine, OcrResult
 from fmsat.database import Database, StructuredTacticDefinition, Tactic
+
+
+class FakeOcr(OcrEngine):
+    """Return stable Formation-screen text without loading an OCR model."""
+
+    def recognize(self, image: np.ndarray) -> list[OcrResult]:
+        return [
+            OcrResult("CUSTOM 4-2-3-1 DM AM Wide", 0.98),
+            OcrResult("Positive", 0.99),
+        ]
+
+
+def _screenshotWrite(path) -> None:
+    """Create a decodable stand-in image for extractor tests."""
+
+    assert cv2.imwrite(str(path), np.zeros((40, 80, 3), dtype=np.uint8))
 
 
 def testExtractorCreatesStructuredRowsFromSavedScreenshots(tmp_path) -> None:
@@ -15,14 +34,19 @@ def testExtractorCreatesStructuredRowsFromSavedScreenshots(tmp_path) -> None:
 
     database = Database(tmp_path / "test.sqlite3")
     database.initialize()
+    formationPath = tmp_path / "formation.png"
+    _screenshotWrite(formationPath)
     for screenType in (
         ScreenType.TACTIC_FORMATION,
         ScreenType.TACTIC_IN_POSSESSION,
         ScreenType.TACTIC_OUT_OF_POSSESSION,
     ):
-        database.tacticImportSave(f"/captures/{screenType.value}.png", screenType, "High Press")
+        imagePath = (
+            formationPath if screenType is ScreenType.TACTIC_FORMATION else tmp_path / "x.png"
+        )
+        database.tacticImportSave(str(imagePath), screenType, "High Press")
 
-    extractor = TacticScreenshotExtractor(database.engine)
+    extractor = TacticScreenshotExtractor(database.engine, FakeOcr())
     result = extractor.tacticExtract("High Press")
 
     assert result.structuredCreated is True
@@ -50,6 +74,10 @@ def testExtractorCreatesStructuredRowsFromSavedScreenshots(tmp_path) -> None:
         assert len(tactic.structuredDefinition.slots) == 33
         assert len(tactic.structuredDefinition.instructions) > 0
         assert tactic.structuredDefinition.issues
+        assert tactic.structuredDefinition.tacticMetadata["formationName"] == (
+            "4-2-3-1 DM AM Wide"
+        )
+        assert tactic.structuredDefinition.tacticMetadata["mentality"] == "positive"
 
 
 def testExtractorReturnsNotCreatedWhenNoSavedScreenshots(tmp_path) -> None:
@@ -77,7 +105,7 @@ def testExtractorCanReplaceExistingStructuredRows(tmp_path) -> None:
     ):
         database.tacticImportSave(f"/captures/{screenType.value}.png", screenType, "High Press")
 
-    extractor = TacticScreenshotExtractor(database.engine)
+    extractor = TacticScreenshotExtractor(database.engine, FakeOcr())
     first = extractor.tacticExtract("High Press")
     second = extractor.tacticExtract("High Press")
 

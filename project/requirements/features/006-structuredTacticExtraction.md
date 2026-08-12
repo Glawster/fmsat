@@ -68,23 +68,26 @@ from those fixtures.
 
 1. Extend the existing tactic parser while preserving Phase 2 tactic-name
    extraction and public behavior.
-2. Use screen-specific parsers with shared reusable components where useful.
-3. Locate the pitch through normalized, configurable regions.
-4. Detect player or role tiles using computer vision before applying focused
+2. Extract the displayed formation name and mentality from the Formation
+   screenshot and retain them as tactic-level metadata; missing values must
+   produce explicit review issues rather than placeholders presented as data.
+3. Use screen-specific parsers with shared reusable components where useful.
+4. Locate the pitch through normalized, configurable regions.
+5. Detect player or role tiles using computer vision before applying focused
    OCR where practical; do not infer the formation from unrestricted whole-pitch
    text order.
-5. Extract the visible role abbreviation and displayed player name when
+6. Extract the visible role abbreviation and displayed player name when
    available, normalize role and duty, and calculate component-level confidence.
-6. Store tile centres as coordinates normalized between zero and one.
-7. Classify coordinates into canonical position codes using configurable pitch
+7. Store tile centres as coordinates normalized between zero and one.
+8. Classify coordinates into canonical position codes using configurable pitch
    zones that distinguish depth, width, centre and half-space variants without
    hardcoding one formation.
-8. Preserve phase-specific positions because a slot may move between In
+9. Preserve phase-specific positions because a slot may move between In
    Possession and Out of Possession.
-9. Link slots across phases by displayed player, shirt number when available,
+10. Link slots across phases by displayed player, shirt number when available,
    relative ordering and spatial proximity in descending order of reliability.
-10. Retain unmatched phase slots and create an issue when a cross-phase link is
-    uncertain; never silently manufacture a match.
+11. Retain unmatched phase slots and create an issue when a cross-phase link is
+   uncertain; never silently manufacture a match.
 
 ## Role knowledge gaps
 
@@ -190,26 +193,28 @@ warning or information. At minimum validate:
 ## Acceptance criteria
 
 1. A tactic with all three screenshots produces a reviewable structured draft.
-2. Eleven phase-specific slots are extracted where visible, each with normalized
+2. The displayed formation name and mentality are captured from the Formation
+   screenshot and survive structured persistence and model loading.
+3. Eleven phase-specific slots are extracted where visible, each with normalized
    coordinates, position, role, duty, source and component confidence.
-3. Supported team-instruction cards produce canonical values with source and
+4. Supported team-instruction cards produce canonical values with source and
    confidence.
-4. Unknown and uncertain values become explicit issues rather than guesses.
-5. The user can correct slots and instructions, save a draft and later reload it.
-6. Serious unresolved validation errors block confirmation.
-7. Confirmed structured tactics and manual corrections survive restart.
-8. Re-extracting one phase leaves other phases and historical imports intact.
-9. Existing Phase 2 databases and workflows continue to work without data loss.
-10. Automated tests cover vocabulary, pitch zones, formation extraction,
-    instruction extraction, phase linking, persistence, services and review
-    behavior without requiring live OCR downloads.
-11. Diagnostic output is available through the established CLI architecture.
-12. Ruff, Black and the complete applicable automated test suite pass.
-13. User and architecture documentation accurately describe the delivered
-    workflow, schema upgrade, configuration, limitations and future consumers.
-14. A tactic containing a role absent from the knowledge base prompts once for
-    suitable evidence and can resolve the issue after a verified role profile is
-    confirmed.
+5. Unknown and uncertain values become explicit issues rather than guesses.
+6. The user can correct slots and instructions, save a draft and later reload it.
+7. Serious unresolved validation errors block confirmation.
+8. Confirmed structured tactics and manual corrections survive restart.
+9. Re-extracting one phase leaves other phases and historical imports intact.
+10. Existing Phase 2 databases and workflows continue to work without data loss.
+11. Automated tests cover vocabulary, pitch zones, formation extraction,
+   instruction extraction, phase linking, persistence, services and review
+   behavior without requiring live OCR downloads.
+12. Diagnostic output is available through the established CLI architecture.
+13. Ruff, Black and the complete applicable automated test suite pass.
+14. User and architecture documentation accurately describe the delivered
+   workflow, schema upgrade, configuration, limitations and future consumers.
+15. A tactic containing a role absent from the knowledge base prompts once for
+   suitable evidence and can resolve the issue after a verified role profile is
+   confirmed.
 
 ## Out of scope
 
