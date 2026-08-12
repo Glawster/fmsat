@@ -79,7 +79,10 @@ class TacticModelLoader:
                 .options(
                     selectinload(DatabaseTactic.structuredDefinition).selectinload(
                         StructuredTacticDefinition.slots
-                    )
+                    ),
+                    selectinload(DatabaseTactic.structuredDefinition).selectinload(
+                        StructuredTacticDefinition.issues
+                    ),
                 )
             )
             structuredMetadata, structuredSlots = self._structuredSnapshot(sourceTactic)
@@ -90,6 +93,9 @@ class TacticModelLoader:
                     selectinload(ObjectModelTactic.sourceTactic)
                     .selectinload(DatabaseTactic.structuredDefinition)
                     .selectinload(StructuredTacticDefinition.slots),
+                    selectinload(ObjectModelTactic.sourceTactic)
+                    .selectinload(DatabaseTactic.structuredDefinition)
+                    .selectinload(StructuredTacticDefinition.issues),
                     selectinload(ObjectModelTactic.formations).selectinload(
                         ObjectModelFormation.positions
                     ),
@@ -113,7 +119,7 @@ class TacticModelLoader:
             return TacticModelLoadResult(
                 tactic=self._tacticFromObjectModel(objectModel),
                 source="objectModel",
-                issues=(),
+                issues=self._structuredIssues(objectModel.sourceTactic),
                 complete=True,
                 confirmed=True,
                 metadata=structuredMetadata,
@@ -129,6 +135,17 @@ class TacticModelLoader:
             confirmed=built.confirmed,
             metadata=structuredMetadata,
             phaseSlots=structuredSlots,
+        )
+
+    @staticmethod
+    def _structuredIssues(tactic: DatabaseTactic | None) -> tuple[TacticBuildIssue, ...]:
+        """Return persisted extraction/review findings for one source tactic."""
+
+        if tactic is None or tactic.structuredDefinition is None:
+            return ()
+        return tuple(
+            TacticBuildIssue(issue.code, issue.message)
+            for issue in tactic.structuredDefinition.issues
         )
 
     ## mapping

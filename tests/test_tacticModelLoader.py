@@ -14,6 +14,7 @@ from fmsat.database import (
     ImportSession,
     StructuredFormationSlot,
     StructuredTacticDefinition,
+    StructuredTacticIssue,
     Tactic,
 )
 from fmsat.football.role import Role
@@ -57,7 +58,7 @@ def testLoaderPrefersSavedObjectModelOverStructuredDefinition(tmp_path) -> None:
 
     database = Database(tmp_path / "test.sqlite3")
     database.initialize()
-    imported = database.tacticImportSave(
+    database.tacticImportSave(
         "/captures/formation.png",
         ScreenType.TACTIC_FORMATION,
         "High Press",
@@ -124,6 +125,44 @@ def testLoaderPrefersSavedObjectModelOverStructuredDefinition(tmp_path) -> None:
     assert loaded.tactic is not None
     assert loaded.source == "objectModel"
     assert loaded.tactic.inPossession.name == "Saved Shape"
+
+
+def testSavedObjectModelPreservesStructuredExtractionIssues(tmp_path) -> None:
+    """Saved models must still expose warnings from their source extraction."""
+
+    database = Database(tmp_path / "test.sqlite3")
+    database.initialize()
+    imported = database.tacticImportSave(
+        "/captures/formation.png",
+        ScreenType.TACTIC_FORMATION,
+        "Metadata Gap",
+    )
+    with Session(database.engine) as session, session.begin():
+        tactic = session.scalar(
+            select(Tactic).where(Tactic.normalizedName == "metadata gap")
+        )
+        assert tactic is not None
+        tactic.structuredDefinition = StructuredTacticDefinition(
+            confirmed=False,
+            complete=True,
+            tacticMetadata={},
+            slots=[],
+            instructions=[],
+            issues=[
+                StructuredTacticIssue(
+                    code="metadataExtractionIncomplete",
+                    message="Formation screenshot did not expose formation name and mentality",
+                )
+            ],
+        )
+
+    TacticStore(database.engine).tacticSave(_objectModelSample("Metadata Gap", "Saved Shape"))
+
+    loaded = TacticModelLoader(database.engine).tacticLoad("Metadata Gap")
+
+    assert loaded.source == "objectModel"
+    assert [issue.code for issue in loaded.issues] == ["metadataExtractionIncomplete"]
+    assert "formation name and mentality" in loaded.issues[0].message
 
 
 def testLoaderFallsBackToStructuredBuilderWhenNoSavedObjectModel(tmp_path) -> None:
