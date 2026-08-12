@@ -58,7 +58,7 @@ def testLoaderPrefersSavedObjectModelOverStructuredDefinition(tmp_path) -> None:
 
     database = Database(tmp_path / "test.sqlite3")
     database.initialize()
-    database.tacticImportSave(
+    imported = database.tacticImportSave(
         "/captures/formation.png",
         ScreenType.TACTIC_FORMATION,
         "High Press",
