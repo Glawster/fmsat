@@ -12,14 +12,15 @@ from enum import StrEnum
 class RoleIdentity(StrEnum):
     """Football Manager role identities."""
 
-    BCB = "BCB"     # Ball Playing Central Defender
-    DLP = "DLP"     # Deep Lying Playmaker
-    CB = "CB"       # Central Defender
-    HB = "HB"       # Half Back
-    WB = "WB"       # Wing Back
-    DM = "DM"       # Defensive Midfielder
-    CM = "CM"       # Central Midfielder
-    AM = "AM"       # Attacking Midfielder
-    W = "W"         # Winger
-    CF = "CF"       # Centre Forward
-    GK = "GK"       # Goalkeeper
+    BCB = "BCB"  # Ball Playing Central Defender
+    DLP = "DLP"  # Deep Lying Playmaker
+    CB = "CB"  # Central Defender
+    HB = "HB"  # Half Back
+    WB = "WB"  # Wing Back
+    DM = "DM"  # Defensive Midfielder
+    CM = "CM"  # Central Midfielder
+    AM = "AM"  # Attacking Midfielder
+    IF = "IF"  # Inside Forward
+    W = "W"  # Winger
+    CF = "CF"  # Centre Forward
+    GK = "GK"  # Goalkeeper

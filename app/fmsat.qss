@@ -10,6 +10,9 @@ QLabel#valuePill { background: #163b38; color: #75e0bf; border: 1px solid #28675
 QFrame#factCard, QFrame#panel, QFrame#instructionCard { background: #101f2e; border: 1px solid #263b4e; border-radius: 10px; }
 QFrame#overviewPanel { background: #101f2e; border: 1px solid #263b4e; border-radius: 10px; }
 QFrame#pitchPanel { background: #101f2e; border: 1px solid #263b4e; border-radius: 10px; }
+QFrame#incompleteBanner { background: #3a2714; border: 1px solid #8f5b2f; border-radius: 10px; padding: 8px; }
+QLabel#incompleteBannerTitle { color: #ffd29a; font-size: 14px; font-weight: 700; }
+QLabel#incompleteBannerText { color: #f4d9b5; }
 QFrame#factCard { min-height: 58px; }
 QPushButton { background: #31b98f; color: #061510; border: 0; border-radius: 7px; padding: 9px 15px; font-weight: 700; }
 QPushButton:hover { background: #56d6b0; }

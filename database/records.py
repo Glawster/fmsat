@@ -13,6 +13,8 @@ class TacticRecord:
     name: str
     captureCount: int
     formationImage: str | None
+    hasStructuredData: bool = False
+    hasObjectModelData: bool = False
 
 
 @dataclass(frozen=True, slots=True)

@@ -7,6 +7,12 @@ from fmsat.core.detection import ScreenType
 from fmsat.database import (
     Database,
     ImportSession,
+    ObjectModelFormation,
+    ObjectModelFormationInstruction,
+    ObjectModelPosition,
+    ObjectModelPositionInstruction,
+    ObjectModelTactic,
+    ObjectModelTransitionInstruction,
     StructuredFormationSlot,
     StructuredTacticDefinition,
     StructuredTacticIssue,
@@ -102,6 +108,12 @@ def testInitializeAddsStructuredSchemaWithoutReplacingLegacyData(tmp_path) -> No
     # Simulate a database created before requirement 006 by removing only the
     # new tables while retaining all existing tactic and import records.
     for model in (
+        ObjectModelPositionInstruction,
+        ObjectModelFormationInstruction,
+        ObjectModelTransitionInstruction,
+        ObjectModelPosition,
+        ObjectModelFormation,
+        ObjectModelTactic,
         StructuredFormationSlot,
         StructuredTeamInstruction,
         StructuredTacticIssue,
@@ -118,6 +130,12 @@ def testInitializeAddsStructuredSchemaWithoutReplacingLegacyData(tmp_path) -> No
         "structured_formation_slots",
         "structured_team_instructions",
         "structured_tactic_issues",
+        "object_model_tactics",
+        "object_model_formations",
+        "object_model_positions",
+        "object_model_formation_instructions",
+        "object_model_position_instructions",
+        "object_model_transition_instructions",
     }.issubset(tableNames)
     assert upgradedDatabase.tacticsList() == ["Legacy Tactic"]
     assert upgradedDatabase.screenTypesForTactic("Legacy Tactic") == {ScreenType.TACTIC_FORMATION}

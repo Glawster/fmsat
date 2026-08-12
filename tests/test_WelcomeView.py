@@ -16,6 +16,8 @@ from PySide6.QtWidgets import (
 
 from fmsat.app.welcomeView import SummaryCard, WelcomeService, WelcomeView
 from fmsat.app.window import MainWindow
+from fmsat.core.builder.tacticBuilder import TacticBuildIssue
+from fmsat.core.builder.tacticModelLoader import TacticModelLoadResult
 from fmsat.core.parser import RoleProfileEvidence, TacticalPhase, TacticVocabulary
 from fmsat.core.roleKnowledge import RoleKnowledgeService
 
@@ -266,6 +268,7 @@ def testWelcomeViewShowsOnlyCapturedRolesInTacticalOrder(qtbot) -> None:  # type
         (),
         Mock(),
         Mock(),
+        Mock(),
     )
     qtbot.addWidget(view)
 
@@ -308,6 +311,7 @@ def testCapturedRoleCardShowsBehavioursAndOpensEditor(qtbot) -> None:  # type: i
     view = WelcomeView(
         WelcomeService(database, TacticVocabulary(), roleKnowledge),
         (),
+        Mock(),
         Mock(),
         Mock(),
         roleOpen,
@@ -355,6 +359,7 @@ def testWelcomeViewShowsUserDefinedRolesFromConfirmedYaml(qtbot, tmp_path) -> No
         (),
         Mock(),
         Mock(),
+        Mock(),
         roleOpen,
     )
     qtbot.addWidget(view)
@@ -386,7 +391,7 @@ def testTacticAndSquadCardsOpenWhenSelected(qtbot) -> None:  # type: ignore[no-u
     ]
     tacticOpen = Mock()
     squadOpen = Mock()
-    view = WelcomeView(WelcomeService(database), (), tacticOpen, squadOpen)
+    view = WelcomeView(WelcomeService(database), (), tacticOpen, Mock(), squadOpen)
     qtbot.addWidget(view)
     cards = {card.property("summaryName"): card for card in view.findChildren(SummaryCard)}
 
@@ -399,6 +404,68 @@ def testTacticAndSquadCardsOpenWhenSelected(qtbot) -> None:  # type: ignore[no-u
     assert not cards["First Team"].findChildren(QPushButton)
 
 
+def testTacticCardShowsProcessButtonWhenNoExtractedData(qtbot) -> None:  # type: ignore[no-untyped-def]
+
+    database = Mock()
+    database.tacticRecords.return_value = [
+        SimpleNamespace(
+            name="Press",
+            captureCount=3,
+            formationImage=None,
+            hasStructuredData=False,
+            hasObjectModelData=False,
+        )
+    ]
+    database.squadRecords.return_value = []
+    tacticOpen = Mock()
+    tacticProcess = Mock()
+    view = WelcomeView(WelcomeService(database), (), tacticOpen, tacticProcess, Mock())
+    qtbot.addWidget(view)
+
+    card = next(
+        card
+        for card in view.findChildren(SummaryCard)
+        if card.property("summaryName") == "Press"
+    )
+    processButton = next(
+        button for button in card.findChildren(QToolButton) if button.text() == "Process"
+    )
+
+    qtbot.mouseClick(processButton, Qt.MouseButton.LeftButton)
+
+    tacticProcess.assert_called_once_with("Press")
+
+
+def testTacticCardHidesProcessButtonWhenModelExists(qtbot) -> None:  # type: ignore[no-untyped-def]
+
+    database = Mock()
+    database.tacticRecords.return_value = [
+        SimpleNamespace(
+            name="Press",
+            captureCount=3,
+            formationImage=None,
+            hasStructuredData=False,
+            hasObjectModelData=True,
+        )
+    ]
+    database.squadRecords.return_value = []
+    tacticOpen = Mock()
+    tacticProcess = Mock()
+    view = WelcomeView(WelcomeService(database), (), tacticOpen, tacticProcess, Mock())
+    qtbot.addWidget(view)
+
+    card = next(
+        card
+        for card in view.findChildren(SummaryCard)
+        if card.property("summaryName") == "Press"
+    )
+    processButtons = [
+        button for button in card.findChildren(QToolButton) if button.text() == "Process"
+    ]
+
+    assert not processButtons
+
+
 def testWelcomeViewRefreshesFromService(qtbot) -> None:  # type: ignore[no-untyped-def]
 
     database = Mock()
@@ -407,7 +474,7 @@ def testWelcomeViewRefreshesFromService(qtbot) -> None:  # type: ignore[no-untyp
         [SimpleNamespace(name="Press", captureCount=1, formationImage=None)],
     ]
     database.squadRecords.return_value = []
-    view = WelcomeView(WelcomeService(database), (), Mock(), Mock())
+    view = WelcomeView(WelcomeService(database), (), Mock(), Mock(), Mock())
     qtbot.addWidget(view)
 
     view.refresh()
@@ -487,3 +554,80 @@ def testNewRoleChoiceOffersPositionsInTacticalOrder(qtbot, monkeypatch) -> None:
     assert ranks == sorted(ranks)
     assert ranks[0] == 0
     assert ranks[-1] == 5
+
+
+def testTacticShowOpensIncompleteViewWhenNoModelData(qtbot) -> None:  # type: ignore[no-untyped-def]
+
+    database = Mock()
+    database.tacticRecords.return_value = []
+    database.squadRecords.return_value = []
+    database.tacticDetailRecord.return_value = None
+    window = MainWindow(Mock(), database, (), Mock(), Mock(), Mock())
+    qtbot.addWidget(window)
+    window.tacticModelLoader.tacticLoad = Mock(
+        return_value=TacticModelLoadResult(
+            tactic=None,
+            source="none",
+            issues=(
+                TacticBuildIssue(
+                    "missingStructuredDefinition",
+                    "No structured tactic definition exists",
+                ),
+            ),
+            complete=False,
+            confirmed=False,
+        )
+    )
+
+    window.tacticShow("Unavailable Tactic")
+
+    assert window.contentStack.currentWidget() is window.tacticDetailView
+    assert window.tacticDetailView.titleLabel.text() == "Unavailable Tactic"
+    labels = [label.text() for label in window.tacticDetailView.findChildren(QLabel)]
+    assert "Tactic Workspace  ·  Incomplete Data" in labels
+    assert "Incomplete data" in labels
+
+
+def testTacticModelImportUsesProcessingFlow(qtbot) -> None:  # type: ignore[no-untyped-def]
+
+    database = Mock()
+    database.tacticRecords.return_value = []
+    database.squadRecords.return_value = []
+    database.tacticDetailRecord.return_value = None
+    window = MainWindow(Mock(), database, (), Mock(), Mock(), Mock())
+    qtbot.addWidget(window)
+    window.tacticProcess = Mock()
+    window._tacticImportRun = Mock()
+
+    window.tacticModelImport("High Press")
+
+    window.tacticProcess.assert_called_once_with("High Press", forceRebuild=True)
+    window._tacticImportRun.assert_not_called()
+
+
+def testTacticProcessBuildsModelFromScreenshotOnlyTactic(qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+
+    from fmsat.core.detection import ScreenType
+    from fmsat.database import Database, ObjectModelTactic
+    from sqlalchemy import select
+    from sqlalchemy.orm import Session
+
+    database = Database(tmp_path / "test.sqlite3")
+    database.initialize()
+    for screenType in (
+        ScreenType.TACTIC_FORMATION,
+        ScreenType.TACTIC_IN_POSSESSION,
+        ScreenType.TACTIC_OUT_OF_POSSESSION,
+    ):
+        database.tacticImportSave(f"/captures/{screenType.value}.png", screenType, "High Press")
+
+    window = MainWindow(Mock(), database, (), Mock(), Mock(), Mock())
+    qtbot.addWidget(window)
+
+    window.tacticProcess("High Press", openDetail=False)
+
+    with Session(database.engine) as session:
+        stored = session.scalar(
+            select(ObjectModelTactic).where(ObjectModelTactic.normalizedName == "high press")
+        )
+        assert stored is not None

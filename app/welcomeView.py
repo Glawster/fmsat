@@ -177,6 +177,7 @@ class WelcomeView(QWidget):
         service: WelcomeService,
         actions: tuple[QAction, ...],
         tacticOpen: Callable[[str], None],
+        tacticProcess: Callable[[str], None] | None,
         squadOpen: Callable[[str], None],
         roleOpen: Callable[[str], None] | None = None,
         parent: QWidget | None = None,
@@ -184,6 +185,7 @@ class WelcomeView(QWidget):
         super().__init__(parent)
         self.service = service
         self.tacticOpen = tacticOpen
+        self.tacticProcess = tacticProcess
         self.squadOpen = squadOpen
         self.roleOpen = roleOpen
         self.actionsByText = {action.text(): action for action in actions}
@@ -378,6 +380,8 @@ class WelcomeView(QWidget):
         opened: Callable[[], None] | None,
         image: str | None = None,
         placeholder: str = "No image",
+        actionText: str | None = None,
+        actionTriggered: Callable[[], None] | None = None,
         targetLayout: QVBoxLayout | None = None,
         targetParent: QWidget | None = None,
     ) -> None:
@@ -413,6 +417,12 @@ class WelcomeView(QWidget):
         textLayout.addWidget(nameLabel)
         textLayout.addWidget(QLabel(detail))
         layout.addLayout(textLayout, 1)
+        if actionText and actionTriggered is not None:
+            button = QToolButton(card)
+            button.setText(actionText)
+            button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
+            button.clicked.connect(actionTriggered)
+            layout.addWidget(button)
         destination = targetLayout if targetLayout is not None else self.summaryLayout
         destination.addWidget(card)
 
@@ -428,12 +438,22 @@ class WelcomeView(QWidget):
             return
         for record in records:
             detail = f"Formation not recorded · {record.captureCount} captures"
+            needsProcessing = (
+                record.captureCount > 0
+                and not getattr(record, "hasObjectModelData", False)
+            )
             self._summaryAdd(
                 record.name,
                 detail,
                 lambda _checked=False, name=record.name: self.tacticOpen(name),
                 record.formationImage,
                 "No formation image",
+                actionText="Process" if needsProcessing else None,
+                actionTriggered=(
+                    (lambda _checked=False, name=record.name: self.tacticProcess(name))
+                    if needsProcessing and self.tacticProcess is not None
+                    else None
+                ),
             )
 
     def _actionFind(self, text: str) -> QAction:

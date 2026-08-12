@@ -35,6 +35,13 @@ initialization applies this upgrade additively with SQLAlchemy metadata creation
 structured-tactic tables are created while existing tactics, imports, squads and players
 remain untouched.
 
+FMSAT now also persists the football object model in a dedicated schema owned by
+`TacticStore`. `object_model_tactics` stores one canonical saved tactic per normalized name,
+while child tables retain in-possession and out-of-possession formations, ordered positions,
+formation team instructions, position instructions, and transition instructions. This schema
+is intentionally separate from `StructuredTacticDefinition` so reviewed extraction evidence
+and object-model selections can evolve independently without overloading one table family.
+
 New squads may also own `SquadClubScreenshot` records. The associated Club Information
 screenshot supplies the squad-card badge image. It is previewed and persisted through
 `ScreenshotStore` without screen detection, OCR or player parsing. Keeping this provenance

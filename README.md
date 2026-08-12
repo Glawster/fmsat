@@ -37,6 +37,11 @@ application.
 9. Confirmed imports are stored in `~/.local/state/fmsat/fmsat.sqlite3`, with retained
    screenshots under `~/.local/state/fmsat/screenshots/`.
 
+When a tactic is saved through the football object-model workflow, FMSAT writes it to a
+dedicated object-model schema (`object_model_*` tables). These rows are intentionally kept
+separate from structured extraction evidence tables (`structured_*`) so object-model edits
+do not overwrite OCR review provenance.
+
 On first launch after upgrading from the repository-local data layout, FMSAT copies an
 existing `data/fmsat.sqlite3` and its retained screenshots into the persistent user-data
 directory. The legacy files are left untouched as a recovery copy. When `XDG_STATE_HOME`

@@ -63,6 +63,11 @@ class Tactic(Base):
         single_parent=True,
         uselist=False,
     )
+    objectModelTactic: Mapped[ObjectModelTactic | None] = relationship(
+        back_populates="sourceTactic",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
 
 
 class TacticScreenshot(Base):
@@ -195,6 +200,143 @@ class StructuredTacticIssue(Base):
     message: Mapped[str] = mappedColumn(Text, nullable=False)
     observedText: Mapped[str | None] = mappedColumn("observed_text", Text)
     definition: Mapped[StructuredTacticDefinition] = relationship(back_populates="issues")
+
+
+class ObjectModelTactic(Base):
+    """One persisted football object-model tactic."""
+
+    __tablename__ = "object_model_tactics"
+
+    id: Mapped[int] = mappedColumn(primary_key=True)
+    name: Mapped[str] = mappedColumn(String(255), nullable=False)
+    normalizedName: Mapped[str] = mappedColumn(
+        "normalized_name", String(255), unique=True, nullable=False
+    )
+    sourceTacticId: Mapped[int | None] = mappedColumn(
+        "source_tactic_id",
+        ForeignKey("tactics.id"),
+        unique=True,
+        index=True,
+    )
+    sourceTactic: Mapped[Tactic | None] = relationship(back_populates="objectModelTactic")
+    formations: Mapped[list[ObjectModelFormation]] = relationship(
+        back_populates="tactic",
+        cascade="all, delete-orphan",
+    )
+    transitionInstructions: Mapped[list[ObjectModelTransitionInstruction]] = relationship(
+        back_populates="tactic",
+        cascade="all, delete-orphan",
+    )
+
+
+class ObjectModelFormation(Base):
+    """One object-model formation for a specific tactical phase."""
+
+    __tablename__ = "object_model_formations"
+    __table_args__ = (UniqueConstraint("tactic_id", "phase"),)
+
+    id: Mapped[int] = mappedColumn(primary_key=True)
+    tacticId: Mapped[int] = mappedColumn(
+        "tactic_id",
+        ForeignKey("object_model_tactics.id"),
+        nullable=False,
+        index=True,
+    )
+    phase: Mapped[str] = mappedColumn(String(32), nullable=False, index=True)
+    name: Mapped[str] = mappedColumn(String(64), nullable=False)
+    tactic: Mapped[ObjectModelTactic] = relationship(back_populates="formations")
+    positions: Mapped[list[ObjectModelPosition]] = relationship(
+        back_populates="formation",
+        cascade="all, delete-orphan",
+    )
+    teamInstructions: Mapped[list[ObjectModelFormationInstruction]] = relationship(
+        back_populates="formation",
+        cascade="all, delete-orphan",
+    )
+
+
+class ObjectModelPosition(Base):
+    """One object-model position belonging to one object-model formation."""
+
+    __tablename__ = "object_model_positions"
+    __table_args__ = (UniqueConstraint("formation_id", "ordinal"),)
+
+    id: Mapped[int] = mappedColumn(primary_key=True)
+    formationId: Mapped[int] = mappedColumn(
+        "formation_id",
+        ForeignKey("object_model_formations.id"),
+        nullable=False,
+        index=True,
+    )
+    ordinal: Mapped[int] = mappedColumn(Integer, nullable=False)
+    positionIdentity: Mapped[str] = mappedColumn("position_identity", String(16), nullable=False)
+    roleIdentity: Mapped[str] = mappedColumn("role_identity", String(32), nullable=False)
+    roleProfileName: Mapped[str] = mappedColumn("role_profile_name", String(128), nullable=False)
+    roleProfileDescription: Mapped[str] = mappedColumn(
+        "role_profile_description", Text, default="", nullable=False
+    )
+    formation: Mapped[ObjectModelFormation] = relationship(back_populates="positions")
+    instructions: Mapped[list[ObjectModelPositionInstruction]] = relationship(
+        back_populates="position",
+        cascade="all, delete-orphan",
+    )
+
+
+class ObjectModelFormationInstruction(Base):
+    """One team instruction selected for one object-model formation."""
+
+    __tablename__ = "object_model_formation_instructions"
+    __table_args__ = (UniqueConstraint("formation_id", "category"),)
+
+    id: Mapped[int] = mappedColumn(primary_key=True)
+    formationId: Mapped[int] = mappedColumn(
+        "formation_id",
+        ForeignKey("object_model_formations.id"),
+        nullable=False,
+        index=True,
+    )
+    category: Mapped[str] = mappedColumn(String(100), nullable=False)
+    valueName: Mapped[str] = mappedColumn("value_name", String(100), nullable=False)
+    valueDescription: Mapped[str] = mappedColumn("value_description", Text, default="")
+    formation: Mapped[ObjectModelFormation] = relationship(back_populates="teamInstructions")
+
+
+class ObjectModelPositionInstruction(Base):
+    """One player instruction selected for one object-model position."""
+
+    __tablename__ = "object_model_position_instructions"
+    __table_args__ = (UniqueConstraint("position_id", "category"),)
+
+    id: Mapped[int] = mappedColumn(primary_key=True)
+    positionId: Mapped[int] = mappedColumn(
+        "position_id",
+        ForeignKey("object_model_positions.id"),
+        nullable=False,
+        index=True,
+    )
+    category: Mapped[str] = mappedColumn(String(100), nullable=False)
+    valueName: Mapped[str] = mappedColumn("value_name", String(100), nullable=False)
+    valueDescription: Mapped[str] = mappedColumn("value_description", Text, default="")
+    position: Mapped[ObjectModelPosition] = relationship(back_populates="instructions")
+
+
+class ObjectModelTransitionInstruction(Base):
+    """One transition instruction selected for one object-model tactic."""
+
+    __tablename__ = "object_model_transition_instructions"
+    __table_args__ = (UniqueConstraint("tactic_id", "category"),)
+
+    id: Mapped[int] = mappedColumn(primary_key=True)
+    tacticId: Mapped[int] = mappedColumn(
+        "tactic_id",
+        ForeignKey("object_model_tactics.id"),
+        nullable=False,
+        index=True,
+    )
+    category: Mapped[str] = mappedColumn(String(100), nullable=False)
+    valueName: Mapped[str] = mappedColumn("value_name", String(100), nullable=False)
+    valueDescription: Mapped[str] = mappedColumn("value_description", Text, default="")
+    tactic: Mapped[ObjectModelTactic] = relationship(back_populates="transitionInstructions")
 
 
 class Squad(Base):
