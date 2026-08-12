@@ -1,6 +1,6 @@
 import zlib
 
-from fmsat.compression import compressionProbe
+from fmsat.fmf.compression import compressionProbe
 
 
 def testProbeCompressionReportsSuccess() -> None:

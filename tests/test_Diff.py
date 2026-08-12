@@ -1,4 +1,4 @@
-from fmsat.diff import bytesChanged, changesGroup
+from fmsat.fmf.diff import bytesChanged, changesGroup
 
 
 def testChangedBytesHandlesReplacementsAndGrowth() -> None:

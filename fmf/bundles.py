@@ -65,9 +65,9 @@ class UnityPyBundleReader(BundleReader):
         self._reference_index_built = False
 
     def open(self, path: Path) -> BundleInfo:
-        bundle_path = path.expanduser().resolve()
-        if not bundle_path.is_file():
-            raise FileNotFoundError(f"Bundle file does not exist: {bundle_path}")
+        bundlePath = path.expanduser().resolve()
+        if not bundlePath.is_file():
+            raise FileNotFoundError(f"Bundle file does not exist: {bundlePath}")
 
         try:
             import UnityPy  # type: ignore[import-not-found]
@@ -78,33 +78,33 @@ class UnityPyBundleReader(BundleReader):
             ) from error
 
         try:
-            environment = UnityPy.load(str(bundle_path))
+            environment = UnityPy.load(str(bundlePath))
         except Exception as error:  # noqa: BLE001 - adapter converts library errors.
             raise BundleFormatError(f"Could not open Unity bundle: {error}") from error
 
         self._environment = environment
-        self._path = bundle_path
+        self._path = bundlePath
         self._serialized_search_text = {}
         self._references_by_id = {}
         self._reverse_references_by_id = {}
         self._reference_index_built = False
         self._objects_by_id = {
-            int(getattr(item, "path_id", 0)): item
+            int(getattr(item, "pathId", 0)): item
             for item in getattr(environment, "objects", [])
-            if getattr(item, "path_id", None) is not None
+            if getattr(item, "pathId", None) is not None
         }
-        container_paths = self._containerPaths(environment)
+        containerPaths = self._containerPaths(environment)
         self._assets = tuple(
-            self._assetInfo(bundle_path, item, container_paths.get(int(getattr(item, "path_id", 0))))
+            self._assetInfo(bundlePath, item, containerPaths.get(int(getattr(item, "pathId", 0))))
             for item in getattr(environment, "objects", [])
         )
         self._assets_by_id = {asset.pathId: asset for asset in self._assets}
 
         info = BundleInfo(
-            path=bundle_path,
-            filename=bundle_path.name,
-            size=bundle_path.stat().st_size,
-            signature=_bundleSignature(bundle_path),
+            path=bundlePath,
+            filename=bundlePath.name,
+            size=bundlePath.stat().st_size,
+            signature=_bundleSignature(bundlePath),
             unityVersion=self._unityVersion(environment),
             assetCount=len(self._assets),
             externalReferences=self._externalReferences(environment),
@@ -260,7 +260,7 @@ class UnityPyBundleReader(BundleReader):
                 key = (source.pathId, source.relationship)
                 reverse.setdefault(reference.pathId, {}).setdefault(key, source)
         self._reverse_references_by_id = {
-            path_id: tuple(refs.values()) for path_id, refs in reverse.items()
+            pathId: tuple(refs.values()) for pathId, refs in reverse.items()
         }
         self._reference_index_built = True
 
@@ -307,14 +307,14 @@ class UnityPyBundleReader(BundleReader):
         raise BundleAssetError(f"Asset not found: {asset_id}")
 
     def _assetInfo(self, bundlePath: Path, unityObject: Any, containerPath: str | None) -> AssetInfo:
-        pathId = int(getattr(unityObject, "path_id", 0))
-        asset_type = _objectTypeName(unityObject)
-        asset_name = self._assetName(unityObject)
+        pathId = int(getattr(unityObject, "pathId", 0))
+        assetType = _objectTypeName(unityObject)
+        assetName = self._assetName(unityObject)
         return AssetInfo(
             bundlePath=bundlePath,
             pathId=pathId,
-            assetType=asset_type,
-            assetName=asset_name,
+            assetType=assetType,
+            assetName=assetName,
             serializedSize=_serializedSize(unityObject),
             containerPath=containerPath,
             dependencies=self._dependencies(unityObject),
@@ -350,10 +350,10 @@ class UnityPyBundleReader(BundleReader):
     def _containerPaths(self, environment: Any) -> dict[int, str]:
         paths: dict[int, str] = {}
         container = getattr(environment, "container", {}) or {}
-        for container_path, unity_object in container.items():
-            path_id = getattr(unity_object, "path_id", None)
-            if path_id is not None:
-                paths[int(path_id)] = str(container_path)
+        for containerPath, unity_object in container.items():
+            pathId = getattr(unity_object, "pathId", None)
+            if pathId is not None:
+                paths[int(pathId)] = str(containerPath)
         return paths
 
     def _externalReferences(self, environment: Any | None) -> tuple[str, ...]:
@@ -401,9 +401,9 @@ def _referencesFromStructure(structure: Any) -> tuple[AssetReference, ...]:
 
 def _referencesCollect(value: Any, relationship: str, refs: list[AssetReference]) -> None:
     if isinstance(value, dict):
-        path_id = _pathIdFromMapping(value)
-        if path_id not in (None, 0):
-            refs.append(AssetReference(pathId=path_id, relationship=relationship or None))
+        pathId = _pathIdFromMapping(value)
+        if pathId not in (None, 0):
+            refs.append(AssetReference(pathId=pathId, relationship=relationship or None))
             return
         for key, child in value.items():
             child_relationship = f"{relationship}.{key}" if relationship else str(key)
@@ -415,7 +415,7 @@ def _referencesCollect(value: Any, relationship: str, refs: list[AssetReference]
 
 
 def _pathIdFromMapping(value: dict[Any, Any]) -> int | None:
-    for key in ("m_PathID", "path_id", "PathID", "pathID"):
+    for key in ("m_PathID", "pathId", "PathID", "pathID"):
         candidate = value.get(key)
         if isinstance(candidate, int):
             return candidate
@@ -448,17 +448,17 @@ def _referenceEnrich(
 
 def _assetGraphNode(asset: AssetInfo) -> dict[str, Any]:
     return {
-        "path_id": asset.pathId,
+        "pathId": asset.pathId,
         "type": asset.assetType,
         "name": asset.assetName,
         "container": asset.containerPath,
-        "serialized_size": asset.serializedSize,
+        "serializedSize": asset.serializedSize,
     }
 
 
 def _referenceGraphNode(reference: AssetReference) -> dict[str, Any]:
     return {
-        "path_id": reference.pathId,
+        "pathId": reference.pathId,
         "type": reference.assetType,
         "name": reference.assetName,
         "container": reference.assetPath,
@@ -469,11 +469,11 @@ def _referenceGraphNode(reference: AssetReference) -> dict[str, Any]:
 
 def _graphDot(graph: dict[str, Any]) -> str:
     asset = graph["asset"]
-    selected_id = str(asset["path_id"])
+    selected_id = str(asset["pathId"])
     lines = ["digraph asset_graph {", "  rankdir=LR;"]
     lines.append(f'  "{_dotEscape(selected_id)}" [label="{_dotEscape(_graphLabel(asset))}"];')
     for reference in graph["references"]:
-        target_id = str(reference["path_id"])
+        target_id = str(reference["pathId"])
         lines.append(
             f'  "{_dotEscape(target_id)}" [label="{_dotEscape(_graphLabel(reference))}"];'
         )
@@ -482,7 +482,7 @@ def _graphDot(graph: dict[str, Any]) -> str:
             f' [label="{_dotEscape(reference.get("relationship") or "")}"];'
         )
     for reference in graph["referenced_by"]:
-        source_id = str(reference["path_id"])
+        source_id = str(reference["pathId"])
         lines.append(
             f'  "{_dotEscape(source_id)}" [label="{_dotEscape(_graphLabel(reference))}"];'
         )
@@ -496,7 +496,7 @@ def _graphDot(graph: dict[str, Any]) -> str:
 
 def _graphLabel(node: dict[str, Any]) -> str:
     name = node.get("name") or "(unnamed)"
-    return f"{name}\\n{node.get('type') or 'unknown'}\\n{node.get('path_id')}"
+    return f"{name}\\n{node.get('type') or 'unknown'}\\n{node.get('pathId')}"
 
 
 def _dotEscape(value: str) -> str:
@@ -512,7 +512,7 @@ def _objectTypeName(unity_object: Any) -> str:
 
 
 def _serializedSize(unity_object: Any) -> int | None:
-    for attr in ("byte_size", "size", "serialized_size"):
+    for attr in ("byte_size", "size", "serializedSize"):
         value = getattr(unity_object, attr, None)
         if isinstance(value, int):
             return value

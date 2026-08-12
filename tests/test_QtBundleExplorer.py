@@ -6,9 +6,9 @@ from fmsat.fmf.structures import AssetInfo, AssetReference
 
 pytest.importorskip("PySide6")
 
-from PySide6.QtCore import QCoreApplication, Qt  # noqa: E402
+from PySide6.QtCore import Qt  # noqa: E402
 
-from fmsat.qtBundleExplorer import (  # noqa: E402
+from fmsat.fmf.qtBundleExplorer import (  # noqa: E402
     AssetFilterProxyModel,
     AssetTableModel,
     ReferenceTableModel,
@@ -17,27 +17,19 @@ from fmsat.qtBundleExplorer import (  # noqa: E402
 )
 
 
-def _applicationCreate() -> QCoreApplication:
-    app = QCoreApplication.instance()
-    if app is None:
-        app = QCoreApplication([])
-    return app
-
-
-def _assetCreate(path_id: int, name: str, asset_type: str) -> AssetInfo:
+def _assetCreate(pathId: int, name: str, assetType: str) -> AssetInfo:
     return AssetInfo(
-        bundle_path=Path("sample.bundle"),
-        path_id=path_id,
-        asset_name=name,
-        asset_type=asset_type,
-        container_path=f"ui/{name}.asset",
-        serialized_size=path_id,
+        bundlePath=Path("sample.bundle"),
+        pathId=pathId,
+        assetName=name,
+        assetType=assetType,
+        containerPath=f"ui/{name}.asset",
+        serializedSize=pathId,
     )
 
 
-def testAssetTableModelExposesColumns() -> None:
+def testAssetTableModelExposesColumns(qapp) -> None:
 
-    _applicationCreate()
     model = AssetTableModel((_assetCreate(2, "Beta", "Texture2D"),))
 
     assert model.rowCount() == 1
@@ -46,9 +38,9 @@ def testAssetTableModelExposesColumns() -> None:
     assert model.data(model.index(0, 1)) == "Beta"
 
 
-def testAssetFilterProxyFiltersAssets() -> None:
+def testAssetFilterProxyFiltersAssets(qapp) -> None:
 
-    _applicationCreate()
+    # _applicationCreate()
     model = AssetTableModel(
         (
             _assetCreate(1, "PlayerPanel", "VisualTreeAsset"),
@@ -58,15 +50,15 @@ def testAssetFilterProxyFiltersAssets() -> None:
     proxy = AssetFilterProxyModel()
     proxy.setSourceModel(model)
 
-    proxy.filtersSet(text="player", asset_type="VisualTree")
+    proxy.filtersSet(text="player", assetType="VisualTree")
 
     assert proxy.rowCount() == 1
     assert proxy.data(proxy.index(0, 1)) == "PlayerPanel"
 
 
-def testAssetFilterProxyFiltersSerializedSearchText() -> None:
+def testAssetFilterProxyFiltersSerializedSearchText(qapp) -> None:
 
-    _applicationCreate()
+    # _applicationCreate()
     model = AssetTableModel(
         (
             _assetCreate(1, "Panel", "VisualTreeAsset"),
@@ -77,13 +69,13 @@ def testAssetFilterProxyFiltersSerializedSearchText() -> None:
     proxy.setSourceModel(model)
     proxy.serializedSearchTextSet({1: '{"m_name": "latest scores"}'})
 
-    proxy.filtersSet(text="Latest Scores", asset_type="")
+    proxy.filtersSet(text="Latest Scores", assetType="")
 
     assert proxy.rowCount() == 1
     assert proxy.data(proxy.index(0, 1)) == "Panel"
 
 
-def testTypeCountsSortsByCountThenType() -> None:
+def testTypeCountsSortsByCountThenType(qapp) -> None:
 
     assets = (
         _assetCreate(1, "PlayerPanel", "VisualTreeAsset"),
@@ -96,13 +88,13 @@ def testTypeCountsSortsByCountThenType() -> None:
 
 def testReferenceTableModelExposesReferences() -> None:
 
-    _applicationCreate()
+    # _applicationCreate()
     model = ReferenceTableModel(
         (
             AssetReference(
-                path_id=42,
-                asset_type="VisualTreeAsset",
-                asset_name="LatestScores",
+                pathId=42,
+                assetType="VisualTreeAsset",
+                assetName="LatestScores",
                 relationship="m_VisualTree",
             ),
         )
@@ -115,14 +107,14 @@ def testReferenceTableModelExposesReferences() -> None:
     assert model.data(model.index(0, 2)) == "LatestScores"
 
 
-def testReferencesSignalAcceptsLargeUnityPathIds() -> None:
+def testReferencesSignalAcceptsLargeUnityPathIds(qapp) -> None:
 
-    _applicationCreate()
+    # _applicationCreate()
     signals = _ReferencesSignals()
     emitted: list[tuple[int, int, object]] = []
-    large_path_id = 8889112869717200915
+    large_pathId = 8889112869717200915
 
     signals.finished.connect(lambda generation, asset_id, refs: emitted.append((generation, asset_id, refs)))
-    signals.finished.emit(1, large_path_id, ())
+    signals.finished.emit(1, large_pathId, ())
 
-    assert emitted == [(1, large_path_id, ())]
+    assert emitted == [(1, large_pathId, ())]

@@ -1,16 +1,16 @@
 from pathlib import Path
 
-from fmsat.bundleFilter import assetsFilter
+from fmsat.fmf.bundleFilter import assetsFilter
 from fmsat.fmf.structures import AssetInfo
 
 
-def _assetCreate(path_id: int, name: str, asset_type: str, container: str) -> AssetInfo:
+def _assetCreate(pathId: int, name: str, assetType: str, container: str) -> AssetInfo:
     return AssetInfo(
-        bundle_path=Path("sample.bundle"),
-        path_id=path_id,
-        asset_name=name,
-        asset_type=asset_type,
-        container_path=container,
+        bundlePath=Path("sample.bundle"),
+        pathId=pathId,
+        assetName=name,
+        assetType=assetType,
+        containerPath=container,
     )
 
 

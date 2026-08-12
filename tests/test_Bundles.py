@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from fmsat.bundles import BundleFormatError, UnityPyBundleReader
+from fmsat.fmf.bundles import BundleFormatError, UnityPyBundleReader
 
 
 class BundleType:
@@ -18,13 +18,13 @@ class BundleObject:
 
     def __init__(
         self,
-        path_id: int = 123,
+        pathId: int = 123,
         name: str = "hello",
-        asset_type: str = "TextAsset",
+        assetType: str = "TextAsset",
         structure: dict[str, object] | None = None,
     ) -> None:
-        self.path_id = path_id
-        self.type = BundleType(asset_type)
+        self.pathId = pathId
+        self.type = BundleType(assetType)
         self._name = name
         self._structure = structure or {"m_Name": name}
 
@@ -74,9 +74,9 @@ def testBundleReaderListsAndReadsAssets(tmp_path: Path, monkeypatch) -> None:  #
         structure={"m_Name": "hello", "target": {"m_PathID": 456}}
     )
     target_object = BundleObject(
-        path_id=456,
+        pathId=456,
         name="target",
-        asset_type="VisualTreeAsset",
+        assetType="VisualTreeAsset",
     )
     environment = SimpleNamespace(
         objects=[unity_object, target_object],
@@ -98,22 +98,22 @@ def testBundleReaderListsAndReadsAssets(tmp_path: Path, monkeypatch) -> None:  #
     graph_dot = reader.assetGraphText(123, "dot")
 
     assert info.signature == "UnityFS"
-    assert info.asset_count == 2
-    assert info.unity_version == "6000.0"
-    assert assets[0].path_id == 123
-    assert assets[0].asset_name == "hello"
-    assert assets[0].container_path == "assets/ui/hello.txt"
+    assert info.assetCount == 2
+    assert info.unityVersion == "6000.0"
+    assert assets[0].pathId == 123
+    assert assets[0].assetName == "hello"
+    assert assets[0].containerPath == "assets/ui/hello.txt"
     assert data.text == "hello world"
     assert data.representation == "original-or-serialized-text"
     assert "hello world" in search_text
     assert "m_name" in search_text
-    assert references[0].path_id == 456
-    assert references[0].asset_name == "target"
-    assert references[0].asset_type == "VisualTreeAsset"
+    assert references[0].pathId == 456
+    assert references[0].assetName == "target"
+    assert references[0].assetType == "VisualTreeAsset"
     assert references[0].relationship == "target"
-    assert reverse_references[0].path_id == 123
-    assert reverse_references[0].asset_name == "hello"
+    assert reverse_references[0].pathId == 123
+    assert reverse_references[0].assetName == "hello"
     assert reverse_references[0].relationship == "target"
-    assert graph_json["asset"]["path_id"] == 123
-    assert graph_json["references"][0]["path_id"] == 456
+    assert graph_json["asset"]["pathId"] == 123
+    assert graph_json["references"][0]["pathId"] == 456
     assert '"123" -> "456"' in graph_dot

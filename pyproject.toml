@@ -39,6 +39,7 @@ bundles = [
 dev = [
   "black>=24.0",
   "pytest>=8.0",
+  "pytest-qt>=4.4",
   "ruff>=0.6",
 ]
 
