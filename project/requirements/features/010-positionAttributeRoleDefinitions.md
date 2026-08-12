@@ -2,7 +2,7 @@
 
 ## Status
 
-Backlog
+In Progress
 
 ## Objective
 
@@ -15,12 +15,43 @@ role-centric squad assessment in requirement 007.
 The knowledge base must distinguish four layers:
 
 1. stable attribute and position vocabulary;
-2. generic role definitions;
-3. tactic-specific modifiers; and
+2. factual generic role definitions derived from Football Manager evidence;
+3. FMSAT-owned role requirements, scoring policy and tactic-specific modifiers;
 4. player assessments produced from the first three layers and player data.
 
 Generic role definitions must not absorb tactical context, and generated player
 assessments must not become canonical knowledge.
+
+## Evidence-driven role acquisition
+
+1. Treat Football Manager role-profile screenshots as primary evidence for
+   role identity, supported position, abbreviation, factual description,
+   behaviours, key attributes and explicit player instructions.
+2. Accept the expected position and role observed by requirement 006 and verify
+   that the submitted screenshot displays the same position and selected role.
+3. Reject a screenshot detected as another screen type, a mismatched role or
+   position, an unreadable role profile or evidence missing the information
+   required to create a minimally valid definition.
+4. Extract a reviewable draft while retaining observed text, component
+   confidence, source import and Football Manager version where available.
+5. Keep the displayed player's numeric attribute values and role-suitability
+   stars as source evidence. They must not become role weights, minimums or
+   target values.
+6. Require user review and confirmation before creating or replacing any role
+   definition YAML. Low-confidence and unknown values must remain visibly
+   unresolved rather than being silently accepted.
+7. Write confirmed definitions atomically to a user knowledge directory rather
+   than modifying packaged bundled files at runtime. Load bundled and confirmed
+   user definitions as one validated knowledge graph, rejecting conflicting
+   stable identifiers.
+8. Record definition provenance, source identity, review state and knowledge
+   version without embedding the source screenshot or personal player data in
+   the generated role YAML.
+9. After a confirmed definition is loaded successfully, notify the structured
+   tactic workflow so every matching missing-role issue can be revalidated.
+10. Allow a confirmed user definition to be exported for later review and
+    promotion into the bundled knowledge base without making that promotion an
+    automatic runtime action.
 
 ## Knowledge-base layout
 
@@ -37,6 +68,10 @@ knowledge/
 │   ├── halfBack.yaml
 │   ├── deepLyingPlaymaker.yaml
 │   └── insideForward.yaml
+├── requirements/
+│   └── roles/
+│       ├── halfBack.yaml
+│       └── insideForward.yaml
 ├── tactics/
 │   └── modifiers.yaml
 └── calculations/
@@ -106,56 +141,92 @@ displayName: Defensive Midfielder
 area: centre
 line: defensiveMidfield
 supports:
-  - halfBack
-  - anchor
+  - defensiveMidfielder
   - deepLyingPlaymaker
-  - ballWinningMidfielder
-  - segundoVolante
+  - pressingDefensiveMidfielder
 ```
 
 ## Role definitions
 
 1. Define each canonical role independently in a role file.
 2. Each role must contain a stable identifier, display name, abbreviations,
-   supported positions, supported duties, factual description, attribute
-   weights, importance groups and optional hard minimums.
+   supported positions, supported duties, factual description, screenshot-backed
+   key attributes, behaviours, explicit player instructions and provenance where
+   those facts are available.
+3. Store `inPossession` and `outOfPossession` boolean flags in each role YAML.
+   Set a flag to `true` only after confirmed evidence for that phase; one role
+   file must represent both phases rather than creating phase-suffixed role files.
+4. A screenshot-derived role definition must not contain the displayed player's
+   attribute values, suitability stars, FMSAT weights or hard minimums.
+5. Role definitions may be used to normalize and review a structured tactic
+   before a corresponding assessment requirement exists. In that state, player
+   scoring for the role must be reported as unavailable.
+6. Make sure only roles defined within the supported Football Manager version
+   are documented; do not retain roles from earlier versions merely to complete
+   a historical list.
+
+An illustrative factual definition is:
+
+```yaml
+id: advancedPlaymaker
+displayName: Advanced Playmaker
+inPossession: true
+outOfPossession: false
+abbreviations:
+  - AP
+positions:
+  - MC
+description: >-
+  A creative role operating between the opposition midfield and defence.
+behaviours:
+  - findsSpaceBetweenLines
+  - expressive
+keyAttributes:
+  - offTheBall
+  - passing
+  - vision
+  - decisions
+playerInstructions:
+  - takeMoreRisks
+```
+
+## Role assessment requirements
+
+1. Define FMSAT's assessment policy separately from factual role definitions,
+   with one requirement profile per role or another equivalently maintainable
+   split.
+2. Each profile must reference a known role and define attribute weights,
+   importance groups and optional hard minimums.
 3. Attribute weights must use a documented integer scale, initially `0`–`5`,
    rather than percentages. A larger value means greater influence on Generic
    Role Fit.
-4. Every weighted, grouped or minimum attribute must reference the master
-   attribute vocabulary.
-5. Define whether weights and minimums apply to the whole role or vary by duty.
+4. Every weighted, grouped or minimum attribute must reference both the master
+   attribute vocabulary and, unless explicitly justified, the role's
+   screenshot-backed key attributes.
+5. Every referenced role must resolve to the factual role vocabulary; a role
+   definition may exist without a requirement profile, but a requirement profile
+   must never invent a role.
+6. Define whether weights and minimums apply to the whole role or vary by duty.
    Duty-specific overrides must be explicit and must not mutate the generic role
    definition at runtime.
-6. Essential, important and useful groups drive explanations and presentation;
+7. Essential, important and useful groups drive explanations and presentation;
    they must not introduce hidden numeric weights unless `scoring.yaml` defines
    that relationship explicitly.
-7. An attribute must not appear in more than one importance group for the same
+8. An attribute must not appear in more than one importance group for the same
    role and duty.
-8. Minimums are hard suitability constraints. Failure must apply a documented
+9. Minimums are hard suitability constraints. Failure must apply a documented
    score cap or penalty so unrelated strengths cannot produce an implausibly high
    score.
-9. Evaluate position compatibility separately from attribute fit. Strong
-   attributes must not make an unsupported position naturally suitable.
-10. Optional preferred-foot and player-trait rules may be represented only when
+10. Evaluate position compatibility separately from attribute fit. Strong
+    attributes must not make an unsupported position naturally suitable.
+11. Optional preferred-foot and player-trait rules may be represented only when
     the corresponding source data and scoring behavior are explicitly supported;
     their absence must have no hidden effect.
-11. Make sure only roles as defined within FM26 are documented, some roles like anchor are not FM defined roles.
 
-An illustrative definition is:
+An illustrative assessment requirement is:
 
 ```yaml
-id: halfBack
-displayName: Half Back
-abbreviations:
-  - HB
-positions:
-  - DM
-duties:
-  - DEFEND
-description: >-
-  Drops between the centre backs in possession while screening the defence out
-  of possession.
+role: halfBack
 attributes:
   positioning: 5
   anticipation: 5
@@ -279,6 +350,8 @@ role files.
    reports its version or content identity.
 6. Log loading, version identity and validation failures without logging personal
    player data.
+7. Validate screenshot-derived drafts with the same schema and cross-reference
+   rules used for bundled definitions before writing or loading them.
 
 ## Acceptance criteria
 
@@ -286,36 +359,54 @@ role files.
    identifiers, names, abbreviations and categories.
 2. Every position has a validated definition with explicit supported roles, and
    every role-position relationship agrees in both directions.
-3. Every role has a validated definition containing positions, duties,
-   description, integer weights and importance groups.
-4. Unknown references, duplicates, invalid weights and inconsistent mappings
+3. Every role has a validated factual definition containing positions, duties,
+   description and screenshot-backed key attributes where available.
+4. Every assessment-enabled role has a separate validated requirement profile
+   containing integer weights and importance groups.
+5. Unknown references, duplicates, invalid weights and inconsistent mappings
    produce actionable errors rather than partial or invented definitions.
-5. Generic role weights remain unchanged when tactical modifiers are applied.
-6. Only explicit structured tactic instructions activate modifiers.
-7. Minimum rules prevent unrelated strengths from producing an implausibly high
+6. Generic role weights remain unchanged when tactical modifiers are applied.
+7. Only explicit structured tactic instructions activate modifiers.
+8. Minimum rules prevent unrelated strengths from producing an implausibly high
    role score.
-8. Assessments expose separate Generic Role Fit, Tactical Fit, Position
+9. Assessments expose separate Generic Role Fit, Tactical Fit, Position
    Familiarity and Overall Suitability values with a reproducible trace.
-9. Missing source data is explicit and never silently substituted.
-10. Strengths, weaknesses and future training inputs are derived from configured
-    definitions and remain explainable.
-11. Assessments retain the knowledge and scoring configuration identity used to
-    produce them.
-12. A non-UI diagnostic command validates the complete bundled knowledge base.
-13. Automated tests cover loading, schema validation, cross-references, weights,
-    importance groups, minimums, position compatibility, modifier activation and
-    composition, missing data, deterministic scoring and explanation traces.
-14. Existing tactic extraction and role-centric assessment workflows remain
-    compatible.
-15. Ruff, Black and the complete applicable automated test suite pass.
+10. Missing source data is explicit and never silently substituted.
+11. Strengths, weaknesses and future training inputs are derived from configured
+   definitions and remain explainable.
+12. Assessments retain the knowledge and scoring configuration identity used to
+   produce them.
+13. A non-UI diagnostic command validates the complete bundled knowledge base.
+14. Automated tests cover loading, schema validation, cross-references, weights,
+   importance groups, minimums, position compatibility, modifier activation and
+   composition, missing data, deterministic scoring and explanation traces.
+15. Existing tactic extraction and role-centric assessment workflows remain
+   compatible.
+16. Ruff, Black and the complete applicable automated test suite pass.
+17. A verified role-profile screenshot can create a confirmed factual user role YAML,
+    while mismatched or incomplete evidence cannot alter the active knowledge
+    graph.
+18. Displayed player ratings and suitability stars remain provenance evidence
+    and never appear as generated attribute weights or minimums.
+19. A role without an assessment requirement can be used by the tactic parser
+    but produces an explicit unavailable assessment rather than an invented score.
 
 ## UI Considerations
 
-1. Provide a UI screen so these values can be seen and adjusted from.
+1. Show the expected and detected role and position side by side during role
+   evidence review.
+2. Allow extracted factual fields to be corrected before confirmation, with the
+   original observed text and confidence still available.
+3. Preview the role definition that will be created and clearly separate
+   screenshot-derived facts from FMSAT weighting policy.
+4. Provide confirm, replace-screenshot and cancel actions. Cancellation must
+   leave the current knowledge graph unchanged.
 
 ## Out of scope
 
-- Editing knowledge definitions through the application UI.
+- Arbitrary editing of existing knowledge definitions through a general-purpose
+  YAML or knowledge editor. Reviewing and correcting a screenshot-derived draft
+  before confirmation is in scope.
 - Automatically discovering weights from player or match data.
 - Claiming that configurable weights reproduce Football Manager's private game
   engine calculations.

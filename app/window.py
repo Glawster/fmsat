@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -18,20 +19,27 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
     QToolBar,
-    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
 from fmsat.app.managementWindow import ManagementWindow
+from fmsat.app.roleProfileDialog import RoleProfileReviewDialog
 from fmsat.app.welcomeView import WelcomeService, WelcomeView
 from fmsat.core.config import AttributeDefinition
 from fmsat.core.detection import ScreenType
-from fmsat.core.parser import ExtractedPlayer
+from fmsat.core.parser import (
+    ExtractedPlayer,
+    RoleProfileEvidence,
+    TacticalPhase,
+    TacticVocabulary,
+)
 from fmsat.core.requirements import ScreenshotRequirement, TacticScreenshotPlanner
+from fmsat.core.roleKnowledge import RoleKnowledgeService
 from fmsat.core.screenshotStore import ScreenshotStore, ScreenshotStoreError
 from fmsat.core.services import (
     ImportError,
@@ -59,6 +67,8 @@ class MainWindow(QMainWindow):
         validator: PlayerValidator,
         screenshotPlanner: TacticScreenshotPlanner,
         screenshotStore: ScreenshotStore,
+        roleKnowledgeService: RoleKnowledgeService | None = None,
+        tacticVocabulary: TacticVocabulary | None = None,
     ) -> None:
         super().__init__()
         self.importService = importService
@@ -67,6 +77,8 @@ class MainWindow(QMainWindow):
         self.validator = validator
         self.screenshotPlanner = screenshotPlanner
         self.screenshotStore = screenshotStore
+        self.roleKnowledgeService = roleKnowledgeService
+        self.tacticVocabulary = tacticVocabulary
         self.currentResult: ImportResult | None = None
         self.currentTactic: str | None = None
         self.currentSquad: str | None = None
@@ -82,7 +94,10 @@ class MainWindow(QMainWindow):
         self._toolbarCreate()
         self._contentCreate()
         self.dataChanged.connect(self.welcomeView.refresh)
-        self.statusBar().showMessage("Ready — choose to Import a Tactic or Squad or view Tactics, or Squads from the Database.")
+        self.statusBar().showMessage(
+            "Ready — choose to Import a Tactic or Squad, or view Tactics or Squads "
+            "from the Database."
+        )
 
     def squadImport(self) -> None:
         """Collect arbitrary squad pages and attribute views into one review draft."""
@@ -95,9 +110,7 @@ class MainWindow(QMainWindow):
         squadName = self._squadSelect()
         if squadName is None:
             return
-        isNewSquad = squadName.casefold() not in {
-            name.casefold() for name in existingSquads
-        }
+        isNewSquad = squadName.casefold() not in {name.casefold() for name in existingSquads}
         if isNewSquad and not self._squadClubImageCapture(squadName):
             return
         self.currentSquad = squadName
@@ -106,9 +119,7 @@ class MainWindow(QMainWindow):
         except DatabaseError as exc:
             self._errorShow("Database error", str(exc))
             return
-        self.currentSquadExistingNames = {
-            self._playerNameNormalize(name) for name in existingNames
-        }
+        self.currentSquadExistingNames = {self._playerNameNormalize(name) for name in existingNames}
         self.currentSquadPlayerOffset = len(self.currentSquadExistingNames)
         logger.info(
             "squad import target=%r mode=append existingPlayers=%d",
@@ -361,15 +372,11 @@ class MainWindow(QMainWindow):
                 return
             captured.add(result.screenType)
             remaining = requirementsToImport[index + 1 :]
-            outstanding = [
-                item for item in tacticRequirements if item.screenType not in captured
-            ]
+            outstanding = [item for item in tacticRequirements if item.screenType not in captured]
             if remaining:
                 nextMessage = f" Next: {remaining[0].title}."
             elif outstanding:
-                nextMessage = " Still missing: " + ", ".join(
-                    item.title for item in outstanding
-                )
+                nextMessage = " Still missing: " + ", ".join(item.title for item in outstanding)
                 nextMessage += "."
             else:
                 nextMessage = " Tactic import is complete."
@@ -456,6 +463,141 @@ class MainWindow(QMainWindow):
             for player in players[:100]
         ]
         QMessageBox.information(self, "Players", "\n".join(lines))
+
+    def roleProfileImport(self) -> None:
+        """Capture, review, and confirm one Football Manager role profile."""
+
+        if self.roleKnowledgeService is None or self.tacticVocabulary is None:
+            self._errorShow("Role profiles unavailable", "Role-profile knowledge is not configured")
+            return
+        roleEntries = sorted(
+            self.tacticVocabulary.roles.values(),
+            key=lambda role: (
+                self.roleKnowledgeService.definitionExists(role.code),
+                WelcomeService.roleSortKey(role),
+            ),
+        )
+        roleLabels = {"New role…": None}
+        for role in roleEntries:
+            abbreviation = role.abbreviations[0] if role.abbreviations else role.code
+            roleLabels[f"{role.displayName} ({abbreviation})"] = role
+        selected, accepted = QInputDialog.getItem(
+            self,
+            "Expected role",
+            "Choose the role shown in Football Manager:",
+            list(roleLabels),
+            0,
+            False,
+        )
+        if not accepted:
+            return
+        role = roleLabels[selected]
+        replaceExisting = (
+            self.roleKnowledgeService.definitionExists(role.code) if role is not None else False
+        )
+        positions = (
+            list(role.positions)
+            if role is not None
+            else sorted(
+                set(self.tacticVocabulary.positions.values()),
+                key=WelcomeService.positionSortKey,
+            )
+        )
+        position, accepted = QInputDialog.getItem(
+            self,
+            "Expected position",
+            "Choose the position shown in Football Manager:",
+            positions,
+            0,
+            False,
+        )
+        if not accepted:
+            return
+        result = self._screenshotAcquire(ScreenType.ROLE_PROFILE, "Import Role")
+        if result is None or result.roleProfile is None:
+            return
+        expectedRole = role.code if role is not None else ""
+        storageName = role.code if role is not None else "newRole"
+        try:
+            screenshotPath = self._screenshotPersist(result, "role", storageName)
+        except ScreenshotStoreError as exc:
+            self._errorShow("Screenshot storage error", str(exc))
+            return
+        evidence = replace(result.roleProfile, sourceImport=str(screenshotPath))
+        dialog = RoleProfileReviewDialog(
+            evidence,
+            position,
+            expectedRole,
+            self.roleKnowledgeService,
+            self,
+            replaceExisting=replaceExisting,
+            attributeDefinitions=self.attributes,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            self.screenshotStore.capturesRemove([screenshotPath])
+            return
+        self.statusBar().showMessage(
+            f"Saved confirmed role definition: {dialog.savedPath}",
+            10000,
+        )
+        self.dataChanged.emit()
+
+    def rolesShow(self) -> None:
+        """Show the refreshed captured-roles panel on the welcome workspace."""
+
+        self.welcomeView.refresh()
+        self.contentStack.setCurrentWidget(self.welcomeView)
+
+    def roleShow(self, roleCode: str) -> None:
+        """Load one captured role definition into the review dialog for editing."""
+
+        if self.roleKnowledgeService is None or self.tacticVocabulary is None:
+            self._errorShow("Roles unavailable", "Role-profile knowledge is not configured")
+            return
+        role = self.tacticVocabulary.roles.get(roleCode)
+        content = self.roleKnowledgeService.definitionLoad(roleCode)
+        if role is None or content is None:
+            self._errorShow("Role unavailable", "The captured role definition could not be loaded")
+            return
+        positions = self._stringsTuple(content.get("positions")) or role.positions
+        phases = tuple(
+            phase
+            for phase, field in (
+                (TacticalPhase.IN_POSSESSION, "inPossession"),
+                (TacticalPhase.OUT_OF_POSSESSION, "outOfPossession"),
+            )
+            if content.get(field) is True
+        )
+        abbreviations = self._stringsTuple(content.get("abbreviations"))
+        evidence = RoleProfileEvidence(
+            position=positions[0],
+            roleName=str(content.get("displayName") or role.displayName),
+            phase=phases[0] if phases else None,
+            abbreviation=abbreviations[0] if abbreviations else None,
+            description=(
+                str(content["description"]) if content.get("description") is not None else None
+            ),
+            behaviours=self._stringsTuple(content.get("behaviours")),
+            keyAttributes=self._stringsTuple(content.get("keyAttributes")),
+            playerInstructions=self._stringsTuple(content.get("playerInstructions")),
+        )
+        dialog = RoleProfileReviewDialog(
+            evidence,
+            positions[0],
+            roleCode,
+            self.roleKnowledgeService,
+            self,
+            replaceExisting=True,
+            supportedPositions=positions,
+            attributeWeights=self.roleKnowledgeService.weightsLoad(role.roleID),
+            attributeImportance=self.roleKnowledgeService.importanceLoad(role.roleID),
+            attributeDefinitions=self.attributes,
+            phases=phases,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        self.statusBar().showMessage(f"Updated role definition: {dialog.savedPath}", 10000)
+        self.dataChanged.emit()
 
     def managementShow(self, tabName: str, recordName: str | None = None) -> None:
         """Open or refresh the non-modal tactic and squad management window."""
@@ -588,6 +730,8 @@ class MainWindow(QMainWindow):
         self.importSquadAction = QAction("Import Squad", self)
         self.importSquadAction.setShortcut("Ctrl+I")
         self.importSquadAction.triggered.connect(self.squadImport)
+        self.importRoleProfileAction = QAction("Import Role", self)
+        self.importRoleProfileAction.triggered.connect(self.roleProfileImport)
         self.applyTacticAction = QAction("Apply Tactic to Squad", self)
         self.applyTacticAction.triggered.connect(self.tacticApplyToSquad)
         self.databaseAction = QAction("Database", self)
@@ -598,6 +742,8 @@ class MainWindow(QMainWindow):
         self.tacticsAction.triggered.connect(lambda: self.managementShow("Tactics"))
         self.squadsAction = QAction("Squads", self)
         self.squadsAction.triggered.connect(lambda: self.managementShow("Squads"))
+        self.rolesAction = QAction("Roles", self)
+        self.rolesAction.triggered.connect(self.rolesShow)
         self.settingsAction = QAction("Settings", self)
         self.settingsAction.triggered.connect(self.settingsShow)
         self.saveAction = QAction("Save Confirmed Data", self)
@@ -610,13 +756,19 @@ class MainWindow(QMainWindow):
     def _contentCreate(self) -> None:
         self.contentStack = QStackedWidget(self)
         self.welcomeView = WelcomeView(
-            WelcomeService(self.database),
+            WelcomeService(
+                self.database,
+                self.tacticVocabulary,
+                self.roleKnowledgeService,
+            ),
             (
                 self.importTacticAction,
                 self.importSquadAction,
+                self.importRoleProfileAction,
             ),
             lambda name: self.managementShow("Tactics", name),
             lambda name: self.managementShow("Squads", name),
+            self.roleShow,
             self,
         )
         self.contentStack.addWidget(self.welcomeView)
@@ -709,9 +861,7 @@ class MainWindow(QMainWindow):
             importError = exc
         finally:
             QApplication.restoreOverrideCursor()
-        if importError is not None and "No player rows could be extracted" in str(
-            importError
-        ):
+        if importError is not None and "No player rows could be extracted" in str(importError):
             if not self._screenshotReadyWait(
                 "Please retake screenshot",
                 str(importError),
@@ -742,9 +892,7 @@ class MainWindow(QMainWindow):
         previewLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
         previewLabel.setPixmap(preview)
         layout.addWidget(previewLabel)
-        information = QLabel(
-            "Continue only if this is the requested Football Manager screen."
-        )
+        information = QLabel("Continue only if this is the requested Football Manager screen.")
         information.setWordWrap(True)
         layout.addWidget(information)
 
@@ -821,12 +969,14 @@ class MainWindow(QMainWindow):
         fileMenu = self.menuBar().addMenu("&File")
         fileMenu.addAction(self.importTacticAction)
         fileMenu.addAction(self.importSquadAction)
+        fileMenu.addAction(self.importRoleProfileAction)
         fileMenu.addAction(self.saveAction)
         fileMenu.addSeparator()
         fileMenu.addAction(self.exitAction)
         viewMenu = self.menuBar().addMenu("&View")
         viewMenu.addAction(self.tacticsAction)
         viewMenu.addAction(self.squadsAction)
+        viewMenu.addAction(self.rolesAction)
         viewMenu.addAction(self.playersAction)
         viewMenu.addAction(self.settingsAction)
 
@@ -851,32 +1001,22 @@ class MainWindow(QMainWindow):
         result.players = list(sanity.players)
         self.currentSanityReport = sanity
         self.currentResult = result
-        collectedNames = {
-            name for player in result.players for name in player.attributes.keys()
-        }
+        collectedNames = {name for player in result.players for name in player.attributes.keys()}
         self.currentDisplayedAttributes = tuple(
             attribute for attribute in self.attributes if attribute.name in collectedNames
         )
         signalBlocker = QSignalBlocker(self.table)
-        self.table.setColumnCount(
-            len(self.baseColumns) + len(self.currentDisplayedAttributes) + 1
-        )
+        self.table.setColumnCount(len(self.baseColumns) + len(self.currentDisplayedAttributes) + 1)
         self.table.setHorizontalHeaderLabels(
             [
                 *self.baseColumns,
-                *(
-                    attribute.abbreviation
-                    for attribute in self.currentDisplayedAttributes
-                ),
+                *(attribute.abbreviation for attribute in self.currentDisplayedAttributes),
                 "Confidence",
             ]
         )
         self.table.setRowCount(len(result.players))
         self.table.setVerticalHeaderLabels(
-            [
-                str(self.currentSquadPlayerOffset + row + 1)
-                for row in range(len(result.players))
-            ]
+            [str(self.currentSquadPlayerOffset + row + 1) for row in range(len(result.players))]
         )
         for row, player in enumerate(result.players):
             rowIssues = [issue for issueRow, issue in sanity.issues if issueRow == row]
@@ -887,9 +1027,11 @@ class MainWindow(QMainWindow):
                 player.ca,
                 player.pa,
                 *(
-                    ""
-                    if player.attributes.get(attribute.name) is None
-                    else str(player.attributes[attribute.name])
+                    (
+                        ""
+                        if player.attributes.get(attribute.name) is None
+                        else str(player.attributes[attribute.name])
+                    )
                     for attribute in self.currentDisplayedAttributes
                 ),
                 f"{player.confidence:.1%}",
@@ -904,9 +1046,7 @@ class MainWindow(QMainWindow):
                     item.setBackground(QColor("#fff1b8"))
                 if rowIssues:
                     item.setToolTip(
-                        "\n".join(
-                            f"{issue.field}: {issue.message}" for issue in rowIssues
-                        )
+                        "\n".join(f"{issue.field}: {issue.message}" for issue in rowIssues)
                     )
                 self.table.setItem(row, column, item)
         del signalBlocker
@@ -1014,9 +1154,7 @@ class MainWindow(QMainWindow):
             return None
         if squads:
             choices = squads if existingOnly else [*squads, "Create new squad…"]
-            selectedIndex = (
-                choices.index(self.currentSquad) if self.currentSquad in squads else 0
-            )
+            selectedIndex = choices.index(self.currentSquad) if self.currentSquad in squads else 0
             name, accepted = QInputDialog.getItem(
                 self,
                 "Select squad",
@@ -1050,6 +1188,14 @@ class MainWindow(QMainWindow):
         """Normalize a player name for overlap comparisons."""
 
         return " ".join(name.split()).casefold()
+
+    @staticmethod
+    def _stringsTuple(value: object) -> tuple[str, ...]:
+        """Return non-empty strings from a stored YAML sequence."""
+
+        if not isinstance(value, list):
+            return ()
+        return tuple(str(item) for item in value if str(item).strip())
 
     def _tablePlayersRead(self) -> list[ExtractedPlayer]:
         if self.currentResult is None:

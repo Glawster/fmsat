@@ -1,0 +1,90 @@
+position:
+  id: AML_AMR
+  name: Attacking Midfielder (Left / Right)
+
+roles:
+
+  - id: winger
+    name: Winger
+    abbreviation: W
+    family: Wide Attacker
+
+    behaviour:
+      - Stays Wide
+      - Creative Threat
+
+    tactical_tags:
+      goal_threat: false
+      creative_threat: true
+      link_play: false
+      stays_wide: true
+      moves_inside: false
+      expressive: false
+
+  - id: inside_forward
+    name: Inside Forward
+    abbreviation: IF
+    family: Wide Attacker
+
+    behaviour:
+      - Moves Inside
+      - Goal Threat
+
+    tactical_tags:
+      goal_threat: true
+      creative_threat: false
+      link_play: false
+      stays_wide: false
+      moves_inside: true
+      expressive: false
+
+  - id: playmaking_winger
+    name: Playmaking Winger
+    abbreviation: PW
+    family: Wide Attacker
+
+    behaviour:
+      - Moves Inside
+      - Expressive
+
+    tactical_tags:
+      goal_threat: false
+      creative_threat: true
+      link_play: true
+      stays_wide: false
+      moves_inside: true
+      expressive: true
+
+  - id: wide_forward
+    name: Wide Forward
+    abbreviation: WF
+    family: Wide Attacker
+
+    behaviour:
+      - Stays Wide
+      - Goal Threat
+
+    tactical_tags:
+      goal_threat: true
+      creative_threat: false
+      link_play: false
+      stays_wide: true
+      moves_inside: false
+      expressive: false
+
+  - id: inside_winger
+    name: Inside Winger
+    abbreviation: IW
+    family: Wide Attacker
+
+    behaviour:
+      - Moves Inside
+      - Creative Threat
+
+    tactical_tags:
+      goal_threat: false
+      creative_threat: true
+      link_play: false
+      stays_wide: false
+      moves_inside: true
+      expressive: false

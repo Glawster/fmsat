@@ -1,0 +1,39 @@
+# LibreOffice
+~$*
+*.lock
+
+# PDF exports
+exports/pdf/*.pdf
+
+# Temporary files
+*.tmp
+*.bak
+*.bundle
+local-bundles/
+bundle-exports/
+output/
+walking-football/generated/
+
+# Linux
+*~
+
+# VS Code
+.vscode/
+
+# Python
+__pycache__/
+.pytest_cache/
+
+node_modules/
+node_modules
+
+output/
+
+# FMSAT runtime data
+data/
+logs/*.log*
+
+# User-supplied screenshots (keep directory documentation)
+fmsat/samples/*.png
+fmsat/samples/*.jpg
+fmsat/samples/*.jpeg

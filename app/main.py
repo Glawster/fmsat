@@ -10,11 +10,18 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 
 from fmsat.app.window import MainWindow
 from fmsat.core.config import Configuration, ConfigurationError
+from fmsat.core.dataPaths import PersistentDataError, persistentDataPrepare
 from fmsat.core.detection import KeywordScreenDetector, ScreenType
 from fmsat.core.images import ImagePreprocessor, PreprocessingOptions
 from fmsat.core.ocr import PaddleOcrEngine
-from fmsat.core.parser import SquadAttributesParser, TacticParser
+from fmsat.core.parser import (
+    RoleProfileParser,
+    SquadAttributesParser,
+    TacticParser,
+    TacticVocabulary,
+)
 from fmsat.core.requirements import TacticScreenshotPlanner
+from fmsat.core.roleKnowledge import RoleKnowledgeService
 from fmsat.core.screenshotStore import ScreenshotStore
 from fmsat.core.services import ScreenshotImportService
 from fmsat.core.validation import PlayerValidator
@@ -31,6 +38,7 @@ def main() -> int:
     application.setApplicationName("FMSAT")
     application.setOrganizationName("FMSAT")
     try:
+        dataPaths = persistentDataPrepare(projectRoot)
         config = Configuration()
         ocr = PaddleOcrEngine()
         detection = config.screens.get("detection", {})
@@ -42,6 +50,7 @@ def main() -> int:
             ScreenType.TACTIC_OUT_OF_POSSESSION: detection.get("tacticOutOfPossession", {}).get(
                 "keywords", []
             ),
+            ScreenType.ROLE_PROFILE: detection.get("roleProfile", {}).get("keywords", []),
             ScreenType.SQUAD_ATTRIBUTES: detection.get("squadAttributes", {}).get("keywords", []),
         }
         detector = KeywordScreenDetector(
@@ -52,8 +61,16 @@ def main() -> int:
         )
         squadParser = SquadAttributesParser(ocr, config.regions, config.attributes)
         tacticParser = TacticParser(ocr, config.regions)
-        service = ScreenshotImportService(preprocessor, detector, squadParser, tacticParser)
-        database = Database(projectRoot / "data" / "fmsat.sqlite3")
+        tacticVocabulary = TacticVocabulary()
+        roleProfileParser = RoleProfileParser(ocr, tacticVocabulary, config.attributes)
+        service = ScreenshotImportService(
+            preprocessor,
+            detector,
+            squadParser,
+            tacticParser,
+            roleProfileParser,
+        )
+        database = Database(dataPaths.database)
         database.initialize()
         window = MainWindow(
             service,
@@ -61,9 +78,15 @@ def main() -> int:
             config.attributes,
             PlayerValidator(config.confidenceThreshold()),
             TacticScreenshotPlanner.fromMapping(config.screens.get("workflow", {})),
-            ScreenshotStore(projectRoot / "data" / "screenshots"),
+            ScreenshotStore(dataPaths.screenshots),
+            RoleKnowledgeService(
+                dataPaths.directory / "knowledge" / "roles",
+                tacticVocabulary,
+                {attribute.name for attribute in config.attributes},
+            ),
+            tacticVocabulary,
         )
-    except (ConfigurationError, DatabaseError, OSError) as exc:
+    except (ConfigurationError, DatabaseError, OSError, PersistentDataError) as exc:
         logger.exception("Application startup failed")
         QMessageBox.critical(None, "FMSAT startup failed", str(exc))
         return 1

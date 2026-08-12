@@ -1,3 +1,35 @@
+Metadata-Version: 2.4
+Name: fmsat
+Version: 0.1.0
+Summary: Football Manager Squad Assessment Tool
+Author: Andy Wilson
+Author-email: Andy Wilson <murky_oblong0s@icloud.com>
+Classifier: Development Status :: 3 - Alpha
+Classifier: Environment :: X11 Applications :: Qt
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: numpy>=1.26
+Requires-Dist: opencv-python>=4.8
+Requires-Dist: organiseMyProjects
+Requires-Dist: paddleocr>=2.7
+Requires-Dist: PySide6>=6.6
+Requires-Dist: PyYAML>=6.0
+Requires-Dist: SQLAlchemy>=2.0
+Provides-Extra: compression
+Requires-Dist: lz4>=4.3; extra == "compression"
+Requires-Dist: zstandard>=0.22; extra == "compression"
+Provides-Extra: bundles
+Requires-Dist: UnityPy>=1.10; extra == "bundles"
+Provides-Extra: dev
+Requires-Dist: black>=24.0; extra == "dev"
+Requires-Dist: pytest>=8.0; extra == "dev"
+Requires-Dist: ruff>=0.6; extra == "dev"
+Dynamic: author
+Dynamic: requires-python
+
 # Football Manager Squad Assessment Tool
 
 FMSAT is a local desktop application that imports a tactic and extracts structured player

@@ -1,0 +1,103 @@
+position:
+  id: STC
+  name: Striker (Centre)
+
+roles:
+
+  - id: deep_lying_forward
+    name: Deep-Lying Forward
+    abbreviation: DLF
+    family: Striker
+
+    behaviour:
+      - Drops Off Into Space
+      - Links Play
+
+    tactical_tags:
+      goal_threat: false
+      link_play: true
+      last_line: false
+      drops_deep: true
+      channels: false
+
+  - id: centre_forward
+    name: Centre Forward
+    abbreviation: CFD
+    family: Striker
+
+    behaviour:
+      - Goal Threat
+
+    tactical_tags:
+      goal_threat: true
+      link_play: false
+      last_line: false
+      drops_deep: false
+      channels: false
+
+  - id: target_forward
+    name: Target Forward
+    abbreviation: TF
+    family: Striker
+
+    behaviour:
+      - Plays On Last Line
+      - Links Play
+
+    tactical_tags:
+      goal_threat: false
+      link_play: true
+      last_line: true
+      drops_deep: false
+      channels: false
+
+  - id: poacher
+    name: Poacher
+    abbreviation: P
+
+    family: Striker
+
+    behaviour:
+      - Plays On Last Line
+      - Goal Threat
+
+    tactical_tags:
+      goal_threat: true
+      link_play: false
+      last_line: true
+      drops_deep: false
+      channels: false
+
+  - id: channel_forward
+    name: Channel Forward
+    abbreviation: CHF
+
+    family: Striker
+
+    behaviour:
+      - Runs Into Channels
+      - Goal Threat
+
+    tactical_tags:
+      goal_threat: true
+      link_play: false
+      last_line: false
+      drops_deep: false
+      channels: true
+
+  - id: false_nine
+    name: False Nine
+    abbreviation: F9
+
+    family: Striker
+
+    behaviour:
+      - Moves Back to AMC
+      - Links Play
+
+    tactical_tags:
+      goal_threat: false
+      link_play: true
+      last_line: false
+      drops_deep: true
+      channels: false

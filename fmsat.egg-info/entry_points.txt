@@ -1,0 +1,2 @@
+[console_scripts]
+fmsat = fmsat.main:main
