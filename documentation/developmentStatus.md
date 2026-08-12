@@ -1,0 +1,92 @@
+# Development Status
+
+Last updated: 2026-08-10
+
+Current Branch
+
+    fmsat/phase3
+
+Current Phase
+
+    Phase 3 – Structured Tactical Knowledge
+
+---
+
+## Completed Requirements
+
+| ID | Requirement | Status |
+|----|-------------|--------|
+|002|Clipboard screenshots|Complete|
+|008|Welcome screen|Complete|
+
+---
+
+## Active Requirements
+
+### Requirement 006
+
+Status
+
+In Progress
+
+Completed
+
+- Tactical vocabulary
+- Tactical domain model
+- Role profile parser
+- Role knowledge gaps
+- Role profile review dialog
+
+Remaining
+
+- Formation slot extraction
+- Position normalisation
+- Team instruction parsing
+- Structured tactic persistence
+- Review UI
+- CLI diagnostics
+
+---
+
+### Requirement 010
+
+Status
+
+In Progress
+
+Completed
+
+- Role profile parser
+- User role knowledge
+- Knowledge validation
+- YAML persistence
+
+Remaining
+
+- Position definitions
+- Attribute master list
+- Assessment requirements
+- Tactical modifiers
+- Scoring
+- Knowledge versioning
+
+---
+
+## Upcoming Requirement
+
+007 – Role-centric Squad Assessment
+
+Blocked until:
+
+- Requirement 006 complete
+- Requirement 010 factual knowledge complete
+
+---
+
+## Technical Debt
+
+Low priority
+
+- Remove generated egg-info from repository
+- Move parser modules into dedicated package
+- Split MainWindow into workflow controllers

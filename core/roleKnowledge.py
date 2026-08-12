@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Collection, Iterable
+from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
 
@@ -20,6 +21,19 @@ from .parser import (
 
 class RoleKnowledgeError(RuntimeError):
     """Raised when role evidence cannot safely alter the knowledge base."""
+
+
+@dataclass(frozen=True, slots=True)
+class StoredRoleDefinition:
+    """One confirmed role definition enriched with any known vocabulary metadata."""
+
+    roleID: int
+    roleCode: str | None
+    displayName: str
+    abbreviations: tuple[str, ...]
+    positions: tuple[str, ...]
+    duties: tuple[str, ...]
+    behaviours: tuple[str, ...]
 
 
 def roleKnowledgeGaps(
@@ -79,6 +93,85 @@ class RoleKnowledgeService:
         except (OSError, yaml.YAMLError):
             return None
         return content if isinstance(content, dict) else None
+
+    def definitionLoadByRoleID(self, roleID: int) -> dict[str, object] | None:
+        """Load one confirmed definition by stable numeric role identity."""
+
+        path = self._definitionPathFindByRoleID(roleID)
+        if path is None:
+            return None
+        try:
+            content = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        except (OSError, yaml.YAMLError):
+            return None
+        return content if isinstance(content, dict) else None
+
+    def definitionDelete(self, roleID: int) -> tuple[Path, ...]:
+        """Delete one confirmed definition and any attached requirement metadata."""
+
+        paths: list[Path] = []
+        definitionPath = self._definitionPathFindByRoleID(roleID)
+        if definitionPath is not None:
+            paths.append(definitionPath)
+        requirementsPath = self.directory.parent / "requirements" / f"role-{roleID:03d}.yaml"
+        if requirementsPath.is_file():
+            paths.append(requirementsPath)
+        if not paths:
+            raise RoleKnowledgeError(f"Role definition does not exist: {roleID}")
+        deleted: list[Path] = []
+        for path in dict.fromkeys(paths):
+            try:
+                path.unlink(missing_ok=True)
+            except OSError as exc:
+                raise RoleKnowledgeError(f"Unable to delete role definition {roleID}: {exc}") from exc
+            deleted.append(path)
+        return tuple(deleted)
+
+    def definitionsList(self) -> tuple[StoredRoleDefinition, ...]:
+        """Return every confirmed role definition, including user-defined roles."""
+
+        definitions = []
+        for path in sorted(self.directory.glob("*.yaml")):
+            try:
+                content = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+            except (OSError, yaml.YAMLError):
+                continue
+            if not isinstance(content, dict):
+                continue
+            role = None
+            roleID = content.get("roleID")
+            if isinstance(roleID, int):
+                role = next(
+                    (candidate for candidate in self.vocabulary.roles.values() if candidate.roleID == roleID),
+                    None,
+                )
+            else:
+                role = self.vocabulary.roles.get(path.stem)
+                roleID = role.roleID if role is not None else None
+            if not isinstance(roleID, int):
+                continue
+            displayName = str(
+                content.get("displayName") or (role.displayName if role is not None else path.stem)
+            )
+            abbreviations = self._tupleStrings(content.get("abbreviations")) or (
+                role.abbreviations if role is not None else ()
+            )
+            positions = self._tupleStrings(content.get("positions")) or (
+                role.positions if role is not None else ()
+            )
+            behaviours = self._tupleStrings(content.get("behaviours"))
+            definitions.append(
+                StoredRoleDefinition(
+                    roleID=roleID,
+                    roleCode=role.code if role is not None else None,
+                    displayName=displayName,
+                    abbreviations=abbreviations,
+                    positions=positions,
+                    duties=role.duties if role is not None else (),
+                    behaviours=behaviours,
+                )
+            )
+        return tuple(definitions)
 
     def weightsLoad(self, roleID: int) -> dict[str, int]:
         """Load FMSAT-owned attribute weights for one stable role identity."""
@@ -294,7 +387,7 @@ class RoleKnowledgeService:
             "positions": self._valuesMerge(existing.get("positions"), draft.positions),
             "description": draft.description or existing.get("description"),
             "behaviours": self._valuesMerge(existing.get("behaviours"), draft.behaviours),
-            "keyAttributes": self._valuesMerge(existing.get("keyAttributes"), draft.keyAttributes),
+            "keyAttributes": list(draft.keyAttributes),
             "playerInstructions": self._valuesMerge(
                 existing.get("playerInstructions"), draft.playerInstructions
             ),
@@ -334,6 +427,25 @@ class RoleKnowledgeService:
             return path
         legacyPath = self.directory / f"{roleCode}.yaml"
         return legacyPath if legacyPath.is_file() else None
+
+    def _definitionPathFindByRoleID(self, roleID: int) -> Path | None:
+        path = self.directory / f"role-{roleID:03d}.yaml"
+        if path.is_file():
+            return path
+        role = next(
+            (candidate for candidate in self.vocabulary.roles.values() if candidate.roleID == roleID),
+            None,
+        )
+        if role is None:
+            return None
+        legacyPath = self.directory / f"{role.code}.yaml"
+        return legacyPath if legacyPath.is_file() else None
+
+    @staticmethod
+    def _tupleStrings(value: object) -> tuple[str, ...]:
+        if not isinstance(value, list):
+            return ()
+        return tuple(str(item) for item in value)
 
     @staticmethod
     def _abbreviationsMerge(existing: object, added: tuple[str, ...]) -> list[str]:

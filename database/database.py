@@ -6,7 +6,7 @@ import re
 from difflib import SequenceMatcher
 from pathlib import Path
 
-from organiseMyProjects.logUtils import getLogger
+from fmsat.core.logUtils import getLogger
 from sqlalchemy import create_engine as createEngine
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
@@ -20,6 +20,7 @@ from .models import (
     AttributeSnapshot,
     Base,
     ImportSession,
+    ObjectModelTactic,
     Player,
     Squad,
     SquadClubScreenshot,
@@ -33,6 +34,7 @@ from .records import (
     SquadCleanupRecord,
     SquadPlayerRecord,
     SquadRecord,
+    TacticDetailRecord,
     TacticRecord,
 )
 
@@ -56,7 +58,7 @@ class Database:
             raise DatabaseError(f"Unable to initialize database: {exc}") from exc
 
     def initialize(self) -> None:
-        """Create tables that do not yet exist."""
+        """Add missing schema tables without replacing existing user data."""
 
         try:
             Base.metadata.create_all(self.engine)
@@ -271,9 +273,7 @@ class Database:
                 if not cleanName:
                     raise DatabaseError("A squad name is required")
                 normalizedName = cleanName.casefold()
-                squad = session.scalar(
-                    select(Squad).where(Squad.normalizedName == normalizedName)
-                )
+                squad = session.scalar(select(Squad).where(Squad.normalizedName == normalizedName))
                 if squad is None:
                     squad = Squad(name=cleanName, normalizedName=normalizedName)
                     session.add(squad)
@@ -337,21 +337,64 @@ class Database:
             raise DatabaseError(f"Unable to list tactics: {exc}") from exc
 
     def tacticRecords(self) -> list[TacticRecord]:
-        """Return tactic-management records with latest Formation images."""
+        """Return tactic summaries, preferring saved object-model tactic names."""
 
         try:
             with Session(self.engine) as session:
                 tactics = session.scalars(
                     select(Tactic)
                     .options(
+                        selectinload(Tactic.objectModelTactic),
+                        selectinload(Tactic.structuredDefinition),
                         selectinload(Tactic.screenshots).selectinload(
                             TacticScreenshot.importSession
-                        )
+                        ),
                     )
                     .order_by(Tactic.name)
                 ).all()
+                objectModels = session.scalars(
+                    select(ObjectModelTactic)
+                    .options(
+                        selectinload(ObjectModelTactic.sourceTactic)
+                        .selectinload(Tactic.screenshots)
+                        .selectinload(TacticScreenshot.importSession)
+                    )
+                    .order_by(ObjectModelTactic.name)
+                ).all()
                 records = []
+                # Saved object-model tactics are the canonical summaries when
+                # they exist, but screenshot provenance still comes from the
+                # linked source tactic import history.
+                for model in objectModels:
+                    source = model.sourceTactic
+                    screenshots = source.screenshots if source is not None else []
+                    formations = [
+                        screenshot.importSession
+                        for screenshot in screenshots
+                        if screenshot.screenType == ScreenType.TACTIC_FORMATION.value
+                    ]
+                    latest = (
+                        max(formations, key=lambda item: (item.date, item.id))
+                        if formations
+                        else None
+                    )
+                    records.append(
+                        TacticRecord(
+                            model.name,
+                            len(screenshots),
+                            latest.imageFilename if latest else None,
+                            hasStructuredData=(
+                                source.structuredDefinition is not None
+                                if source is not None
+                                else False
+                            ),
+                            hasObjectModelData=True,
+                        )
+                    )
+
                 for tactic in tactics:
+                    if tactic.objectModelTactic is not None:
+                        continue
                     formations = [
                         screenshot.importSession
                         for screenshot in tactic.screenshots
@@ -367,11 +410,55 @@ class Database:
                             tactic.name,
                             len(tactic.screenshots),
                             latest.imageFilename if latest else None,
+                            hasStructuredData=tactic.structuredDefinition is not None,
+                            hasObjectModelData=False,
                         )
                     )
-                return records
+                return sorted(records, key=lambda record: record.name.casefold())
         except SQLAlchemyError as exc:
             raise DatabaseError(f"Unable to list tactic records: {exc}") from exc
+
+    def tacticDetailRecord(self, tacticName: str) -> TacticDetailRecord | None:
+        """Return persisted detail facts for one tactic without invoking OCR."""
+
+        normalizedName = tacticName.strip().casefold()
+        try:
+            with Session(self.engine) as session:
+                tactic = session.scalar(
+                    select(Tactic)
+                    .where(Tactic.normalizedName == normalizedName)
+                    .options(
+                        selectinload(Tactic.screenshots).selectinload(
+                            TacticScreenshot.importSession
+                        ),
+                        selectinload(Tactic.squadApplications).selectinload(
+                            SquadTacticApplication.squad
+                        ),
+                    )
+                )
+                if tactic is None:
+                    return None
+                imports = [screenshot.importSession for screenshot in tactic.screenshots]
+                capturedScreenTypes = tuple(
+                    sorted({screenshot.screenType for screenshot in tactic.screenshots})
+                )
+                updatedAt = (
+                    max(imports, key=lambda item: (item.date, item.id)).date if imports else None
+                )
+                return TacticDetailRecord(
+                    name=tactic.name,
+                    capturedScreenTypes=capturedScreenTypes,
+                    captureCount=len(tactic.screenshots),
+                    assignedSquads=tuple(
+                        sorted(
+                            (application.squad.name for application in tactic.squadApplications),
+                            key=str.casefold,
+                        )
+                    ),
+                    updatedAt=updatedAt,
+                )
+        except SQLAlchemyError as exc:
+            raise DatabaseError(f"Unable to load tactic details: {exc}") from exc
 
     def squadsList(self) -> list[str]:
         """Return recognised squad names alphabetically."""
@@ -395,7 +482,7 @@ class Database:
                         .selectinload(ImportSession.players),
                         selectinload(Squad.clubScreenshots).selectinload(
                             SquadClubScreenshot.importSession
-                        )
+                        ),
                     )
                     .order_by(Squad.name)
                 ).all()
@@ -519,8 +606,7 @@ class Database:
                     matches = [
                         candidate
                         for candidate in canonical
-                        if " ".join(candidate.name.casefold().split())
-                        in normalizedPlayerName
+                        if " ".join(candidate.name.casefold().split()) in normalizedPlayerName
                         and candidate.ca in caValues
                         and candidate.pa in paValues
                     ]
@@ -568,9 +654,7 @@ class Database:
                             [candidate.name for candidate in identities.values()],
                         )
 
-                players = [
-                    player for player in players if player.id not in removedArtifacts
-                ]
+                players = [player for player in players if player.id not in removedArtifacts]
                 for index, left in enumerate(players):
                     if not left.ca.isdigit() or not left.pa.isdigit():
                         continue
@@ -734,18 +818,14 @@ class Database:
                     select(Squad)
                     .where(Squad.normalizedName.in_(normalizedNames))
                     .options(
-                        selectinload(Squad.screenshots).selectinload(
-                            SquadScreenshot.importSession
-                        ),
+                        selectinload(Squad.screenshots).selectinload(SquadScreenshot.importSession),
                         selectinload(Squad.clubScreenshots).selectinload(
                             SquadClubScreenshot.importSession
                         ),
                     )
                 ).all()
                 imports = [
-                    screenshot.importSession
-                    for squad in squads
-                    for screenshot in squad.screenshots
+                    screenshot.importSession for squad in squads for screenshot in squad.screenshots
                 ]
                 imports.extend(
                     screenshot.importSession

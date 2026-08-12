@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from organiseMyProjects.logUtils import getLogger
+from fmsat.core.logUtils import getLogger
 
 from ..parser import ExtractedPlayer
 

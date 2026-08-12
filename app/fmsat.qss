@@ -1,0 +1,26 @@
+QWidget#tacticDetailView { background: #08131f; color: #e8eef5; }
+QLabel#eyebrow, QLabel#factKey { color: #56d6b0; font-size: 10px; font-weight: 700; letter-spacing: 1px; }
+QLabel#pageTitle { color: #f7fafc; font-size: 28px; font-weight: 700; }
+QLabel#factValue { color: #f0f0f0; font-size: 14px; font-weight: 600; }
+QLabel#cardTitle, QLabel#emptyTitle { color: #f5f8fb; font-size: 17px; font-weight: 700; }
+QLabel#mutedText { color: #8fa3b8; }
+QLabel#emptyIcon { color: #56d6b0; font-size: 52px; }
+QLabel#summaryItem { background: #101f2e; color: #f5f8fb; border-radius: 7px; padding: 10px; }
+QLabel#valuePill { background: #163b38; color: #75e0bf; border: 1px solid #28675e; border-radius: 9px; padding: 4px 9px; }
+QFrame#factCard, QFrame#panel, QFrame#instructionCard { background: #101f2e; border: 1px solid #263b4e; border-radius: 10px; }
+QFrame#overviewPanel { background: #101f2e; border: 1px solid #263b4e; border-radius: 10px; }
+QFrame#pitchPanel { background: #101f2e; border: 1px solid #263b4e; border-radius: 10px; }
+QFrame#incompleteBanner { background: #3a2714; border: 1px solid #8f5b2f; border-radius: 10px; padding: 8px; }
+QLabel#incompleteBannerTitle { color: #ffd29a; font-size: 14px; font-weight: 700; }
+QLabel#incompleteBannerText { color: #f4d9b5; }
+QFrame#factCard { min-height: 58px; }
+QPushButton { background: #31b98f; color: #061510; border: 0; border-radius: 7px; padding: 9px 15px; font-weight: 700; }
+QPushButton:hover { background: #56d6b0; }
+QPushButton:disabled { background: #243545; color: #738496; }
+QPushButton#quietButton, QPushButton#secondaryButton { background: transparent; color: #b9c8d6; border: 1px solid #30465a; }
+QPushButton#quietButton:hover, QPushButton#secondaryButton:hover { background: #132536; color: white; }
+QComboBox { background: #101f2e; color: #d9e5ef; border: 1px solid #30465a; border-radius: 7px; padding: 8px 12px; }
+QTabWidget::pane { border: 0; background: transparent; }
+QTabBar::tab { color: #8095a9; padding: 11px 22px; border-bottom: 2px solid transparent; font-weight: 600; }
+QTabBar::tab:selected { color: #6ee7c1; border-bottom-color: #31b98f; }
+QScrollArea { background: transparent; }

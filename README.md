@@ -12,7 +12,10 @@ application.
 
 - [Architecture](documentation/architecture.md)
 - [Sample screenshot guidance](documentation/sampleScreenshots.md)
-- [Football Manager file transfer requirement](project/requirements/features/001-footballManagerFileTransfer.md)
+- [Project records and delivery status](project/README.md)
+- [Repository layout](.github/repositoryLayout.md)
+- [Requirements management](.github/requirementsManagement.md)
+- [Release process](.github/howToRelease.md)
 
 ## Workspace and import workflow
 
@@ -33,6 +36,11 @@ application.
 8. Correct any cell and select **Save Confirmed Data** (`Ctrl+S`) from the File menu.
 9. Confirmed imports are stored in `~/.local/state/fmsat/fmsat.sqlite3`, with retained
    screenshots under `~/.local/state/fmsat/screenshots/`.
+
+When a tactic is saved through the football object-model workflow, FMSAT writes it to a
+dedicated object-model schema (`object_model_*` tables). These rows are intentionally kept
+separate from structured extraction evidence tables (`structured_*`) so object-model edits
+do not overwrite OCR review provenance.
 
 On first launch after upgrading from the repository-local data layout, FMSAT copies an
 existing `data/fmsat.sqlite3` and its retained screenshots into the persistent user-data
@@ -81,16 +89,16 @@ data rather than inferred from screenshot presence alone.
 From the repository root, create and activate the supplied Conda environment:
 
 ```bash
-conda env create -f fmsatEnvironment.yml
+conda env create -f environment.yml
 conda activate fmsat
 ```
 
 The environment installs FMSAT in editable mode with its development and optional `.fmf`
-compression dependencies. After changing `fmsatEnvironment.yml` or `pyproject.toml`, update
+compression dependencies. After changing `environment.yml` or `pyproject.toml`, update
 it with:
 
 ```bash
-conda env update -f fmsatEnvironment.yml --prune
+conda env update -f environment.yml --prune
 ```
 
 ### Standard Python installation

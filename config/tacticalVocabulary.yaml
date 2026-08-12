@@ -19,6 +19,7 @@ roleIndicators:
   dropsOffIntoSpace: [drops off into space]
   linksPlay: [links play]
   playsOnLastLine: [plays on last line]
+  movesBackToCB: [moves back to cb]
   movesBackToAMC: [moves back to amc]
   holdsPosition: [holds position]
   careful: [careful]
@@ -104,7 +105,7 @@ roles:
     displayName: Box-to-Box Midfielder
     abbreviations: [BBM]
     aliases: [box to box midfielder]
-    positions: [MCR, MC, MCL]
+    positions: [DMCR, DM, DMCL, MCR, MC, MCL]
     duties: [SUPPORT]
   defensiveMidfielder:
     roleID: 9

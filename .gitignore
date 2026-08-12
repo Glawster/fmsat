@@ -23,6 +23,9 @@ walking-football/generated/
 # Python
 __pycache__/
 .pytest_cache/
+.ruff_cache/
+.venv/
+*.egg-info/
 
 node_modules/
 node_modules
@@ -37,3 +40,4 @@ logs/*.log*
 fmsat/samples/*.png
 fmsat/samples/*.jpg
 fmsat/samples/*.jpeg
+fmsat.egg-info/
