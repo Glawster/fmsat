@@ -66,6 +66,65 @@ class SummaryCard(QFrame):
         super().mouseReleaseEvent(event)
 
 
+class PositionRoleGroup(QWidget):
+    """Collapsible collection of captured roles for one tactical position."""
+
+    def __init__(self, position: str, roleCount: int, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setObjectName("positionRoleGroup")
+        self.setProperty("position", position)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+
+        self.summaryButton = QToolButton(self)
+        self.summaryButton.setObjectName("positionSummaryButton")
+        self.summaryButton.setProperty("position", position)
+        roleLabel = "role" if roleCount == 1 else "roles"
+        self.summaryButton.setText(
+            f"{self._positionLabel(position)} — {roleCount} {roleLabel}"
+        )
+        self.summaryButton.setCheckable(True)
+        self.summaryButton.setChecked(False)
+        self.summaryButton.setArrowType(Qt.ArrowType.RightArrow)
+        self.summaryButton.setToolButtonStyle(
+            Qt.ToolButtonStyle.ToolButtonTextBesideIcon
+        )
+        self.summaryButton.setStyleSheet(
+            "QToolButton { font-weight: bold; text-align: left; "
+            "padding: 7px; border: 1px solid palette(mid); border-radius: 3px; }"
+        )
+        layout.addWidget(self.summaryButton)
+
+        self.rolesContainer = QWidget(self)
+        self.rolesContainer.setObjectName("positionRolesContainer")
+        self.rolesLayout = QVBoxLayout(self.rolesContainer)
+        self.rolesLayout.setContentsMargins(16, 0, 0, 4)
+        self.rolesLayout.setSpacing(4)
+        self.rolesContainer.setVisible(False)
+        layout.addWidget(self.rolesContainer)
+
+        self.summaryButton.toggled.connect(self._expandedSet)
+
+    @staticmethod
+    def _positionLabel(position: str) -> str:
+        """Render a stored position code in familiar Football Manager notation."""
+
+        if position in {"GK", "Unassigned"}:
+            return position
+        match = re.fullmatch(r"(DM|AM|WB|ST|D|M)(CR|CL|C|R|L)", position)
+        if match is None:
+            return position
+        return f"{match.group(1)} ({match.group(2)})"
+
+    def _expandedSet(self, expanded: bool) -> None:
+        self.rolesContainer.setVisible(expanded)
+        self.summaryButton.setArrowType(
+            Qt.ArrowType.DownArrow if expanded else Qt.ArrowType.RightArrow
+        )
+
+
 class WelcomeService:
     """Load bounded dashboard records through the existing database gateway."""
 
@@ -328,35 +387,58 @@ class WelcomeView(QWidget):
             self.rolesLayout.addWidget(empty)
             self.rolesLayout.addStretch()
             return
+        rolesByPosition: dict[str, list[CapturedRoleSummary]] = {}
         for summary in roles:
-            abbreviation = (
-                summary.abbreviations[0]
-                if summary.abbreviations
-                else summary.reference.replace("roleID:", "Role ")
+            positions = summary.positions or ("Unassigned",)
+            for position in positions:
+                rolesByPosition.setdefault(position, []).append(summary)
+
+        for position in sorted(rolesByPosition, key=self.service.positionSortKey):
+            positionRoles = sorted(
+                rolesByPosition[position],
+                key=lambda summary: summary.displayName.casefold(),
             )
-            positions = ", ".join(summary.positions)
-            duties = ", ".join(duty.title() for duty in summary.duties)
-            behaviours = ", ".join(self._behaviourLabel(value) for value in summary.behaviours)
-            detail = "\n".join(
-                (
-                    f"Behaviours: {behaviours or 'None'}",
-                    f"Positions: {positions}",
-                    f"Duties: {duties or 'Unknown'}",
-                )
-            )
-            self._summaryAdd(
-                summary.displayName,
-                detail,
-                (
-                    lambda _checked=False, reference=summary.reference: (
-                        self.roleOpen(reference) if self.roleOpen is not None else None
-                    )
-                ),
-                placeholder=abbreviation,
-                targetLayout=self.rolesLayout,
-                targetParent=self.rolesWidget,
-            )
+            group = PositionRoleGroup(position, len(positionRoles), self.rolesWidget)
+            self.rolesLayout.addWidget(group)
+            for summary in positionRoles:
+                self._roleAdd(summary, group.rolesLayout, group.rolesContainer)
         self.rolesLayout.addStretch()
+
+    def _roleAdd(
+        self,
+        summary: CapturedRoleSummary,
+        targetLayout: QVBoxLayout,
+        targetParent: QWidget,
+    ) -> None:
+        """Add one captured role card beneath its position summary row."""
+
+        abbreviation = (
+            summary.abbreviations[0]
+            if summary.abbreviations
+            else summary.reference.replace("roleID:", "Role ")
+        )
+        positions = ", ".join(summary.positions)
+        duties = ", ".join(duty.title() for duty in summary.duties)
+        behaviours = ", ".join(self._behaviourLabel(value) for value in summary.behaviours)
+        detail = "\n".join(
+            (
+                f"Behaviours: {behaviours or 'None'}",
+                f"Positions: {positions}",
+                f"Duties: {duties or 'Unknown'}",
+            )
+        )
+        self._summaryAdd(
+            summary.displayName,
+            detail,
+            (
+                lambda _checked=False, reference=summary.reference: (
+                    self.roleOpen(reference) if self.roleOpen is not None else None
+                )
+            ),
+            placeholder=abbreviation,
+            targetLayout=targetLayout,
+            targetParent=targetParent,
+        )
 
     def _squadsAdd(self, records: list[SquadRecord]) -> None:
         self._sectionHeadingAdd("Squads", len(records))
