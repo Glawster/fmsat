@@ -80,6 +80,12 @@ class TacticBuilder:
             )
             return TacticBuildResult(None, tuple(issues), False, False)
 
+        # Extraction and review findings are persisted with the structured
+        # definition.  They remain relevant when the rows can still be mapped
+        # into a complete football object model, so expose them to callers
+        # alongside mapping issues discovered by this builder.
+        issues.extend(TacticBuildIssue(issue.code, issue.message) for issue in definition.issues)
+
         formationSlots = self._slotsForPhase(definition, "formation")
         inPossessionSlots = self._slotsForPhase(definition, "inPossession")
         outOfPossessionSlots = self._slotsForPhase(definition, "outOfPossession")
