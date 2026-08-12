@@ -11,7 +11,7 @@ from typing import Any
 
 from fmsat.bundleFilter import assetsFilter
 from fmsat.bundles import BundleError, UnityPyBundleReader
-from fmsat.structures import AssetData, AssetInfo, AssetReference, BundleInfo
+from fmsat.fmf.structures import AssetData, AssetInfo, AssetReference, BundleInfo
 
 try:
     from PySide6.QtCore import (

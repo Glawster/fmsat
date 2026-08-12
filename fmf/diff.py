@@ -5,7 +5,7 @@ from __future__ import annotations
 from itertools import zip_longest as zipLongest
 from pathlib import Path
 
-from fmsat.structures import Change, ChangeGroup
+from fmsat.fmf.structures import Change, ChangeGroup
 
 
 def bytesChanged(old: bytes, new: bytes) -> tuple[Change, ...]:

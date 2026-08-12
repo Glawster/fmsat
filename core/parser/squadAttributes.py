@@ -9,7 +9,7 @@ from typing import Any
 
 import cv2
 import numpy as np
-from organiseMyProjects.logUtils import getLogger
+from fmsat.core.logUtils import getLogger
 
 from ..config import AttributeDefinition
 from ..ocr import OcrEngine, OcrResult

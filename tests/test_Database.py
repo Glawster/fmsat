@@ -8,6 +8,7 @@ from fmsat.core.parser import ExtractedPlayer
 from fmsat.database import (
     AttributeSnapshot,
     Database,
+    ObjectModelTactic,
     Player,
     Squad,
     SquadScreenshot,
@@ -344,6 +345,73 @@ def testManagementRecordsIncludeScreenshotProvenance(tmp_path) -> None:
     assert squad.clubImage == "/captures/club-information.png"
     assert storedPlayer.name == "Jo Example"
     assert storedPlayer.imageFilename == "/captures/squad.png"
+
+
+def testTacticRecordsPreferSavedObjectModelName(tmp_path) -> None:
+
+    database = Database(tmp_path / "test.sqlite3")
+    database.initialize()
+    database.tacticImportSave(
+        "/captures/formation.png",
+        ScreenType.TACTIC_FORMATION,
+        "OCR High Press",
+    )
+
+    with Session(database.engine) as session, session.begin():
+        tactic = session.scalar(select(Tactic).where(Tactic.normalizedName == "ocr high press"))
+        assert tactic is not None
+        tactic.objectModelTactic = ObjectModelTactic(
+            name="Model High Press",
+            normalizedName="ocr high press",
+        )
+
+    records = database.tacticRecords()
+
+    assert len(records) == 1
+    assert records[0].name == "Model High Press"
+    assert records[0].captureCount == 1
+    assert records[0].formationImage == "/captures/formation.png"
+
+
+def testTacticDetailRecordIncludesCapturesAssignmentsAndLatestUpdate(tmp_path) -> None:
+
+    database = Database(tmp_path / "test.sqlite3")
+    database.initialize()
+    database.tacticImportSave(
+        "/captures/formation.png",
+        ScreenType.TACTIC_FORMATION,
+        "High Press",
+    )
+    latest = database.tacticImportSave(
+        "/captures/in-possession.png",
+        ScreenType.TACTIC_IN_POSSESSION,
+        "HIGH PRESS",
+    )
+    player = ExtractedPlayer("Jo Example", "D (C)", "3", "4", {}, 0.98)
+    database.squadImportSave("/captures/first-team.png", [player], "First Team")
+    database.squadImportSave("/captures/under-21s.png", [player], "Under 21s")
+    database.tacticApplyToSquad("Under 21s", "High Press")
+    database.tacticApplyToSquad("First Team", "High Press")
+
+    record = database.tacticDetailRecord(" high press ")
+
+    assert record is not None
+    assert record.name == "High Press"
+    assert record.capturedScreenTypes == (
+        ScreenType.TACTIC_FORMATION.value,
+        ScreenType.TACTIC_IN_POSSESSION.value,
+    )
+    assert record.captureCount == 2
+    assert record.assignedSquads == ("First Team", "Under 21s")
+    assert record.updatedAt == latest.date
+
+
+def testTacticDetailRecordReturnsNoneForUnknownTactic(tmp_path) -> None:
+
+    database = Database(tmp_path / "test.sqlite3")
+    database.initialize()
+
+    assert database.tacticDetailRecord("Unknown") is None
 
 
 def testDeletingTacticRemovesOwnedImportsButLeavesSquad(tmp_path) -> None:

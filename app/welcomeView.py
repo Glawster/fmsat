@@ -7,7 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from organiseMyProjects.logUtils import getLogger
+from fmsat.core.logUtils import getLogger
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction, QKeyEvent, QMouseEvent, QPixmap
 from PySide6.QtWidgets import (
@@ -26,7 +26,7 @@ from fmsat.app.colourPalette import (
     buttonSelected,
 )
 
-from fmsat.core.parser import RoleDefinition, TacticVocabulary
+from fmsat.core.parser import TacticVocabulary
 from fmsat.core.roleKnowledge import RoleKnowledgeService
 from fmsat.database import Database, DatabaseError
 from fmsat.database.records import SquadRecord, TacticRecord
@@ -36,9 +36,13 @@ logger = getLogger()
 
 @dataclass(frozen=True, slots=True)
 class CapturedRoleSummary:
-    """One configured role enriched with confirmed captured facts."""
+    """One confirmed role definition shown on the welcome dashboard."""
 
-    role: RoleDefinition
+    reference: str
+    displayName: str
+    abbreviations: tuple[str, ...]
+    positions: tuple[str, ...]
+    duties: tuple[str, ...]
     behaviours: tuple[str, ...]
 
 
@@ -84,28 +88,53 @@ class WelcomeService:
         squads = self.database.squadRecords()
         roles = []
         if self.tacticVocabulary is not None and self.roleKnowledgeService is not None:
-            capturedRoles = (
-                (
-                    role,
-                    self.roleKnowledgeService.definitionLoad(role.code),
+            definitions = self.roleKnowledgeService.definitionsList()
+            if isinstance(definitions, (list, tuple)):
+                roles = sorted(
+                    (
+                        CapturedRoleSummary(
+                            reference=(
+                                definition.roleCode
+                                if definition.roleCode is not None
+                                else f"roleID:{definition.roleID}"
+                            ),
+                            displayName=definition.displayName,
+                            abbreviations=definition.abbreviations,
+                            positions=definition.positions,
+                            duties=definition.duties,
+                            behaviours=definition.behaviours,
+                        )
+                        for definition in definitions
+                    ),
+                    key=self.roleSortKey,
                 )
-                for role in self.tacticVocabulary.roles.values()
-                if self.roleKnowledgeService.definitionExists(role.code)
-            )
-            roles = sorted(
-                (
-                    CapturedRoleSummary(
+            else:
+                capturedRoles = (
+                    (
                         role,
-                        (
-                            tuple(str(value) for value in content.get("behaviours", []))
-                            if isinstance(content, dict)
-                            else ()
-                        ),
+                        self.roleKnowledgeService.definitionLoad(role.code),
                     )
-                    for role, content in capturedRoles
-                ),
-                key=lambda summary: self.roleSortKey(summary.role),
-            )
+                    for role in self.tacticVocabulary.roles.values()
+                    if self.roleKnowledgeService.definitionExists(role.code)
+                )
+                roles = sorted(
+                    (
+                        CapturedRoleSummary(
+                            reference=role.code,
+                            displayName=role.displayName,
+                            abbreviations=role.abbreviations,
+                            positions=role.positions,
+                            duties=role.duties,
+                            behaviours=(
+                                tuple(str(value) for value in content.get("behaviours", []))
+                                if isinstance(content, dict)
+                                else ()
+                            ),
+                        )
+                        for role, content in capturedRoles
+                    ),
+                    key=self.roleSortKey,
+                )
         return (
             tactics if isinstance(tactics, list) else [],
             squads if isinstance(squads, list) else [],
@@ -133,7 +162,7 @@ class WelcomeService:
         return rank, position
 
     @classmethod
-    def roleSortKey(cls, role: RoleDefinition) -> tuple[int, str]:
+    def roleSortKey(cls, role) -> tuple[int, str]:
         """Order one role by its highest tactical line and then its name."""
 
         rank = min((cls.positionSortKey(position)[0] for position in role.positions), default=6)
@@ -148,6 +177,7 @@ class WelcomeView(QWidget):
         service: WelcomeService,
         actions: tuple[QAction, ...],
         tacticOpen: Callable[[str], None],
+        tacticProcess: Callable[[str], None] | None,
         squadOpen: Callable[[str], None],
         roleOpen: Callable[[str], None] | None = None,
         parent: QWidget | None = None,
@@ -155,6 +185,7 @@ class WelcomeView(QWidget):
         super().__init__(parent)
         self.service = service
         self.tacticOpen = tacticOpen
+        self.tacticProcess = tacticProcess
         self.squadOpen = squadOpen
         self.roleOpen = roleOpen
         self.actionsByText = {action.text(): action for action in actions}
@@ -298,20 +329,27 @@ class WelcomeView(QWidget):
             self.rolesLayout.addStretch()
             return
         for summary in roles:
-            role = summary.role
-            abbreviation = role.abbreviations[0] if role.abbreviations else role.code
-            positions = ", ".join(role.positions)
-            duties = ", ".join(duty.title() for duty in role.duties)
+            abbreviation = (
+                summary.abbreviations[0]
+                if summary.abbreviations
+                else summary.reference.replace("roleID:", "Role ")
+            )
+            positions = ", ".join(summary.positions)
+            duties = ", ".join(duty.title() for duty in summary.duties)
             behaviours = ", ".join(self._behaviourLabel(value) for value in summary.behaviours)
-            detail = f"Positions: {positions} · Duties: {duties}"
-            if behaviours:
-                detail += f"\nBehaviours: {behaviours}"
+            detail = "\n".join(
+                (
+                    f"Behaviours: {behaviours or 'None'}",
+                    f"Positions: {positions}",
+                    f"Duties: {duties or 'Unknown'}",
+                )
+            )
             self._summaryAdd(
-                role.displayName,
+                summary.displayName,
                 detail,
                 (
-                    lambda _checked=False, code=role.code: (
-                        self.roleOpen(code) if self.roleOpen is not None else None
+                    lambda _checked=False, reference=summary.reference: (
+                        self.roleOpen(reference) if self.roleOpen is not None else None
                     )
                 ),
                 placeholder=abbreviation,
@@ -342,6 +380,8 @@ class WelcomeView(QWidget):
         opened: Callable[[], None] | None,
         image: str | None = None,
         placeholder: str = "No image",
+        actionText: str | None = None,
+        actionTriggered: Callable[[], None] | None = None,
         targetLayout: QVBoxLayout | None = None,
         targetParent: QWidget | None = None,
     ) -> None:
@@ -377,6 +417,12 @@ class WelcomeView(QWidget):
         textLayout.addWidget(nameLabel)
         textLayout.addWidget(QLabel(detail))
         layout.addLayout(textLayout, 1)
+        if actionText and actionTriggered is not None:
+            button = QToolButton(card)
+            button.setText(actionText)
+            button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
+            button.clicked.connect(actionTriggered)
+            layout.addWidget(button)
         destination = targetLayout if targetLayout is not None else self.summaryLayout
         destination.addWidget(card)
 
@@ -392,12 +438,22 @@ class WelcomeView(QWidget):
             return
         for record in records:
             detail = f"Formation not recorded · {record.captureCount} captures"
+            needsProcessing = (
+                record.captureCount > 0
+                and not getattr(record, "hasObjectModelData", False)
+            )
             self._summaryAdd(
                 record.name,
                 detail,
                 lambda _checked=False, name=record.name: self.tacticOpen(name),
                 record.formationImage,
                 "No formation image",
+                actionText="Process" if needsProcessing else None,
+                actionTriggered=(
+                    (lambda _checked=False, name=record.name: self.tacticProcess(name))
+                    if needsProcessing and self.tacticProcess is not None
+                    else None
+                ),
             )
 
     def _actionFind(self, text: str) -> QAction:

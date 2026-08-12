@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fmsat.structures import ChangeGroup, FileInspection, RepeatedStructureCandidate
+from fmsat.fmf.structures import ChangeGroup, FileInspection, RepeatedStructureCandidate
 
 
 def inspectionReport(inspection: FileInspection) -> str:

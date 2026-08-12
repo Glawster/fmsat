@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from fmsat.structures import AssetData, AssetInfo, AssetReference, BundleInfo
+from fmsat.fmf.structures import AssetData, AssetInfo, AssetReference, BundleInfo
 
 
 class BundleError(RuntimeError):

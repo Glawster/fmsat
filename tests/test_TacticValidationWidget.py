@@ -89,7 +89,7 @@ def testTacticShowRefreshesValidationResult(qtbot) -> None:  # type: ignore[no-u
         confirmed=False,
     )
 
-    view.tacticShow("Unstructured", result)
+    view.tacticShow("Unstructured", validation=result)
     labels = [label.text() for label in view.overviewTab.validationWidget.findChildren(QLabel)]
 
     assert "Unable to build" in labels

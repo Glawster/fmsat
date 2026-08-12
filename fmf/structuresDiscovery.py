@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import Counter
 
-from fmsat.structures import RepeatedStructureCandidate
+from fmsat.fmf.structures import RepeatedStructureCandidate
 
 
 def structuresRepeated(

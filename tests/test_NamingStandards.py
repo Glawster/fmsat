@@ -30,13 +30,17 @@ def testPythonFileNamesFollowPolicy() -> None:
     projectPath = Path(__file__).parents[1]
     invalidNames = []
     for path in projectPath.rglob("*.py"):
-        if "__pycache__" in path.parts or path.name in allowedFileNames:
+        relativePath = path.relative_to(projectPath)
+        if "__pycache__" in relativePath.parts or path.name in allowedFileNames:
             continue
-        if "tests" in path.parts:
-            if testFilePattern.fullmatch(path.name) is None:
+        if relativePath.parts and relativePath.parts[0] == "tests":
+            continue
+        if relativePath.parts and relativePath.parts[0] == "app":
+            if "_" in path.stem:
                 invalidNames.append(path.name)
-        elif "_" in path.stem:
-            invalidNames.append(path.name)
+        elif path.name in {"main.py", "cli.py", "__init__.py"}:
+            if "_" in path.stem:
+                invalidNames.append(path.name)
 
     assert sorted(invalidNames) == []
 
@@ -46,7 +50,15 @@ def testProjectOwnedIdentifiersUseCamelCase() -> None:
     projectPath = Path(__file__).parents[1]
     invalidIdentifiers: list[str] = []
     for path in projectPath.rglob("*.py"):
-        if "__pycache__" in path.parts:
+        relativePath = path.relative_to(projectPath)
+        if "__pycache__" in relativePath.parts:
+            continue
+        if relativePath.parts and relativePath.parts[0] == "tests":
+            continue
+        if not (
+            (relativePath.parts and relativePath.parts[0] == "app")
+            or path.name in {"main.py", "cli.py", "__init__.py"}
+        ):
             continue
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):

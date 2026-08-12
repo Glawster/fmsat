@@ -108,12 +108,12 @@ class RoleProfileParser:
         position = self._positionFind(results)
         phase = self._phaseRead(results)
         roleName, abbreviation = self._roleRead(results, image.shape[1])
-        behaviours = self._behavioursRead(results)
+        behaviours = self._behavioursRead(results, image.shape[1])
         keyAttributes, displayedValues = self._keyAttributesRead(results)
         if not keyAttributes:
             raise ParserError("No Key Attributes could be extracted from the role profile")
-        description = self._descriptionRead(results, image.shape[1], roleName)
-        instructions = self._instructionsRead(results)
+        description = self._descriptionRead(results, image.shape[1], roleName, behaviours)
+        instructions = self._instructionsRead(results, image.shape[1])
         confidenceValues = [result.confidence for result in results]
         return RoleProfileEvidence(
             position=position,
@@ -128,23 +128,72 @@ class RoleProfileParser:
             confidence=sum(confidenceValues) / len(confidenceValues),
         )
 
-    def _behavioursRead(self, results: list[OcrResult]) -> tuple[str, ...]:
+    def _behavioursRead(
+        self,
+        results: list[OcrResult],
+        imageWidth: int,
+    ) -> tuple[str, ...]:
+        abilityIndex = self._headingIndex(results, "role ability")
+        keyIndex = self._headingIndex(results, "key attributes")
+        abilityY = None
+        keyY = None
+        if abilityIndex is not None and results[abilityIndex].center is not None:
+            abilityY = results[abilityIndex].center[1]
+        if keyIndex is not None and results[keyIndex].center is not None:
+            keyY = results[keyIndex].center[1]
         behaviours = []
-        for result in results:
-            normalized = self.vocabulary.roleIndicatorNormalize(result.text)
-            if normalized.resolved:
-                behaviours.append(normalized.value)
+        for index, result in enumerate(results):
+            indicators = self._indicatorsExtract(result.text)
+            if not indicators:
+                continue
+            if result.center is not None:
+                x, y = result.center
+                # The selected role's indicators are rendered in the right detail
+                # panel between the Role Ability and Key Attributes headings.
+                if x < imageWidth * 0.33:
+                    continue
+                if abilityY is not None and y < abilityY - 10:
+                    continue
+                if keyY is not None and y >= keyY:
+                    continue
+            elif abilityIndex is not None and keyIndex is not None:
+                if index <= abilityIndex or index >= keyIndex:
+                    continue
+            behaviours.extend(indicators)
         return tuple(dict.fromkeys(behaviours))
 
-    def _instructionsRead(self, results: list[OcrResult]) -> tuple[str, ...]:
+    def _indicatorsExtract(self, text: str) -> tuple[str, ...]:
+        normalized = self.vocabulary.roleIndicatorNormalize(text)
+        if normalized.resolved:
+            return (normalized.value,)
+        candidates = []
+        normalizedText = f" {self._textKey(text)} "
+        for alias, canonical in self.vocabulary.roleIndicators.items():
+            if f" {alias} " in normalizedText:
+                candidates.append(canonical)
+        return tuple(dict.fromkeys(candidates))
+
+    def _instructionsRead(
+        self,
+        results: list[OcrResult],
+        imageWidth: int,
+    ) -> tuple[str, ...]:
         headingIndex = self._headingIndex(results, "player instructions")
         if headingIndex is None:
             return ()
+        headingY = results[headingIndex].center[1] if results[headingIndex].center else None
         instructions = []
         for result in results[headingIndex + 1 :]:
             text = result.text.strip()
-            if text and not text.isdigit():
-                instructions.append(self._identifier(text))
+            if not text or text.isdigit() or not any(character.isalpha() for character in text):
+                continue
+            if result.center is not None:
+                x, y = result.center
+                if x < imageWidth * 0.33:
+                    continue
+                if headingY is not None and y <= headingY:
+                    continue
+            instructions.append(self._identifier(text))
         return tuple(dict.fromkeys(instructions))
 
     def _keyAttributesRead(
@@ -224,6 +273,7 @@ class RoleProfileParser:
         results: list[OcrResult],
         imageWidth: int,
         roleName: str,
+        behaviours: tuple[str, ...],
     ) -> str | None:
         keyIndex = self._headingIndex(results, "key attributes")
         abilityIndex = self._headingIndex(results, "role ability")
@@ -239,6 +289,10 @@ class RoleProfileParser:
                 continue
             x, y = result.center
             text = result.text.strip()
+            # Role indicators are rendered above the narrative body and can be OCRed
+            # as one combined sentence, so exclude them from the description payload.
+            if self._descriptionContainsBehaviour(text, behaviours):
+                continue
             if (
                 x < imageWidth * 0.33
                 or y <= abilityResult.center[1]
@@ -251,6 +305,25 @@ class RoleProfileParser:
         if not fragments:
             return None
         return " ".join(text for _, _, text in sorted(fragments))
+
+    def _descriptionContainsBehaviour(
+        self,
+        text: str,
+        behaviours: tuple[str, ...],
+    ) -> bool:
+        if not behaviours:
+            return False
+        normalizedText = f" {self._textKey(text)} "
+        for behaviour in behaviours:
+            aliases = [
+                alias
+                for alias, canonical in self.vocabulary.roleIndicators.items()
+                if canonical == behaviour and " " in alias
+            ]
+            for alias in aliases:
+                if f" {alias} " in normalizedText:
+                    return True
+        return False
 
     def _roleFind(self, results: list[OcrResult]):
         combined = " ".join(result.text for result in results).casefold().replace("-", " ")

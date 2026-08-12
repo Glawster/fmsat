@@ -106,11 +106,32 @@ class OverviewTab(QWidget):
         layout.setContentsMargins(0, 14, 0, 0)
         layout.addWidget(self._pitchPanel(model), 2)
         side = QVBoxLayout()
+        if model.status.casefold().startswith("incomplete"):
+            side.addWidget(self._incompleteBanner())
         side.addWidget(self._summaryPanel(model), 1)
         side.addWidget(self._notesPanel(model.notes), 1)
         self.validationWidget = TacticValidationWidget(validation)
         side.addWidget(self.validationWidget, 1)
-        layout.addLayout(side, 4)
+        layout.addLayout(side, 3)
+
+    @staticmethod
+    def _incompleteBanner() -> QFrame:
+        """Highlight when the tactic is visible but data coverage is incomplete."""
+
+        banner = QFrame()
+        banner.setObjectName("incompleteBanner")
+        layout = QVBoxLayout(banner)
+        title = QLabel("Incomplete Tactic Data")
+        title.setObjectName("incompleteBannerTitle")
+        layout.addWidget(title)
+        copy = QLabel(
+            "This tactic is accessible, but structured or saved model data is missing. "
+            "Import and confirm tactic screenshots to complete this view."
+        )
+        copy.setObjectName("incompleteBannerText")
+        copy.setWordWrap(True)
+        layout.addWidget(copy)
+        return banner
 
     def validationShow(self, result: BuildResult | None) -> None:
         """Refresh the overview's object-model validation summary."""

@@ -1,91 +1,112 @@
 attributes:
-  crossing:
-    abbreviation: Cro
-    order: 1
-  dribbling:
-    abbreviation: Dri
-    order: 2
-  finishing:
-    abbreviation: Fin
-    order: 3
-  first_touch:
-    abbreviation: Fir
-    order: 4
-  heading:
-    abbreviation: Hea
-    order: 5
-  long_shots:
-    abbreviation: Lon
-    order: 6
-  marking:
-    abbreviation: Mar
-    order: 7
-  passing:
-    abbreviation: Pas
-    order: 8
-  tackling:
-    abbreviation: Tck
-    order: 9
-  technique:
-    abbreviation: Tec
-    order: 10
-  anticipation:
-    abbreviation: Ant
-    order: 11
-  composure:
-    abbreviation: Com
-    order: 12
-  concentration:
-    abbreviation: Cnt
-    order: 13
-  decisions:
-    abbreviation: Dec
-    order: 14
-  determination:
-    abbreviation: Det
-    order: 15
-  flair:
-    abbreviation: Fla
-    order: 16
-  leadership:
-    abbreviation: Ldr
-    order: 17
-  off_the_ball:
-    abbreviation: OtB
-    order: 18
-  positioning:
-    abbreviation: Pos
-    order: 19
-  teamwork:
-    abbreviation: Tea
-    order: 20
-  vision:
-    abbreviation: Vis
-    order: 21
-  work_rate:
-    abbreviation: Wor
-    order: 22
   acceleration:
     abbreviation: Acc
-    order: 23
+    order: 1
+  aggression:
+    abbreviation: Agg
+    order: 2
   agility:
     abbreviation: Agi
-    order: 24
+    order: 3
+  aerial_reach:
+    abbreviation: ARe
+    order: 4
+  anticipation:
+    abbreviation: Ant
+    order: 5
   balance:
     abbreviation: Bal
-    order: 25
+    order: 6
+  communication:
+    abbreviation: Com
+    order: 7
+  command_of_area:
+    abbreviation: CoA
+    order: 8
+  composure:
+    abbreviation: Com
+    order: 9
+  concentration:
+    abbreviation: Cnt
+    order: 10
+  crossing:
+    abbreviation: Cro
+    order: 11
+  decisions:
+    abbreviation: Dec
+    order: 12
+  determination:
+    abbreviation: Det
+    order: 13
+  dribbling:
+    abbreviation: Dri
+    order: 14
+  eccentricity:
+    abbreviation: Ecc
+    order: 15
+  finishing:
+    abbreviation: Fin
+    order: 16
+  first_touch:
+    abbreviation: Fir
+    order: 17
+  flair:
+    abbreviation: Fla
+    order: 18
+  handling:
+    abbreviation: Han
+    order: 19
+  heading:
+    abbreviation: Hea
+    order: 20
   jumping_reach:
     abbreviation: Jum
-    order: 26
+    order: 21
+  leadership:
+    abbreviation: Ldr
+    order: 22
+  long_shots:
+    abbreviation: Lon
+    order: 23
+  marking:
+    abbreviation: Mar
+    order: 24
   natural_fitness:
     abbreviation: Nat
-    order: 27
+    order: 25
+  off_the_ball:
+    abbreviation: OtB
+    order: 26
   pace:
     abbreviation: Pac
+    order: 27
+  passing:
+    abbreviation: Pas
     order: 28
+  positioning:
+    abbreviation: Pos
+    order: 29
+  reflexes:
+    abbreviation: Ref
+    order: 30
   stamina:
     abbreviation: Sta
-    order: 29
+    order: 31
   strength:
     abbreviation: Str
-    order: 30
+    order: 32
+  tackling:
+    abbreviation: Tck
+    order: 33
+  teamwork:
+    abbreviation: Tea
+    order: 34
+  technique:
+    abbreviation: Tec
+    order: 35
+  vision:
+    abbreviation: Vis
+    order: 36
+  work_rate:
+    abbreviation: Wor
+    order: 37

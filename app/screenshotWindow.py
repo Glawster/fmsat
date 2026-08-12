@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from PySide6.QtGui import QResizeEvent
 
 
 class ScreenshotWindow(QMainWindow):
