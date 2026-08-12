@@ -209,7 +209,7 @@ def _tacticActionRun(args: argparse.Namespace) -> int:
 def _unityActionRun(args: argparse.Namespace) -> int:
     actions = [args.list, args.preview is not None, args.gui]
     if sum(1 for action in actions if action) != 1:
-        raise ValueError("Choose exactly one Unity action: --list, --preview PATH_ID, or --gui.")
+        raise ValueError("Choose exactly one Unity action: --list, --preview pathId, or --gui.")
     if args.unity is None and not args.gui:
         raise FileNotFoundError("No Unity bundle supplied. Use --unity PATH.")
     if args.gui:
@@ -263,7 +263,7 @@ def _bundleListReport(info: BundleInfo, assets: tuple[AssetInfo, ...]) -> str:
         f"Size: {info.size}",
         f"Signature: {info.signature}",
         f"Unity version: {info.unity_version or 'unknown'}",
-        f"Asset count: {info.asset_count}",
+        f"Asset count: {info.assetCount}",
         "",
         "Assets",
         "------",
@@ -272,9 +272,9 @@ def _bundleListReport(info: BundleInfo, assets: tuple[AssetInfo, ...]) -> str:
         lines.append("- none")
     for asset in assets:
         lines.append(
-            f"- {asset.path_id}: {asset.asset_name or '(unnamed)'} "
-            f"[{asset.asset_type}] container={asset.container_path or 'unknown'} "
-            f"size={asset.serialized_size if asset.serialized_size is not None else 'unknown'} "
+            f"- {asset.pathId}: {asset.assetName or '(unnamed)'} "
+            f"[{asset.assetType}] container={asset.containerPath or 'unknown'} "
+            f"size={asset.serializedSize if asset.serializedSize is not None else 'unknown'} "
             f"refs={len(asset.dependencies) + len(asset.external_references)}"
         )
     return "\n".join(lines) + "\n"
@@ -284,10 +284,10 @@ def _assetDataReport(data: AssetData) -> str:
     lines = [
         "Asset",
         "-----",
-        f"Path ID: {data.asset.path_id}",
-        f"Name: {data.asset.asset_name or 'unknown'}",
-        f"Type: {data.asset.asset_type}",
-        f"Container: {data.asset.container_path or 'unknown'}",
+        f"Path ID: {data.asset.pathId}",
+        f"Name: {data.asset.assetName or 'unknown'}",
+        f"Type: {data.asset.assetType}",
+        f"Container: {data.asset.containerPath or 'unknown'}",
         f"Representation: {data.representation}",
     ]
     if data.message:

@@ -12,7 +12,7 @@ from fmsat.tactics.position import Position
 from fmsat.tactics.positionIdentity import PositionIdentity
 from fmsat.tactics.tactic import Tactic
 
-_TACTIC_VOCABULARY = TacticVocabulary()
+tacticVocabulary = TacticVocabulary()
 
 
 def tacticDetailModelBuild(
@@ -232,9 +232,9 @@ def _shapeNameResolve(metadata: dict[str, str], key: str, fallback: str) -> str:
 def _roleAbbreviation(role: str) -> str:
     """Return short role code for pitch labels from configured role vocabulary."""
 
-    normalized = _TACTIC_VOCABULARY.roleNormalize(role)
+    normalized = tacticVocabulary.roleNormalize(role)
     if normalized.resolved:
-        definition = _TACTIC_VOCABULARY.roles.get(normalized.value)
+        definition = tacticVocabulary.roles.get(normalized.value)
         if definition is not None and definition.abbreviations:
             return definition.abbreviations[0]
 

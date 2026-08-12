@@ -720,6 +720,7 @@ class MainWindow(QMainWindow):
                 tacticName,
                 detailModel,
                 sourceLabel="Incomplete Data",
+                validation=loadResult,
             )
             self.contentStack.setCurrentWidget(self.tacticDetailView)
             self.statusBar().showMessage(
@@ -742,6 +743,7 @@ class MainWindow(QMainWindow):
             loadResult.tactic.name,
             detailModel,
             sourceLabel=sourceLabel,
+            validation=loadResult,
         )
         self.contentStack.setCurrentWidget(self.tacticDetailView)
 

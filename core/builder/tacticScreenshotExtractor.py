@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from fmsat.core.detection import ScreenType
+from fmsat.core.ocr import OcrEngine, PaddleOcrEngine
 from fmsat.core.parser import TacticVocabulary
 from fmsat.database.models import (
     StructuredFormationSlot,
@@ -16,6 +17,8 @@ from fmsat.database.models import (
 )
 from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session, selectinload
+
+from .tacticMetadataExtractor import TacticMetadataExtractor
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,9 +68,10 @@ class TacticScreenshotExtractor:
         ("11", "ST", "centreForward", "attack", 0.50, 0.14),
     )
 
-    def __init__(self, engine: Engine) -> None:
+    def __init__(self, engine: Engine, ocr: OcrEngine | None = None) -> None:
         self.engine = engine
         self.vocabulary = TacticVocabulary()
+        self.metadataExtractor = TacticMetadataExtractor(ocr or PaddleOcrEngine())
 
     ## tactic
 
@@ -134,6 +138,7 @@ class TacticScreenshotExtractor:
                 ScreenType.TACTIC_OUT_OF_POSSESSION,
             }
             complete = required.issubset(byType.keys())
+            metadata, metadataIssues = self._metadataExtract(byType)
 
             if tactic.structuredDefinition is None:
                 definition = StructuredTacticDefinition(
@@ -143,6 +148,7 @@ class TacticScreenshotExtractor:
                         "inPossessionName": "inPossession",
                         "outOfPossessionName": "outOfPossession",
                         "source": "storedScreenshots",
+                        **metadata,
                     },
                 )
                 tactic.structuredDefinition = definition
@@ -154,6 +160,7 @@ class TacticScreenshotExtractor:
                     "inPossessionName": "inPossession",
                     "outOfPossessionName": "outOfPossession",
                     "source": "storedScreenshots",
+                    **metadata,
                 }
                 # Clear persisted child rows and flush orphan deletions before
                 # re-adding replacement rows with the same unique keys.
@@ -164,6 +171,13 @@ class TacticScreenshotExtractor:
 
             self._slotsBuild(definition, byType)
             self._instructionsBuild(definition, byType)
+            for message in metadataIssues:
+                definition.issues.append(
+                    StructuredTacticIssue(
+                        code="metadataExtractionIncomplete",
+                        message=message,
+                    )
+                )
             definition.issues.append(
                 StructuredTacticIssue(
                     code="templateExtraction",
@@ -181,6 +195,20 @@ class TacticScreenshotExtractor:
             complete=complete,
             message="Structured tactic data generated from stored captures",
         )
+
+    ## metadata
+
+    def _metadataExtract(
+        self,
+        byType: dict[ScreenType, TacticScreenshot],
+    ) -> tuple[dict[str, str], tuple[str, ...]]:
+        """Extract tactic header values from the latest Formation capture."""
+
+        formation = byType.get(ScreenType.TACTIC_FORMATION)
+        if formation is None:
+            return {}, ("Formation screenshot is missing",)
+        result = self.metadataExtractor.metadataExtract(formation.importSession.imageFilename)
+        return result.metadata, result.issues
 
     ## instructions
 

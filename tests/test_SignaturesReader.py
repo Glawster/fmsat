@@ -1,4 +1,4 @@
-from fmsat.signatures import asciiStrings, entropy, headerInfo, sectionCandidates
+from fmsat.fmf.signatures import asciiStrings, entropy, headerInfo, sectionCandidates
 
 
 def testHeaderInfoRecognizesObservedFmfPrefix() -> None:

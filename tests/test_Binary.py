@@ -1,4 +1,4 @@
-from fmsat.binary import BinaryReader, Endian
+from fmsat.fmf.binary import BinaryReader, Endian
 
 
 def testBinaryReaderNumericTypesAndBookmarks() -> None:

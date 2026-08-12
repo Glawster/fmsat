@@ -14,7 +14,12 @@ from PySide6.QtWidgets import (
     QToolButton,
 )
 
-from fmsat.app.welcomeView import SummaryCard, WelcomeService, WelcomeView
+from fmsat.app.welcomeView import (
+    PositionRoleGroup,
+    SummaryCard,
+    WelcomeService,
+    WelcomeView,
+)
 from fmsat.app.window import MainWindow
 from fmsat.core.builder.tacticBuilder import TacticBuildIssue
 from fmsat.core.builder.tacticModelLoader import TacticModelLoadResult
@@ -31,6 +36,16 @@ def _mainWindowCreate() -> MainWindow:
 
 def _labelTexts(view: WelcomeView) -> list[str]:
     return [label.text() for label in view.findChildren(QLabel)]
+
+
+def _positionExpand(view: WelcomeView, position: str, qtbot) -> PositionRoleGroup:  # type: ignore[no-untyped-def]
+    group = next(
+        group
+        for group in view.rolesWidget.findChildren(PositionRoleGroup)
+        if group.property("position") == position
+    )
+    qtbot.mouseClick(group.summaryButton, Qt.MouseButton.LeftButton)
+    return group
 
 
 def testWelcomeViewEmptyDatabase(qtbot) -> None:  # type: ignore[no-untyped-def]
@@ -273,30 +288,51 @@ def testWelcomeViewShowsOnlyCapturedRolesInTacticalOrder(qtbot) -> None:  # type
     qtbot.addWidget(view)
 
     labels = [label.text() for label in view.rolesWidget.findChildren(QLabel)]
-    roleNames = [
-        text
-        for text in labels
-        if text
-        in {
-            "Centre Forward",
-            "Attacking Midfielder",
-            "Box-to-Box Midfielder",
-            "Defensive Midfielder",
-            "Centre-Back",
-            "Sweeper Keeper",
-        }
-    ]
+    groups = view.rolesWidget.findChildren(PositionRoleGroup)
+    groupPositions = [group.property("position") for group in groups]
 
     assert "Roles (6)" in labels
-    assert roleNames == [
-        "Centre Forward",
-        "Attacking Midfielder",
-        "Box-to-Box Midfielder",
-        "Defensive Midfielder",
-        "Centre-Back",
-        "Sweeper Keeper",
-    ]
+    assert groupPositions == sorted(groupPositions, key=WelcomeService.positionSortKey)
+    assert {"STC", "AMC", "MC", "DM", "DC", "GK"}.issubset(groupPositions)
+    assert all(not group.rolesContainer.isVisible() for group in groups)
     assert "Ball-Playing Goalkeeper" not in labels
+
+
+def testPositionSummaryExpandsItsCapturedRoles(qtbot) -> None:  # type: ignore[no-untyped-def]
+
+    database = Mock()
+    database.tacticRecords.return_value = []
+    database.squadRecords.return_value = []
+    roleKnowledge = Mock()
+    roleKnowledge.definitionExists.side_effect = lambda role: role == "insideForward"
+    roleKnowledge.definitionLoad.return_value = {"behaviours": ["movesInside"]}
+    view = WelcomeView(
+        WelcomeService(database, TacticVocabulary(), roleKnowledge),
+        (),
+        Mock(),
+        Mock(),
+        Mock(),
+    )
+    qtbot.addWidget(view)
+    view.show()
+
+    group = next(
+        group
+        for group in view.rolesWidget.findChildren(PositionRoleGroup)
+        if group.property("position") == "AML"
+    )
+
+    assert group.summaryButton.text() == "AM (L) — 1 role"
+    assert not group.rolesContainer.isVisible()
+
+    qtbot.mouseClick(group.summaryButton, Qt.MouseButton.LeftButton)
+
+    assert group.rolesContainer.isVisible()
+    assert group.summaryButton.arrowType() == Qt.ArrowType.DownArrow
+    assert any(
+        card.property("summaryName") == "Inside Forward"
+        for card in group.findChildren(SummaryCard)
+    )
 
 
 def testCapturedRoleCardShowsBehavioursAndOpensEditor(qtbot) -> None:  # type: ignore[no-untyped-def]
@@ -317,6 +353,8 @@ def testCapturedRoleCardShowsBehavioursAndOpensEditor(qtbot) -> None:  # type: i
         roleOpen,
     )
     qtbot.addWidget(view)
+    view.show()
+    _positionExpand(view, "AML", qtbot)
     card = next(
         card
         for card in view.findChildren(SummaryCard)
@@ -363,6 +401,8 @@ def testWelcomeViewShowsUserDefinedRolesFromConfirmedYaml(qtbot, tmp_path) -> No
         roleOpen,
     )
     qtbot.addWidget(view)
+    view.show()
+    _positionExpand(view, "DM", qtbot)
 
     labels = _labelTexts(view)
     card = next(

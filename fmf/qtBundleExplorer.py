@@ -9,8 +9,8 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from fmsat.bundleFilter import assetsFilter
-from fmsat.bundles import BundleError, UnityPyBundleReader
+from fmsat.fmf.bundleFilter import assetsFilter
+from fmsat.fmf.bundles import BundleError, UnityPyBundleReader
 from fmsat.fmf.structures import AssetData, AssetInfo, AssetReference, BundleInfo
 
 try:
@@ -81,12 +81,12 @@ class AssetTableModel(QAbstractTableModel):
             return None
         asset = self._assets[index.row()]
         values = (
-            asset.path_id,
-            asset.asset_name or "",
-            asset.asset_type,
-            asset.container_path or "",
-            asset.serialized_size if asset.serialized_size is not None else "",
-            len(asset.dependencies) + len(asset.external_references),
+            asset.pathId,
+            asset.assetName or "",
+            asset.assetType,
+            asset.containerPath or "",
+            asset.serializedSize if asset.serializedSize is not None else "",
+            len(asset.dependencies) + len(asset.externalReferences),
         )
         return values[index.column()]
 
@@ -113,12 +113,12 @@ class AssetFilterProxyModel(QSortFilterProxyModel):
     def __init__(self) -> None:
         super().__init__()
         self._text = ""
-        self._asset_type = ""
+        self._assetType = ""
         self._serialized_text_by_id: dict[int, str] = {}
 
-    def filtersSet(self, *, text: str, asset_type: str) -> None:
+    def filtersSet(self, *, text: str, assetType: str) -> None:
         self._text = text
-        self._asset_type = asset_type
+        self._assetType = assetType
         self._invalidate()
 
     def serializedSearchTextSet(self, values: dict[int, str]) -> None:
@@ -138,14 +138,14 @@ class AssetFilterProxyModel(QSortFilterProxyModel):
         asset = model.assetAt(source_row)
         if asset is None:
             return False
-        if not assetsFilter((asset,), text="", assetType=self._asset_type):
+        if not assetsFilter((asset,), text="", assetType=self._assetType):
             return False
         query = self._text.strip().casefold()
         if not query:
             return True
         if assetsFilter((asset,), text=self._text, assetType=""):
             return True
-        return query in self._serialized_text_by_id.get(asset.path_id, "")
+        return query in self._serialized_text_by_id.get(asset.pathId, "")
 
 
 class ReferenceTableModel(QAbstractTableModel):
@@ -178,9 +178,9 @@ class ReferenceTableModel(QAbstractTableModel):
             return None
         reference = self._references[index.row()]
         values = (
-            reference.path_id if reference.path_id is not None else "",
-            reference.asset_type or "",
-            reference.asset_name or reference.asset_path or reference.external or "",
+            reference.pathId if reference.pathId is not None else "",
+            reference.assetType or "",
+            reference.assetName or reference.asset_path or reference.external or "",
             reference.relationship or "",
         )
         return values[index.column()]
@@ -269,7 +269,7 @@ class _DeepSearchWorker(QRunnable):
     def run(self) -> None:
         try:
             values = {
-                asset.path_id: self.reader.assetSearchText(asset.path_id)
+                asset.pathId: self.reader.assetSearchText(asset.pathId)
                 for asset in self.assets
             }
         except Exception as error:  # noqa: BLE001 - send readable dialog plus log detail.
@@ -332,7 +332,7 @@ class BundleExplorerWindow(QMainWindow):
         self._settings = QSettings("myHandbook", "fmparser-bundle-explorer")
         self._thread_pool = QThreadPool.globalInstance()
         self._reader: UnityPyBundleReader | None = None
-        self._bundle_path: Path | None = None
+        self._bundlePath: Path | None = None
         self._assets: tuple[AssetInfo, ...] = ()
         self._selected_asset_id: int | None = None
         self._history: list[int] = []
@@ -400,7 +400,7 @@ class BundleExplorerWindow(QMainWindow):
 
     def bundleClose(self) -> None:
         self._reader = None
-        self._bundle_path = None
+        self._bundlePath = None
         self._assets = ()
         self._selected_asset_id = None
         self._historyClear()
@@ -488,7 +488,7 @@ class BundleExplorerWindow(QMainWindow):
 
     def closeEvent(self, event: Any) -> None:  # noqa: N802
         self._settings.setValue("geometry", self.saveGeometry())
-        self._settings.setValue("last_bundle_dir", str(self._bundle_path.parent) if self._bundle_path else "")
+        self._settings.setValue("last_bundle_dir", str(self._bundlePath.parent) if self._bundlePath else "")
         super().closeEvent(event)
 
     def _bundleChoose(self) -> None:
@@ -503,16 +503,16 @@ class BundleExplorerWindow(QMainWindow):
             self.bundleOpen(Path(file_name))
 
     def _bundleRefresh(self) -> None:
-        if self._bundle_path is not None:
-            self.bundleOpen(self._bundle_path)
+        if self._bundlePath is not None:
+            self.bundleOpen(self._bundlePath)
 
     def _filtersChanged(self) -> None:
-        self._proxy.filtersSet(text=self._filter.text(), asset_type=self._type_filter.text())
+        self._proxy.filtersSet(text=self._filter.text(), assetType=self._type_filter.text())
         self._deepSearchMaybeStart()
 
     def _typeSummaryClicked(self, item: QListWidgetItem) -> None:
-        asset_type = item.data(Qt.ItemDataRole.UserRole)
-        self._type_filter.setText(str(asset_type or ""))
+        assetType = item.data(Qt.ItemDataRole.UserRole)
+        self._type_filter.setText(str(assetType or ""))
 
     def _assetSelected(self, current: QModelIndex, previous: QModelIndex) -> None:
         del previous
@@ -522,20 +522,20 @@ class BundleExplorerWindow(QMainWindow):
         asset = self._model.assetAt(source_index.row())
         if asset is None:
             return
-        self._selected_asset_id = asset.path_id
+        self._selected_asset_id = asset.pathId
         if not self._history_replaying:
-            self._historyPush(asset.path_id)
+            self._historyPush(asset.pathId)
         self._metadata.setPlainText(_metadataText(asset))
         self._preview.setPlainText("Loading preview...")
         self._references_model.referencesSet(())
-        self._reverseReferencesRefresh(asset.path_id)
-        worker = _PreviewWorker(self._reader, asset.path_id)
+        self._reverseReferencesRefresh(asset.pathId)
+        worker = _PreviewWorker(self._reader, asset.pathId)
         worker.signals.finished.connect(self._previewReady)
         worker.signals.failed.connect(self._workerFailed)
         self._thread_pool.start(worker)
         references_worker = _ReferencesWorker(
             self._reader,
-            asset.path_id,
+            asset.pathId,
             self._deep_search_generation,
         )
         references_worker.signals.finished.connect(self._referencesReady)
@@ -545,16 +545,16 @@ class BundleExplorerWindow(QMainWindow):
     def _referenceActivated(self, index: QModelIndex) -> None:
         source_row = index.row()
         reference = self._references_model.referenceAt(source_row)
-        if reference is None or reference.path_id is None:
+        if reference is None or reference.pathId is None:
             return
-        self._assetSelectById(reference.path_id)
+        self._assetSelectById(reference.pathId)
 
     def _reverseReferenceActivated(self, index: QModelIndex) -> None:
         source_row = index.row()
         reference = self._reverse_references_model.referenceAt(source_row)
-        if reference is None or reference.path_id is None:
+        if reference is None or reference.pathId is None:
             return
-        self._assetSelectById(reference.path_id)
+        self._assetSelectById(reference.pathId)
 
     def _metadataCopy(self) -> None:
         QApplication.clipboard().setText(self._metadata.toPlainText())
@@ -587,7 +587,7 @@ class BundleExplorerWindow(QMainWindow):
         reader: UnityPyBundleReader,
     ) -> None:
         self._reader = reader
-        self._bundle_path = info.path
+        self._bundlePath = info.path
         self._assets = assets
         self._deep_search_generation += 1
         self._deep_search_running = False
@@ -600,7 +600,7 @@ class BundleExplorerWindow(QMainWindow):
         self._typeSummarySet(assets)
         self._metadata.setPlainText(_bundleText(info))
         self._preview.clear()
-        self._log.appendPlainText(f"Opened {info.filename}: {info.asset_count} assets")
+        self._log.appendPlainText(f"Opened {info.filename}: {info.assetCount} assets")
         self.statusBar().showMessage(f"Opened {info.filename}")
         self._referenceIndexStart()
 
@@ -610,7 +610,7 @@ class BundleExplorerWindow(QMainWindow):
         if data.message and data.text:
             preview = f"{data.message}\n\n{data.text}"
         self._preview.setPlainText(preview)
-        self.statusBar().showMessage(f"Selected asset {data.asset.path_id}", 2500)
+        self.statusBar().showMessage(f"Selected asset {data.asset.pathId}", 2500)
 
     def _workerFailed(self, message: str, detail: str) -> None:
         self._log.appendPlainText(detail)
@@ -674,10 +674,10 @@ class BundleExplorerWindow(QMainWindow):
             return
         self._reverse_references_model.referencesSet(self._reader.reverseReferences(asset_id))
 
-    def _assetSelectById(self, path_id: int, *, add_history: bool = True) -> None:
+    def _assetSelectById(self, pathId: int, *, add_history: bool = True) -> None:
         for row in range(self._model.rowCount()):
             asset = self._model.assetAt(row)
-            if asset is None or asset.path_id != path_id:
+            if asset is None or asset.pathId != pathId:
                 continue
             source_index = self._model.index(row, 0)
             proxy_index = self._proxy.mapFromSource(source_index)
@@ -691,12 +691,12 @@ class BundleExplorerWindow(QMainWindow):
                     self._history_replaying = previous
             return
 
-    def _historyPush(self, path_id: int) -> None:
-        if self._history_index >= 0 and self._history[self._history_index] == path_id:
+    def _historyPush(self, pathId: int) -> None:
+        if self._history_index >= 0 and self._history[self._history_index] == pathId:
             return
         if self._history_index < len(self._history) - 1:
             self._history = self._history[: self._history_index + 1]
-        self._history.append(path_id)
+        self._history.append(pathId)
         self._history_index = len(self._history) - 1
         self._historyActionsUpdate()
 
@@ -729,9 +729,9 @@ class BundleExplorerWindow(QMainWindow):
 
     def _typeSummarySet(self, assets: Sequence[AssetInfo]) -> None:
         self._type_summary.clear()
-        for asset_type, count in _typeCounts(assets):
-            item = QListWidgetItem(f"{asset_type:<24} {count}")
-            item.setData(Qt.ItemDataRole.UserRole, asset_type)
+        for assetType, count in _typeCounts(assets):
+            item = QListWidgetItem(f"{assetType:<24} {count}")
+            item.setData(Qt.ItemDataRole.UserRole, assetType)
             self._type_summary.addItem(item)
 
 
@@ -747,26 +747,26 @@ def main(argv: list[str] | None = None) -> int:
 
 def _sortValue(asset: AssetInfo, column: int) -> str | int:
     values: tuple[str | int, ...] = (
-        asset.path_id,
-        asset.asset_name or "",
-        asset.asset_type,
-        asset.container_path or "",
-        asset.serialized_size if asset.serialized_size is not None else -1,
+        asset.pathId,
+        asset.assetName or "",
+        asset.assetType,
+        asset.containerPath or "",
+        asset.serializedSize if asset.serializedSize is not None else -1,
         len(asset.dependencies) + len(asset.external_references),
     )
     return values[column]
 
 
 def _typeCounts(assets: Sequence[AssetInfo]) -> tuple[tuple[str, int], ...]:
-    counts = Counter(asset.asset_type for asset in assets)
+    counts = Counter(asset.assetType for asset in assets)
     return tuple(sorted(counts.items(), key=lambda item: (-item[1], item[0].casefold())))
 
 
 def _referenceSortValue(reference: AssetReference, column: int) -> str | int:
     values: tuple[str | int, ...] = (
-        reference.path_id if reference.path_id is not None else -1,
-        reference.asset_type or "",
-        reference.asset_name or reference.asset_path or reference.external or "",
+        reference.pathId if reference.pathId is not None else -1,
+        reference.assetType or "",
+        reference.assetName or reference.asset_path or reference.external or "",
         reference.relationship or "",
     )
     return values[column]
@@ -780,7 +780,7 @@ def _bundleText(info: BundleInfo) -> str:
             f"Size: {info.size}",
             f"Signature: {info.signature}",
             f"Unity version: {info.unity_version or 'unknown'}",
-            f"Asset count: {info.asset_count}",
+            f"Asset count: {info.assetCount}",
             f"External references: {len(info.external_references)}",
         )
     )
@@ -789,11 +789,11 @@ def _bundleText(info: BundleInfo) -> str:
 def _metadataText(asset: AssetInfo) -> str:
     return "\n".join(
         (
-            f"Path ID: {asset.path_id}",
-            f"Name: {asset.asset_name or 'unknown'}",
-            f"Type: {asset.asset_type}",
-            f"Container: {asset.container_path or 'unknown'}",
-            f"Serialized size: {asset.serialized_size if asset.serialized_size is not None else 'unknown'}",
+            f"Path ID: {asset.pathId}",
+            f"Name: {asset.assetName or 'unknown'}",
+            f"Type: {asset.assetType}",
+            f"Container: {asset.containerPath or 'unknown'}",
+            f"Serialized size: {asset.serializedSize if asset.serializedSize is not None else 'unknown'}",
             f"References: {len(asset.dependencies) + len(asset.external_references)}",
         )
     )

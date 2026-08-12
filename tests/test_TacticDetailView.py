@@ -8,7 +8,7 @@ from fmsat.app.tacticDetailModel import DisplaySlot, TacticDetailModel
 from fmsat.app.tacticDetailView import PitchWidget, TacticDetailView
 
 
-def testTacticDetailUsesRequiredTabOrder(qtbot) -> None:  # type: ignore[no-untyped-def]
+def testTacticDetailUsesRequiredTabOrder(qapp, qtbot) -> None:  # type: ignore[no-untyped-def]
     view = TacticDetailView()
     qtbot.addWidget(view)
 
