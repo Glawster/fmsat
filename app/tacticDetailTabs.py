@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 
 from fmsat.app.tacticDetailModel import DisplaySlot, TacticDetailModel
 from fmsat.app.tacticPitchWidget import PitchWidget
+from fmsat.app.tacticValidationWidget import BuildResult, TacticValidationWidget
 
 
 class AnalysisTab(QWidget):
@@ -94,7 +95,12 @@ class InstructionsTab(QScrollArea):
 class OverviewTab(QWidget):
     """Summarize the current formation, stored facts, and notes."""
 
-    def __init__(self, model: TacticDetailModel, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        model: TacticDetailModel,
+        validation: BuildResult | None = None,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 14, 0, 0)
@@ -102,7 +108,14 @@ class OverviewTab(QWidget):
         side = QVBoxLayout()
         side.addWidget(self._summaryPanel(model), 1)
         side.addWidget(self._notesPanel(model.notes), 1)
+        self.validationWidget = TacticValidationWidget(validation)
+        side.addWidget(self.validationWidget, 1)
         layout.addLayout(side, 4)
+
+    def validationShow(self, result: BuildResult | None) -> None:
+        """Refresh the overview's object-model validation summary."""
+
+        self.validationWidget.resultShow(result)
 
     @staticmethod
     def _notesPanel(notes: str) -> QFrame:

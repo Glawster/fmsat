@@ -9,6 +9,16 @@ QLabel#summaryItem { background: #101f2e; color: #f5f8fb; border-radius: 7px; pa
 QLabel#valuePill { background: #163b38; color: #75e0bf; border: 1px solid #28675e; border-radius: 9px; padding: 4px 9px; }
 QFrame#factCard, QFrame#panel, QFrame#instructionCard { background: #101f2e; border: 1px solid #263b4e; border-radius: 10px; }
 QFrame#overviewPanel { background: #101f2e; border: 1px solid #263b4e; border-radius: 10px; }
+QFrame#validationPanel { background: #101f2e; border: 1px solid #263b4e; border-radius: 10px; }
+QFrame#validationPhase { background: #0c1926; border: 1px solid #203548; border-radius: 6px; }
+QLabel#validationPhaseName { color: #d9e5ef; font-weight: 600; }
+QLabel#validationStatus, QLabel#validationPhaseCount { border-radius: 8px; padding: 3px 8px; font-weight: 700; }
+QLabel#validationStatus[validationState="passed"], QLabel#validationPhaseCount[validationState="passed"] { background: #163b38; color: #75e0bf; border: 1px solid #28675e; }
+QLabel#validationStatus[validationState="warning"], QLabel#validationPhaseCount[validationState="warning"] { background: #40351c; color: #f0c76a; border: 1px solid #735f2d; }
+QLabel#validationStatus[validationState="error"] { background: #442329; color: #ff9da7; border: 1px solid #7b3943; }
+QLabel#validationStatus[validationState="unknown"], QLabel#validationPhaseCount[validationState="unknown"] { background: #243545; color: #9fb0c0; border: 1px solid #405366; }
+QLabel#validationIssue { color: #f0c76a; }
+QLabel#validationPassed { color: #75e0bf; }
 QFrame#pitchPanel { background: #101f2e; border: 1px solid #263b4e; border-radius: 10px; }
 QFrame#factCard { min-height: 58px; }
 QPushButton { background: #31b98f; color: #061510; border: 0; border-radius: 7px; padding: 9px 15px; font-weight: 700; }

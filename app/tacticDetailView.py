@@ -20,6 +20,7 @@ from fmsat.app.tacticDetailModel import DisplaySlot, TacticDetailModel
 from fmsat.app.tacticDetailPrototype import tacticDetailPrototype
 from fmsat.app.tacticDetailTabs import AnalysisTab, InstructionsTab, OverviewTab, ShapeTab
 from fmsat.app.tacticPitchWidget import PitchWidget
+from fmsat.app.tacticValidationWidget import BuildResult
 
 __all__ = ["DisplaySlot", "PitchWidget", "TacticDetailView"]
 
@@ -35,20 +36,27 @@ class TacticDetailView(QWidget):
         parent: QWidget | None = None,
         *,
         model: TacticDetailModel | None = None,
+        validation: BuildResult | None = None,
     ) -> None:
         super().__init__(parent)
         self.model = model or tacticDetailPrototype()
+        self.validation = validation
         self.tacticName = ""
         self.setObjectName("tacticDetailView")
         self.setStyleSheet(self._styleLoad())
         self._layoutCreate()
 
-    def tacticShow(self, tacticName: str) -> None:
+    def tacticShow(
+        self,
+        tacticName: str,
+        validation: BuildResult | None = None,
+    ) -> None:
         """Refresh the workspace for the selected stored tactic identity."""
 
         self.tacticName = tacticName
         self.titleLabel.setText(tacticName)
         self.assignmentButton.setText("Assign squad")
+        self.overviewTab.validationShow(validation)
 
     ## layout
 
@@ -104,7 +112,8 @@ class TacticDetailView(QWidget):
     def _tabsCreate(self) -> QTabWidget:
         tabs = QTabWidget()
         tabs.setObjectName("tacticTabs")
-        tabs.addTab(OverviewTab(self.model), "Overview")
+        self.overviewTab = OverviewTab(self.model, self.validation)
+        tabs.addTab(self.overviewTab, "Overview")
         tabs.addTab(ShapeTab(self.model), "Team Shape")
         tabs.addTab(InstructionsTab(self.model), "Team Instructions")
         tabs.addTab(AnalysisTab(), "Analysis")
