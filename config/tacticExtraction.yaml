@@ -1,0 +1,105 @@
+version: 1
+
+# Normalized regions for the two pitches visible in the FM26 Planner "Both"
+# Formation capture. These values are data rather than parser constants so a
+# skin or resolution-specific profile can replace them after fixture calibration.
+phaseRegions:
+  inPossession: {x: 0.015, y: 0.165, width: 0.31, height: 0.78}
+  outOfPossession: {x: 0.335, y: 0.165, width: 0.31, height: 0.78}
+
+tileDetection:
+  cannyLow: 35
+  cannyHigh: 110
+  minimumWidth: 0.06
+  maximumWidth: 0.32
+  minimumHeight: 0.025
+  maximumHeight: 0.16
+
+linking:
+  maximumDistance: 0.38
+  ambiguityMargin: 0.05
+  orderWeight: 0.08
+
+# Pitch y increases from the attacking goal towards the defending goal.
+pitchZones:
+  bands:
+    - yMin: 0.00
+      yMax: 0.18
+      positions:
+        - {xMin: 0.00, xMax: 0.38, code: STCL}
+        - {xMin: 0.38, xMax: 0.62, code: STC}
+        - {xMin: 0.62, xMax: 1.01, code: STCR}
+    - yMin: 0.18
+      yMax: 0.38
+      positions:
+        - {xMin: 0.00, xMax: 0.20, code: AML}
+        - {xMin: 0.20, xMax: 0.42, code: AMCL}
+        - {xMin: 0.42, xMax: 0.58, code: AMC}
+        - {xMin: 0.58, xMax: 0.80, code: AMCR}
+        - {xMin: 0.80, xMax: 1.01, code: AMR}
+    - yMin: 0.38
+      yMax: 0.58
+      positions:
+        - {xMin: 0.00, xMax: 0.20, code: ML}
+        - {xMin: 0.20, xMax: 0.42, code: MCL}
+        - {xMin: 0.42, xMax: 0.58, code: MC}
+        - {xMin: 0.58, xMax: 0.80, code: MCR}
+        - {xMin: 0.80, xMax: 1.01, code: MR}
+    - yMin: 0.58
+      yMax: 0.72
+      positions:
+        - {xMin: 0.00, xMax: 0.18, code: WBL}
+        - {xMin: 0.18, xMax: 0.42, code: DMCL}
+        - {xMin: 0.42, xMax: 0.58, code: DM}
+        - {xMin: 0.58, xMax: 0.82, code: DMCR}
+        - {xMin: 0.82, xMax: 1.01, code: WBR}
+    - yMin: 0.72
+      yMax: 0.90
+      positions:
+        - {xMin: 0.00, xMax: 0.20, code: DL}
+        - {xMin: 0.20, xMax: 0.42, code: DCL}
+        - {xMin: 0.42, xMax: 0.58, code: DC}
+        - {xMin: 0.58, xMax: 0.80, code: DCR}
+        - {xMin: 0.80, xMax: 1.01, code: DR}
+    - yMin: 0.90
+      yMax: 1.01
+      positions:
+        - {xMin: 0.00, xMax: 1.01, code: GK}
+
+selection:
+  minimumSaturation: 45
+  minimumScore: 0.25
+  padding: 5
+
+# Each crop contains one labelled instruction card. OCR geometry plus coloured
+# selection evidence determines which displayed value, if any, is persisted.
+instructionRegions:
+  inPossession:
+    passingDirectness: {x: 0.35, y: 0.15, width: 0.20, height: 0.12}
+    tempo: {x: 0.56, y: 0.15, width: 0.20, height: 0.12}
+    timeWasting: {x: 0.77, y: 0.15, width: 0.20, height: 0.12}
+    attackingTransition: {x: 0.35, y: 0.28, width: 0.20, height: 0.12}
+    attackingWidth: {x: 0.56, y: 0.28, width: 0.20, height: 0.12}
+    playForSetPieces: {x: 0.77, y: 0.28, width: 0.20, height: 0.12}
+    creativeFreedom: {x: 0.35, y: 0.41, width: 0.20, height: 0.12}
+    buildUpStrategy: {x: 0.56, y: 0.41, width: 0.20, height: 0.12}
+    goalKicks: {x: 0.77, y: 0.41, width: 0.20, height: 0.12}
+    goalkeeperDistribution: {x: 0.35, y: 0.54, width: 0.20, height: 0.12}
+    supportingRuns: {x: 0.56, y: 0.54, width: 0.20, height: 0.12}
+    dribbling: {x: 0.77, y: 0.54, width: 0.20, height: 0.12}
+    progressThrough: {x: 0.35, y: 0.67, width: 0.20, height: 0.12}
+    passReception: {x: 0.56, y: 0.67, width: 0.20, height: 0.12}
+    patience: {x: 0.77, y: 0.67, width: 0.20, height: 0.12}
+    shotsFromDistance: {x: 0.35, y: 0.80, width: 0.20, height: 0.12}
+    crossingStyle: {x: 0.56, y: 0.80, width: 0.20, height: 0.12}
+    goalkeeperDistributionSpeed: {x: 0.77, y: 0.80, width: 0.20, height: 0.12}
+  outOfPossession:
+    lineOfEngagement: {x: 0.35, y: 0.17, width: 0.20, height: 0.15}
+    defensiveLine: {x: 0.56, y: 0.17, width: 0.20, height: 0.15}
+    triggerPress: {x: 0.77, y: 0.17, width: 0.20, height: 0.15}
+    defensiveTransition: {x: 0.35, y: 0.34, width: 0.20, height: 0.15}
+    tackling: {x: 0.56, y: 0.34, width: 0.20, height: 0.15}
+    crossEngagement: {x: 0.77, y: 0.34, width: 0.20, height: 0.15}
+    pressingTrap: {x: 0.35, y: 0.51, width: 0.20, height: 0.15}
+    shortGoalkeeperDistribution: {x: 0.56, y: 0.51, width: 0.20, height: 0.15}
+    defensiveLineBehaviour: {x: 0.77, y: 0.51, width: 0.20, height: 0.15}

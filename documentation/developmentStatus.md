@@ -39,17 +39,21 @@ Completed
 
 Remaining
 
-- Formation slot extraction
-- Position normalisation
-- Team instruction parsing
 - Structured tactic persistence
 - Review UI
 - CLI diagnostics
 
-Until formation-slot and team-instruction parsers are implemented, processing stored tactic
-screenshots persists only observed header metadata and explicit unresolved issues. It does
-not generate template formations, default instructions or copy formation evidence into a
-phase.
+Delivered extraction components
+
+- Computer-vision Formation tile detection with focused OCR
+- Configurable pitch-zone position normalization
+- Evidence-ranked cross-phase slot linking
+- Selected-only team-instruction parsing
+- Explicit unresolved issues for missing and ambiguous evidence
+
+The normalized regions in `config/tacticExtraction.yaml` are the initial FM26 profile and
+must be verified against retained full-resolution captures. New skins or layouts should add
+calibrated configuration rather than parser constants.
 
 ---
 

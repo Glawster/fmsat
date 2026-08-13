@@ -237,3 +237,11 @@ warning or information. At minimum validate:
   full-resolution screenshots.
 - Reuse requirement 005's formation-row palette and role-icon component in the
   structured review UI when that component is implemented.
+
+## Change history
+
+- 2026-08-13: disabled template-generated tactic facts and required unresolved
+  issues for absent evidence.
+- 2026-08-13: implemented configurable Formation tile detection, focused OCR,
+  pitch-zone normalization, evidence-ranked phase linking and selected-only
+  instruction extraction.

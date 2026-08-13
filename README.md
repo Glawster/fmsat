@@ -45,6 +45,14 @@ duty, slot identity, coordinates, optional player, confidence, source import and
 state. Missing slot and instruction extraction remains unresolved; it is not filled from
 templates or neutral defaults.
 
+Formation extraction detects role tiles before applying focused OCR, normalizes their pitch
+centres through configurable zones, and links phase slots only where player, shirt-number,
+relative-order or spatial evidence supports the link. Instruction extraction retains only a
+single visibly selected canonical value from each configured card. Missing and ambiguous
+evidence is recorded for review and never converted into a default fact. The normalized FM26
+regions and selection thresholds live in `config/tacticExtraction.yaml` so layout calibration
+does not require parser changes.
+
 On first launch after upgrading from the repository-local data layout, FMSAT copies an
 existing `data/fmsat.sqlite3` and its retained screenshots into the persistent user-data
 directory. The legacy files are left untouched as a recovery copy. When `XDG_STATE_HOME`
