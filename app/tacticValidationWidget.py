@@ -6,7 +6,16 @@ from collections.abc import Sequence
 from typing import Protocol
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QAbstractScrollArea,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QScrollArea,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
+)
 
 
 class BuildIssue(Protocol):
@@ -87,8 +96,30 @@ class TacticValidationWidget(QFrame):
         self.contentLayout = QVBoxLayout(self.content)
         self.contentLayout.setContentsMargins(0, 0, 0, 0)
         self.contentLayout.setSpacing(7)
-        layout.addWidget(self.content)
-        layout.addStretch()
+
+        # Validation can contain dozens of extraction issues. Keep those
+        # diagnostics inside this panel so they cannot enlarge the complete
+        # tactic page and push its maintenance actions below the window.
+        self.issueScroll = QScrollArea()
+        self.issueScroll.setObjectName("validationIssueScroll")
+        self.issueScroll.setWidgetResizable(True)
+        self.issueScroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.issueScroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.issueScroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        self.issueScroll.setSizeAdjustPolicy(
+            QAbstractScrollArea.SizeAdjustPolicy.AdjustIgnored
+        )
+        self.issueScroll.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Ignored,
+        )
+        self.issueScroll.setMinimumHeight(120)
+        self.issueScroll.setWidget(self.content)
+        layout.addWidget(self.issueScroll, 1)
 
     ## content
 

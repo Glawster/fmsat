@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from PySide6.QtWidgets import QLabel, QTabWidget
+from PySide6.QtWidgets import QLabel, QScrollArea, QTabWidget
 
 from fmsat.app.tacticDetailView import TacticDetailView
 from fmsat.app.tacticValidationWidget import TacticValidationWidget
@@ -75,6 +75,25 @@ def testValidationWidgetShowsIncompletePhase(qtbot) -> None:  # type: ignore[no-
     assert "Incomplete" in labels
     assert "9 of 11 positions" in labels
     assert "●  inPossession has 9 mapped positions; 11 expected" in labels
+
+
+def testValidationIssuesAreContainedInScrollArea(qtbot) -> None:  # type: ignore[no-untyped-def]
+    """A long issue list must not increase the tactic page's minimum height."""
+
+    result = DummyResult(
+        tactic=_tacticCreate(inPossessionCount=2),
+        issues=tuple(DummyIssue(f"Unresolved issue {index}") for index in range(30)),
+        complete=False,
+        confirmed=False,
+    )
+    widget = TacticValidationWidget(result)
+    qtbot.addWidget(widget)
+
+    issueScroll = widget.findChild(QScrollArea, "validationIssueScroll")
+
+    assert issueScroll is not None
+    assert issueScroll.widgetResizable()
+    assert issueScroll.widget() is widget.content
 
 
 def testTacticShowRefreshesValidationResult(qtbot) -> None:  # type: ignore[no-untyped-def]
