@@ -650,6 +650,30 @@ def testTacticModelImportUsesProcessingFlow(qtbot) -> None:  # type: ignore[no-u
     window._tacticImportRun.assert_not_called()
 
 
+def testIncompleteRegenerationRetainsExistingObjectModel(qtbot) -> None:  # type: ignore[no-untyped-def]
+    """Incomplete screenshot evidence must not reach the object-model store."""
+
+    window = _mainWindowCreate()
+    qtbot.addWidget(window)
+    window.tacticModelLoader.tacticLoad = Mock(
+        return_value=SimpleNamespace(source="objectModel")
+    )
+    window.tacticScreenshotExtractor.tacticExtract = Mock(
+        return_value=SimpleNamespace(
+            structuredCreated=True,
+            complete=False,
+            message="Observed tactic data extracted with unresolved coverage",
+        )
+    )
+    changed = QSignalSpy(window.dataChanged)
+
+    window.tacticProcess("High Press", openDetail=False, forceRebuild=True)
+
+    window.tacticModelLoader.tacticLoad.assert_called_once_with("High Press")
+    assert changed.count() == 0
+    assert "existing model retained" in window.statusBar().currentMessage()
+
+
 def testTacticProcessBuildsModelFromScreenshotOnlyTactic(qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
 
     from fmsat.core.detection import ScreenType

@@ -123,7 +123,10 @@ class TacticModelLoader:
                 complete=True,
                 confirmed=True,
                 metadata=structuredMetadata,
-                phaseSlots=structuredSlots,
+                # The saved object model is authoritative for its formation.
+                # Latest extraction issues may be newer, but partial structured
+                # slots must not visually replace a retained model.
+                phaseSlots={},
             )
 
         built = self.structuredBuilder.tacticBuild(cleanName)

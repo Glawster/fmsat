@@ -60,6 +60,14 @@ issues. Instruction processing crops each configured card and persists a value o
 and coloured selected-state evidence identify exactly one canonical selection. Missing,
 unknown or ambiguous selections create issues instead of default instruction rows.
 
+Regeneration applies an integrity gate before `TacticStore` is called. The extracted draft
+must be complete and the generated formations must each contain eleven evidence-bearing,
+resolved positions. An incomplete extraction retains its issues for review but cannot
+replace the saved football object model. When a saved model is displayed, its own persisted
+positions remain authoritative; newer partial extraction slots are not overlaid on its pitch.
+An absent duty remains unresolved and blocks position generation rather than creating a
+synthetic `Default` role profile.
+
 New squads may also own `SquadClubScreenshot` records. The associated Club Information
 screenshot supplies the squad-card badge image. It is previewed and persisted through
 `ScreenshotStore` without screen detection, OCR or player parsing. Keeping this provenance
