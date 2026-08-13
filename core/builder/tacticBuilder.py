@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from fmsat.core.logUtils import getLogger
 from fmsat.database.models import (
     StructuredFormationSlot,
     ScreenshotDerivedTacticDefinition,
@@ -22,6 +23,8 @@ from fmsat.tactics.tactic import Tactic
 from fmsat.tactics.transition import Transition
 from sqlalchemy import Engine, Select, select
 from sqlalchemy.orm import Session, selectinload
+
+logger = getLogger()
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,6 +67,7 @@ class TacticBuilder:
 
         issues: list[TacticBuildIssue] = []
         cleanName = tacticName.strip()
+        logger.doing(f"building tactic object model for {cleanName or '<empty>'}")
         if not cleanName:
             issues.append(TacticBuildIssue("invalidTacticName", "Tactic name is empty"))
             return TacticBuildResult(None, tuple(issues), False, False)
@@ -72,6 +76,7 @@ class TacticBuilder:
             definition = self._definitionLoad(session, cleanName)
 
         if definition is None:
+            logger.info(f"no screenshot-derived definition exists for {cleanName}")
             issues.append(
                 TacticBuildIssue(
                     "missingStructuredDefinition",
@@ -88,6 +93,9 @@ class TacticBuilder:
 
         inPossessionSlots = self._slotsForPhase(definition, "inPossession")
         outOfPossessionSlots = self._slotsForPhase(definition, "outOfPossession")
+        logger.value("in-possession structured slots", len(inPossessionSlots))
+        logger.value("out-of-possession structured slots", len(outOfPossessionSlots))
+        logger.value("structured instructions", len(definition.instructions))
         instructionCatalog = self._instructionCatalogBuild(definition)
 
         inPossessionModel = self._formationBuild(
@@ -110,6 +118,7 @@ class TacticBuilder:
 
         # A tactic cannot be built if either required phase has no valid slots.
         if inPossessionModel is None or outOfPossessionModel is None:
+            logger.info(f"tactic object-model build failed with {len(issues)} issues")
             return TacticBuildResult(
                 None,
                 tuple(issues),
@@ -122,6 +131,10 @@ class TacticBuilder:
             inPossession=inPossessionModel,
             outOfPossession=outOfPossessionModel,
             transition=transitionModel,
+        )
+        logger.info(
+            f"tactic object-model build finished: complete={definition.complete}, "
+            f"confirmed={definition.confirmed}, issues={len(issues)}"
         )
         return TacticBuildResult(
             tactic=tacticModel,

@@ -7,10 +7,12 @@ from typing import Protocol
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QApplication,
     QAbstractScrollArea,
     QFrame,
     QHBoxLayout,
     QLabel,
+    QPushButton,
     QScrollArea,
     QSizePolicy,
     QVBoxLayout,
@@ -82,6 +84,10 @@ class TacticValidationWidget(QFrame):
         heading.setObjectName("cardTitle")
         headingRow.addWidget(heading)
         headingRow.addStretch()
+        copyButton = QPushButton("Copy details")
+        copyButton.setObjectName("secondaryButton")
+        copyButton.clicked.connect(self._detailsCopy)
+        headingRow.addWidget(copyButton)
         self.statusLabel = QLabel()
         self.statusLabel.setObjectName("validationStatus")
         headingRow.addWidget(self.statusLabel)
@@ -117,7 +123,7 @@ class TacticValidationWidget(QFrame):
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Ignored,
         )
-        self.issueScroll.setMinimumHeight(120)
+        self.issueScroll.setMinimumHeight(260)
         self.issueScroll.setWidget(self.content)
         layout.addWidget(self.issueScroll, 1)
 
@@ -145,7 +151,19 @@ class TacticValidationWidget(QFrame):
         label = QLabel(f"●  {message}")
         label.setObjectName("validationIssue" if issue else "validationPassed")
         label.setWordWrap(True)
+        label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.contentLayout.addWidget(label)
+
+    def _detailsCopy(self) -> None:
+        """Copy the complete validation summary and issue list as plain text."""
+
+        lines = [self.statusLabel.text(), self.detailLabel.text()]
+        lines.extend(
+            label.text()
+            for label in self.content.findChildren(QLabel)
+            if label.text().strip()
+        )
+        QApplication.clipboard().setText("\n".join(lines))
 
     def _phaseAdd(self, title: str, count: int | None) -> None:
         row = QFrame()

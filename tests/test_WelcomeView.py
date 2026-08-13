@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QLabel,
     QInputDialog,
+    QProgressDialog,
     QPushButton,
     QTableWidget,
     QToolButton,
@@ -672,6 +673,18 @@ def testIncompleteRegenerationRetainsExistingObjectModel(qtbot) -> None:  # type
     window.tacticModelLoader.tacticLoad.assert_called_once_with("High Press")
     assert changed.count() == 0
     assert "existing model retained" in window.statusBar().currentMessage()
+
+
+def testTacticProgressDialogRemainsReadable(qtbot) -> None:  # type: ignore[no-untyped-def]
+    progress = QProgressDialog("Starting...", None, 0, 6)
+    qtbot.addWidget(progress)
+
+    MainWindow._progressUpdate(progress, "Reading screenshot evidence...", 2)
+
+    assert progress.width() >= 560
+    assert progress.height() >= 140
+    assert progress.labelText() == "Reading screenshot evidence..."
+    assert progress.value() == 2
 
 
 def testTacticProcessBuildsModelFromScreenshotOnlyTactic(qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]

@@ -8,10 +8,13 @@ from typing import Any
 import cv2
 import numpy as np
 
+from fmsat.core.logUtils import getLogger
 from fmsat.core.ocr import OcrEngine, OcrResult
 
 from .tacticModels import TacticalPhase, TacticIssue, TeamInstruction, ValidationState
 from .tacticVocabulary import TacticVocabulary
+
+logger = getLogger()
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,12 +57,14 @@ class TacticInstructionExtractor:
                 ),
             ))
         for category, region in categories.items():
+            logger.doing(f"extracting {phase.value}.{category} instruction")
             crop = self._regionCrop(image, region)
             if crop.size == 0:
                 issues.append(TacticIssue(
                     "emptyInstructionRegion",
                     f"Configured {phase.value}.{category} region is empty",
                 ))
+                logger.info(f"{phase.value}.{category} crop is empty")
                 continue
             try:
                 results = self.ocr.recognize(crop)
@@ -68,7 +73,9 @@ class TacticInstructionExtractor:
                     "instructionOcrFailed",
                     f"{phase.value}.{category} OCR failed: {exc}",
                 ))
+                logger.exception(f"{phase.value}.{category} instruction OCR failed")
                 continue
+            logger.value(f"{phase.value}.{category} OCR values", len(results))
             normalizedResults = [
                 (
                     result,
@@ -84,6 +91,10 @@ class TacticInstructionExtractor:
                 result for result, normalized in normalizedResults if normalized.resolved
             ]
             selected = self._selectedResults(crop, canonicalResults)
+            logger.info(
+                f"{phase.value}.{category} canonical candidates: "
+                f"{', '.join(result.text for result in canonicalResults) or 'none'}"
+            )
             if len(selected) != 1:
                 unknownSelected = self._selectedResults(
                     crop,
@@ -99,6 +110,10 @@ class TacticInstructionExtractor:
                         f"{phase.value}.{category} selected value is not canonical",
                         unknownSelected[0][0].text,
                     ))
+                    logger.info(
+                        f"{phase.value}.{category} selected unknown value: "
+                        f"{unknownSelected[0][0].text}"
+                    )
                     continue
                 code = (
                     "missingInstructionEvidence"
@@ -112,6 +127,10 @@ class TacticInstructionExtractor:
                     "exactly one is required",
                     observed,
                 ))
+                logger.info(
+                    f"{phase.value}.{category} unresolved selected values: "
+                    f"{observed or 'none'}"
+                )
                 continue
             result, selectionScore = selected[0]
             normalized = self.vocabulary.instructionNormalize(
@@ -140,6 +159,10 @@ class TacticInstructionExtractor:
                 sourceImport=sourceImport,
                 validationState=ValidationState.EXTRACTED,
             ))
+            logger.info(
+                f"{phase.value}.{category} selected value: {canonical} "
+                f"(confidence {confidence:.3f})"
+            )
         return InstructionExtractResult(tuple(instructions), tuple(issues))
 
     def _selectedResults(
@@ -153,6 +176,7 @@ class TacticInstructionExtractor:
         )
         for result in results:
             score = self._selectionScore(crop, result)
+            logger.info(f"selection score for {result.text!r}: {score:.3f}")
             if score >= minimumScore:
                 candidates.append((result, score))
 
