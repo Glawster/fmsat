@@ -12,7 +12,7 @@ The next available requirement number is **011**.
 | 006 | [Structured tactic extraction](features/006-structuredTacticExtraction.md) | In Progress | [Prompt](prompt/006-structuredTacticExtraction.prompt.md) | — |
 | 007 | [Role-centric squad assessment](features/007-roleCentricSquadAssessment.md) | Backlog | [Prompt](prompt/007-roleCentricSquadAssessment.prompt.md) | — |
 | 008 | [Welcome screen](features/008-welcomeScreen.md) | Completed | [Prompt](prompt/008-welcomeScreen.md) | — |
-| 009 | [Tactic detail management](features/009-tacticDetailManagement.md) | Backlog | [Prompt](prompt/009-tacticDetailManagement.prompt.md) | — |
+| 009 | [Tactic detail management](features/009-tacticDetailManagement.md) | In Progress | [Prompt](prompt/009-tacticDetailManagement.prompt.md) | — |
 | 010 | [Position, attribute and role definitions](features/010-positionAttributeRoleDefinitions.md) | In Progress | [Prompt](prompt/010-positionAttributeRoleDefinitions.prompt.md) | — |
 
 Requirement records are stable statements of intent. Update their status as work
