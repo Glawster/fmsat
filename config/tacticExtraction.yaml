@@ -69,6 +69,7 @@ pitchZones:
 selection:
   minimumSaturation: 45
   minimumScore: 0.25
+  minimumMargin: 0.12
   padding: 5
 
 # Each crop contains one labelled instruction card. OCR geometry plus coloured

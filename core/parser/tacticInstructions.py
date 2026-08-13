@@ -69,8 +69,37 @@ class TacticInstructionExtractor:
                     f"{phase.value}.{category} OCR failed: {exc}",
                 ))
                 continue
-            selected = self._selectedResults(crop, results)
+            normalizedResults = [
+                (
+                    result,
+                    self.vocabulary.instructionNormalize(
+                        phase.value,
+                        category,
+                        result.text,
+                    ),
+                )
+                for result in results
+            ]
+            canonicalResults = [
+                result for result, normalized in normalizedResults if normalized.resolved
+            ]
+            selected = self._selectedResults(crop, canonicalResults)
             if len(selected) != 1:
+                unknownSelected = self._selectedResults(
+                    crop,
+                    [
+                        result
+                        for result, normalized in normalizedResults
+                        if not normalized.resolved
+                    ],
+                )
+                if not selected and len(unknownSelected) == 1:
+                    issues.append(TacticIssue(
+                        "unknownInstructionValue",
+                        f"{phase.value}.{category} selected value is not canonical",
+                        unknownSelected[0][0].text,
+                    ))
+                    continue
                 code = (
                     "missingInstructionEvidence"
                     if not selected
@@ -118,12 +147,28 @@ class TacticInstructionExtractor:
         crop: np.ndarray,
         results: list[OcrResult],
     ) -> list[tuple[OcrResult, float]]:
-        selected: list[tuple[OcrResult, float]] = []
+        candidates: list[tuple[OcrResult, float]] = []
+        minimumScore = float(
+            self.configuration.get("selection", {}).get("minimumScore", 0.25)
+        )
         for result in results:
             score = self._selectionScore(crop, result)
-            if score >= float(self.configuration.get("selection", {}).get("minimumScore", 0.25)):
-                selected.append((result, score))
-        return selected
+            if score >= minimumScore:
+                candidates.append((result, score))
+
+        if len(candidates) <= 1:
+            return candidates
+
+        # Unselected FM options can still contain small coloured controls. A
+        # selected option colours most of its row, so accept the strongest row
+        # only when it is visually distinct. Similar scores remain ambiguous.
+        candidates.sort(key=lambda item: item[1], reverse=True)
+        minimumMargin = float(
+            self.configuration.get("selection", {}).get("minimumMargin", 0.12)
+        )
+        if candidates[0][1] - candidates[1][1] >= minimumMargin:
+            return [candidates[0]]
+        return candidates
 
     def _selectionScore(self, crop: np.ndarray, result: OcrResult) -> float:
         """Measure coloured selected-state evidence behind an OCR result."""
@@ -133,10 +178,13 @@ class TacticInstructionExtractor:
             # for OCR engines without geometry; ambiguity is handled by the caller.
             return result.confidence
         height, width = crop.shape[:2]
-        left, top, right, bottom = result.bounds
+        _, top, _, bottom = result.bounds
         padding = int(self.configuration.get("selection", {}).get("padding", 5))
-        x1, y1 = max(0, int(left) - padding), max(0, int(top) - padding)
-        x2, y2 = min(width, int(right) + padding), min(height, int(bottom) + padding)
+        # Sample the complete horizontal option row rather than the text box.
+        # Text antialiasing and icons can be saturated even when an option is
+        # not selected; the selected background is visible across the row.
+        x1, y1 = 0, max(0, int(top) - padding)
+        x2, y2 = width, min(height, int(bottom) + padding)
         if x2 <= x1 or y2 <= y1:
             return 0.0
         hsv = cv2.cvtColor(crop[y1:y2, x1:x2], cv2.COLOR_BGR2HSV)

@@ -59,6 +59,11 @@ relative ordering and spatial proximity; ambiguous and unmatched links remain ex
 issues. Instruction processing crops each configured card and persists a value only when OCR
 and coloured selected-state evidence identify exactly one canonical selection. Missing,
 unknown or ambiguous selections create issues instead of default instruction rows.
+Selection scoring samples the complete option row rather than colour immediately
+around OCR text. When several options contain coloured controls, one value is
+accepted only if its row has a configured visual margin over the next candidate;
+otherwise the category remains ambiguous. Non-canonical labels are excluded from
+the comparison so card headings cannot become instruction values.
 
 Regeneration applies an integrity gate before `TacticStore` is called. The extracted draft
 must be complete and the generated formations must each contain eleven evidence-bearing,
