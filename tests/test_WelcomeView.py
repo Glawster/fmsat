@@ -676,7 +676,9 @@ def testIncompleteRegenerationRetainsExistingObjectModel(qtbot) -> None:  # type
 
 
 def testTacticProgressDialogRemainsReadable(qtbot) -> None:  # type: ignore[no-untyped-def]
-    progress = QProgressDialog("Starting...", None, 0, 6)
+    window = _mainWindowCreate()
+    qtbot.addWidget(window)
+    progress = window._tacticProgressCreate()
     qtbot.addWidget(progress)
 
     MainWindow._progressUpdate(progress, "Reading screenshot evidence...", 2)
@@ -685,6 +687,9 @@ def testTacticProgressDialogRemainsReadable(qtbot) -> None:  # type: ignore[no-u
     assert progress.height() >= 140
     assert progress.labelText() == "Reading screenshot evidence..."
     assert progress.value() == 2
+    assert progress.objectName() == "tacticProgressDialog"
+    assert "background-color: #101f2e" in progress.styleSheet()
+    assert "QProgressBar::chunk" in progress.styleSheet()
 
 
 def testTacticProcessBuildsModelFromScreenshotOnlyTactic(qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]

@@ -99,6 +99,8 @@ class TacticValidationWidget(QFrame):
         layout.addWidget(self.detailLabel)
 
         self.content = QWidget()
+        self.content.setObjectName("validationIssueContent")
+        self.content.setStyleSheet("background-color: #0c1926; color: #f0c76a;")
         self.contentLayout = QVBoxLayout(self.content)
         self.contentLayout.setContentsMargins(0, 0, 0, 0)
         self.contentLayout.setSpacing(7)
@@ -124,6 +126,15 @@ class TacticValidationWidget(QFrame):
             QSizePolicy.Policy.Ignored,
         )
         self.issueScroll.setMinimumHeight(260)
+        self.issueScroll.setStyleSheet(
+            "QScrollArea { background-color: #0c1926; border: 1px solid #203548; "
+            "border-radius: 6px; } "
+            "QScrollBar:vertical { background: #0c1926; width: 12px; margin: 0; } "
+            "QScrollBar::handle:vertical { background: #30465a; min-height: 28px; "
+            "border-radius: 5px; } "
+            "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }"
+        )
+        self.issueScroll.viewport().setStyleSheet("background-color: #0c1926;")
         self.issueScroll.setWidget(self.content)
         layout.addWidget(self.issueScroll, 1)
 

@@ -320,16 +320,7 @@ class MainWindow(QMainWindow):
         logger.doing(
             f"{'regenerating' if forceRebuild else 'processing'} tactic model {tacticName}"
         )
-        progress = QProgressDialog("Processing tactic model...", None, 0, 6, self)
-        progress.setWindowTitle("Process Tactic")
-        progress.setWindowModality(Qt.WindowModality.WindowModal)
-        progress.setCancelButton(None)
-        progress.setMinimumDuration(0)
-        progress.setAutoClose(False)
-        progress.setAutoReset(False)
-        progress.setMinimumWidth(560)
-        progress.setMinimumHeight(140)
-        progress.resize(560, 140)
+        progress = self._tacticProgressCreate()
         progress.show()
         self._progressUpdate(progress, "Loading saved tactic data...", 0)
         try:
@@ -484,6 +475,34 @@ class MainWindow(QMainWindow):
             self._errorShow("Tactic processing error", str(exc))
         finally:
             progress.close()
+
+    def _tacticProgressCreate(self) -> QProgressDialog:
+        """Create an opaque, readable progress dialog owned by the main window."""
+
+        progress = QProgressDialog("Processing tactic model...", None, 0, 6, self)
+        progress.setObjectName("tacticProgressDialog")
+        progress.setWindowTitle("Process Tactic")
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setCancelButton(None)
+        progress.setMinimumDuration(0)
+        progress.setAutoClose(False)
+        progress.setAutoReset(False)
+        progress.setMinimumWidth(560)
+        progress.setMinimumHeight(140)
+        progress.resize(560, 140)
+        progress.setStyleSheet(
+            "QProgressDialog#tacticProgressDialog { background-color: #101f2e; "
+            "color: #e8eef5; } "
+            "QProgressDialog#tacticProgressDialog QLabel { background: transparent; "
+            "color: #e8eef5; font-size: 14px; font-weight: 600; "
+            "padding: 12px 10px; min-height: 34px; } "
+            "QProgressDialog#tacticProgressDialog QProgressBar { "
+            "background-color: #08131f; color: #e8eef5; border: 1px solid #30465a; "
+            "border-radius: 7px; min-height: 24px; text-align: center; } "
+            "QProgressDialog#tacticProgressDialog QProgressBar::chunk { "
+            "background-color: #31b98f; border-radius: 6px; }"
+        )
+        return progress
 
     @staticmethod
     def _progressUpdate(

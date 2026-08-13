@@ -313,6 +313,9 @@ instructions:
 19. The validation panel gives issue diagnostics most of the available side
     height, supports mouse text selection and copies the complete summary and
     issue list as plain text.
+20. Validation scroll viewports and tactic progress dialogs use explicit opaque
+    application colours, including readable labels, progress tracks and chunks;
+    they do not inherit a white platform base or reveal underlying page content.
 
 ## Out of scope
 

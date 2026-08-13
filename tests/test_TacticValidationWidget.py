@@ -95,6 +95,8 @@ def testValidationIssuesAreContainedInScrollArea(qtbot) -> None:  # type: ignore
     assert issueScroll.widgetResizable()
     assert issueScroll.widget() is widget.content
     assert issueScroll.minimumHeight() == 260
+    assert "#0c1926" in issueScroll.styleSheet()
+    assert "#0c1926" in issueScroll.viewport().styleSheet()
 
 
 def testValidationDetailsCanBeCopied(qtbot) -> None:  # type: ignore[no-untyped-def]
