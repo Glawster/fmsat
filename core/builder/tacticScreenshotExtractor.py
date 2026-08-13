@@ -9,7 +9,7 @@ from fmsat.core.ocr import OcrEngine, PaddleOcrEngine
 from fmsat.core.parser import TacticVocabulary
 from fmsat.database.models import (
     StructuredFormationSlot,
-    StructuredTacticDefinition,
+    ScreenshotDerivedTacticDefinition,
     StructuredTacticIssue,
     StructuredTeamInstruction,
     Tactic,
@@ -95,13 +95,13 @@ class TacticScreenshotExtractor:
                 .options(
                     selectinload(Tactic.screenshots).selectinload(TacticScreenshot.importSession),
                     selectinload(Tactic.structuredDefinition).selectinload(
-                        StructuredTacticDefinition.slots
+                        ScreenshotDerivedTacticDefinition.slots
                     ),
                     selectinload(Tactic.structuredDefinition).selectinload(
-                        StructuredTacticDefinition.instructions
+                        ScreenshotDerivedTacticDefinition.instructions
                     ),
                     selectinload(Tactic.structuredDefinition).selectinload(
-                        StructuredTacticDefinition.issues
+                        ScreenshotDerivedTacticDefinition.issues
                     ),
                 )
             )
@@ -141,7 +141,7 @@ class TacticScreenshotExtractor:
             metadata, metadataIssues = self._metadataExtract(byType)
 
             if tactic.structuredDefinition is None:
-                definition = StructuredTacticDefinition(
+                definition = ScreenshotDerivedTacticDefinition(
                     confirmed=False,
                     complete=complete,
                     tacticMetadata={
@@ -214,7 +214,7 @@ class TacticScreenshotExtractor:
 
     def _instructionsBuild(
         self,
-        definition: StructuredTacticDefinition,
+        definition: ScreenshotDerivedTacticDefinition,
         byType: dict[ScreenType, TacticScreenshot],
     ) -> None:
         """Generate stable fallback in/out-of-possession instruction rows."""
@@ -267,7 +267,7 @@ class TacticScreenshotExtractor:
 
     def _slotsBuild(
         self,
-        definition: StructuredTacticDefinition,
+        definition: ScreenshotDerivedTacticDefinition,
         byType: dict[ScreenType, TacticScreenshot],
     ) -> None:
         """Generate fallback slots for formation and both tactical phases."""

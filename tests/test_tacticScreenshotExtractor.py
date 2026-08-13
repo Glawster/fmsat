@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, selectinload
 from fmsat.core.builder.tacticScreenshotExtractor import TacticScreenshotExtractor
 from fmsat.core.detection import ScreenType
 from fmsat.core.ocr import OcrEngine, OcrResult
-from fmsat.database import Database, StructuredTacticDefinition, Tactic
+from fmsat.database import Database, ScreenshotDerivedTacticDefinition, Tactic
 
 
 class FakeOcr(OcrEngine):
@@ -59,13 +59,13 @@ def testExtractorCreatesStructuredRowsFromSavedScreenshots(tmp_path) -> None:
             .where(Tactic.normalizedName == "high press")
             .options(
                 selectinload(Tactic.structuredDefinition).selectinload(
-                    StructuredTacticDefinition.slots
+                    ScreenshotDerivedTacticDefinition.slots
                 ),
                 selectinload(Tactic.structuredDefinition).selectinload(
-                    StructuredTacticDefinition.instructions
+                    ScreenshotDerivedTacticDefinition.instructions
                 ),
                 selectinload(Tactic.structuredDefinition).selectinload(
-                    StructuredTacticDefinition.issues
+                    ScreenshotDerivedTacticDefinition.issues
                 ),
             )
         )
@@ -118,10 +118,10 @@ def testExtractorCanReplaceExistingStructuredRows(tmp_path) -> None:
             .where(Tactic.normalizedName == "high press")
             .options(
                 selectinload(Tactic.structuredDefinition).selectinload(
-                    StructuredTacticDefinition.slots
+                    ScreenshotDerivedTacticDefinition.slots
                 ),
                 selectinload(Tactic.structuredDefinition).selectinload(
-                    StructuredTacticDefinition.instructions
+                    ScreenshotDerivedTacticDefinition.instructions
                 ),
             )
         )

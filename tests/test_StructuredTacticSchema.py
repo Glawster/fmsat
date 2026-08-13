@@ -14,7 +14,7 @@ from fmsat.database import (
     ObjectModelTactic,
     ObjectModelTransitionInstruction,
     StructuredFormationSlot,
-    StructuredTacticDefinition,
+    ScreenshotDerivedTacticDefinition,
     StructuredTacticIssue,
     StructuredTeamInstruction,
     Tactic,
@@ -36,7 +36,7 @@ def testStructuredTacticSchemaPersistsTypedEvidence(tmp_path) -> None:
         sourceImport = session.get(ImportSession, imported.id)
         assert tactic is not None
         assert sourceImport is not None
-        tactic.structuredDefinition = StructuredTacticDefinition(
+        tactic.structuredDefinition = ScreenshotDerivedTacticDefinition(
             confirmed=False,
             complete=False,
             tacticMetadata={"mentality": "positive"},
@@ -78,10 +78,10 @@ def testStructuredTacticSchemaPersistsTypedEvidence(tmp_path) -> None:
 
     with Session(database.engine) as session:
         stored = session.scalar(
-            select(StructuredTacticDefinition).options(
-                selectinload(StructuredTacticDefinition.slots),
-                selectinload(StructuredTacticDefinition.instructions),
-                selectinload(StructuredTacticDefinition.issues),
+            select(ScreenshotDerivedTacticDefinition).options(
+                selectinload(ScreenshotDerivedTacticDefinition.slots),
+                selectinload(ScreenshotDerivedTacticDefinition.instructions),
+                selectinload(ScreenshotDerivedTacticDefinition.issues),
             )
         )
 
@@ -117,7 +117,7 @@ def testInitializeAddsStructuredSchemaWithoutReplacingLegacyData(tmp_path) -> No
         StructuredFormationSlot,
         StructuredTeamInstruction,
         StructuredTacticIssue,
-        StructuredTacticDefinition,
+        ScreenshotDerivedTacticDefinition,
     ):
         model.__table__.drop(legacyDatabase.engine)
 

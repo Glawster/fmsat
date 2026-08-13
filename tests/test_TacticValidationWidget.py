@@ -83,7 +83,7 @@ def testTacticShowRefreshesValidationResult(qtbot) -> None:  # type: ignore[no-u
     result = DummyResult(
         tactic=None,
         issues=(
-            DummyIssue("No structured tactic definition exists"),
+            DummyIssue("No screenshot-derived tactic definition exists"),
         ),
         complete=False,
         confirmed=False,
@@ -93,7 +93,7 @@ def testTacticShowRefreshesValidationResult(qtbot) -> None:  # type: ignore[no-u
     labels = [label.text() for label in view.overviewTab.validationWidget.findChildren(QLabel)]
 
     assert "Unable to build" in labels
-    assert "●  No structured tactic definition exists" in labels
+    assert "●  No screenshot-derived tactic definition exists" in labels
 
 
 def _tacticCreate(*, inPossessionCount: int = 11) -> DummyTactic:
