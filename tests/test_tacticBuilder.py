@@ -11,7 +11,7 @@ from fmsat.database import (
     Database,
     ImportSession,
     StructuredFormationSlot,
-    StructuredTacticDefinition,
+    ScreenshotDerivedTacticDefinition,
     StructuredTeamInstruction,
     Tactic,
 )
@@ -94,7 +94,7 @@ def testBuilderLoadsStructuredTacticIntoObjectModel(tmp_path) -> None:
             )
         ]
 
-        tactic.structuredDefinition = StructuredTacticDefinition(
+        tactic.structuredDefinition = ScreenshotDerivedTacticDefinition(
             confirmed=True,
             complete=True,
             tacticMetadata={
@@ -188,7 +188,7 @@ def testBuilderOrdersPositionsBySemanticPositionIdentity(tmp_path) -> None:
         assert sourceImport is not None
 
         # Deliberately scramble slot IDs to ensure semantic ordering is applied.
-        tactic.structuredDefinition = StructuredTacticDefinition(
+        tactic.structuredDefinition = ScreenshotDerivedTacticDefinition(
             confirmed=False,
             complete=False,
             tacticMetadata={},

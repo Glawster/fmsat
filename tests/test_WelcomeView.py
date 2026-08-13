@@ -611,7 +611,7 @@ def testTacticShowOpensIncompleteViewWhenNoModelData(qtbot) -> None:  # type: ig
             issues=(
                 TacticBuildIssue(
                     "missingStructuredDefinition",
-                    "No structured tactic definition exists",
+                    "No screenshot-derived tactic definition exists",
                 ),
             ),
             complete=False,

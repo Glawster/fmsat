@@ -12,7 +12,7 @@ from fmsat.database.models import (
     ObjectModelPositionInstruction,
     ObjectModelTactic,
     ObjectModelTransitionInstruction,
-    StructuredTacticDefinition,
+    ScreenshotDerivedTacticDefinition,
     Tactic as DatabaseTactic,
 )
 from fmsat.football.instruction import Instruction, InstructionSet, InstructionValue
@@ -78,10 +78,10 @@ class TacticModelLoader:
                 .where(DatabaseTactic.normalizedName == cleanName.casefold())
                 .options(
                     selectinload(DatabaseTactic.structuredDefinition).selectinload(
-                        StructuredTacticDefinition.slots
+                        ScreenshotDerivedTacticDefinition.slots
                     ),
                     selectinload(DatabaseTactic.structuredDefinition).selectinload(
-                        StructuredTacticDefinition.issues
+                        ScreenshotDerivedTacticDefinition.issues
                     ),
                 )
             )
@@ -92,10 +92,10 @@ class TacticModelLoader:
                 .options(
                     selectinload(ObjectModelTactic.sourceTactic)
                     .selectinload(DatabaseTactic.structuredDefinition)
-                    .selectinload(StructuredTacticDefinition.slots),
+                    .selectinload(ScreenshotDerivedTacticDefinition.slots),
                     selectinload(ObjectModelTactic.sourceTactic)
                     .selectinload(DatabaseTactic.structuredDefinition)
-                    .selectinload(StructuredTacticDefinition.issues),
+                    .selectinload(ScreenshotDerivedTacticDefinition.issues),
                     selectinload(ObjectModelTactic.formations).selectinload(
                         ObjectModelFormation.positions
                     ),

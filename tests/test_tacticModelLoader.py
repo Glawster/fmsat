@@ -13,7 +13,7 @@ from fmsat.database import (
     Database,
     ImportSession,
     StructuredFormationSlot,
-    StructuredTacticDefinition,
+    ScreenshotDerivedTacticDefinition,
     StructuredTacticIssue,
     Tactic,
 )
@@ -71,7 +71,7 @@ def testLoaderPrefersSavedObjectModelOverStructuredDefinition(tmp_path) -> None:
         sourceImport = session.get(ImportSession, imported.id)
         assert tactic is not None
         assert sourceImport is not None
-        tactic.structuredDefinition = StructuredTacticDefinition(
+        tactic.structuredDefinition = ScreenshotDerivedTacticDefinition(
             confirmed=True,
             complete=True,
             tacticMetadata={"inPossessionName": "Structured Shape"},
@@ -145,7 +145,7 @@ def testSavedObjectModelPreservesStructuredExtractionIssues(tmp_path) -> None:
             select(Tactic).where(Tactic.normalizedName == "metadata gap")
         )
         assert tactic is not None
-        tactic.structuredDefinition = StructuredTacticDefinition(
+        tactic.structuredDefinition = ScreenshotDerivedTacticDefinition(
             confirmed=False,
             complete=True,
             tacticMetadata={},
@@ -183,7 +183,7 @@ def testLoaderFallsBackToStructuredBuilderWhenNoSavedObjectModel(tmp_path) -> No
         sourceImport = session.get(ImportSession, imported.id)
         assert tactic is not None
         assert sourceImport is not None
-        tactic.structuredDefinition = StructuredTacticDefinition(
+        tactic.structuredDefinition = ScreenshotDerivedTacticDefinition(
             confirmed=False,
             complete=False,
             tacticMetadata={"inPossessionName": "Structured Fallback"},

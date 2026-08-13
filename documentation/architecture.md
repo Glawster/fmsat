@@ -27,20 +27,24 @@ features can therefore pair one squad with multiple tactics without duplicating 
 `SquadTacticApplication` records those explicit many-to-many pairings. It deliberately has
 no arbitrary score until tactic positions, roles and instructions have typed parsers.
 
-Each tactic may also own one current `StructuredTacticDefinition`. Its normalized child
-tables retain phase-specific formation slots, team instructions, validation issues,
-confidence, correction state and source-import provenance. These persistence models remain
-separate from the framework-independent parser models and Qt display models. Database
-initialization applies this upgrade additively with SQLAlchemy metadata creation: missing
-structured-tactic tables are created while existing tactics, imports, squads and players
-remain untouched.
+Each tactic may also own one current `ScreenshotDerivedTacticDefinition`. This is the
+evidence layer produced by processing the tactic's current Formation, In Possession and Out
+of Possession screenshots. Its normalized child tables retain phase-specific formation
+slots, team instructions, validation issues, confidence, correction state and source-import
+provenance. These persistence models remain separate from the framework-independent parser
+models and Qt display models. The existing SQL table remains named
+`structured_tactic_definitions` for database compatibility. Database initialization applies
+this upgrade additively with SQLAlchemy metadata creation: missing screenshot-derived tactic
+tables are created while existing tactics, imports, squads and players remain untouched.
 
 FMSAT now also persists the football object model in a dedicated schema owned by
 `TacticStore`. `object_model_tactics` stores one canonical saved tactic per normalized name,
 while child tables retain in-possession and out-of-possession formations, ordered positions,
 formation team instructions, position instructions, and transition instructions. This schema
-is intentionally separate from `StructuredTacticDefinition` so reviewed extraction evidence
-and object-model selections can evolve independently without overloading one table family.
+is intentionally separate from `ScreenshotDerivedTacticDefinition`: screenshot-derived data
+records what was observed, while the football object model is the usable model generated
+from that evidence. Re-imported screenshot evidence requires the object model to be
+regenerated before it represents the latest capture.
 
 New squads may also own `SquadClubScreenshot` records. The associated Club Information
 screenshot supplies the squad-card badge image. It is previewed and persisted through

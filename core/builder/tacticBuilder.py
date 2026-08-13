@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from fmsat.database.models import (
     StructuredFormationSlot,
-    StructuredTacticDefinition,
+    ScreenshotDerivedTacticDefinition,
     StructuredTeamInstruction,
     Tactic as DatabaseTactic,
 )
@@ -75,7 +75,7 @@ class TacticBuilder:
             issues.append(
                 TacticBuildIssue(
                     "missingStructuredDefinition",
-                    f"No structured tactic definition exists for {cleanName!r}",
+                    f"No screenshot-derived tactic definition exists for {cleanName!r}",
                 )
             )
             return TacticBuildResult(None, tuple(issues), False, False)
@@ -156,21 +156,21 @@ class TacticBuilder:
         self,
         session: Session,
         tacticName: str,
-    ) -> StructuredTacticDefinition | None:
-        """Return the eager-loaded structured definition for one tactic."""
+    ) -> ScreenshotDerivedTacticDefinition | None:
+        """Return the eager-loaded screenshot-derived definition for one tactic."""
 
         query: Select[tuple[DatabaseTactic]] = (
             select(DatabaseTactic)
             .where(DatabaseTactic.normalizedName == tacticName.casefold())
             .options(
                 selectinload(DatabaseTactic.structuredDefinition).selectinload(
-                    StructuredTacticDefinition.slots
+                    ScreenshotDerivedTacticDefinition.slots
                 ),
                 selectinload(DatabaseTactic.structuredDefinition).selectinload(
-                    StructuredTacticDefinition.instructions
+                    ScreenshotDerivedTacticDefinition.instructions
                 ),
                 selectinload(DatabaseTactic.structuredDefinition).selectinload(
-                    StructuredTacticDefinition.issues
+                    ScreenshotDerivedTacticDefinition.issues
                 ),
             )
         )
@@ -185,7 +185,7 @@ class TacticBuilder:
         self,
         formationName: str,
         slots: list[StructuredFormationSlot],
-        definition: StructuredTacticDefinition,
+        definition: ScreenshotDerivedTacticDefinition,
         instructionCatalog: dict[str, Instruction],
         phaseName: str,
         issues: list[TacticBuildIssue],
@@ -291,7 +291,7 @@ class TacticBuilder:
 
     def _slotsForPhase(
         self,
-        definition: StructuredTacticDefinition,
+        definition: ScreenshotDerivedTacticDefinition,
         phase: str,
     ) -> list[StructuredFormationSlot]:
         """Collect and return slots for one exact stored phase name."""
@@ -302,7 +302,7 @@ class TacticBuilder:
 
     def _instructionCatalogBuild(
         self,
-        definition: StructuredTacticDefinition,
+        definition: ScreenshotDerivedTacticDefinition,
     ) -> dict[str, Instruction]:
         """Build one instruction object per category with all observed values.
 
@@ -330,7 +330,7 @@ class TacticBuilder:
 
     def _instructionsBuild(
         self,
-        definition: StructuredTacticDefinition,
+        definition: ScreenshotDerivedTacticDefinition,
         instructionCatalog: dict[str, Instruction],
         phase: str,
     ) -> InstructionSet:
@@ -376,7 +376,7 @@ class TacticBuilder:
 
     def _transitionBuild(
         self,
-        definition: StructuredTacticDefinition,
+        definition: ScreenshotDerivedTacticDefinition,
         instructionCatalog: dict[str, Instruction],
         issues: list[TacticBuildIssue],
     ) -> Transition:
