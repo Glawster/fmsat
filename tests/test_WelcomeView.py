@@ -328,11 +328,16 @@ def testPositionSummaryExpandsItsCapturedRoles(qtbot) -> None:  # type: ignore[n
     qtbot.mouseClick(group.summaryButton, Qt.MouseButton.LeftButton)
 
     assert group.rolesContainer.isVisible()
-    assert group.summaryButton.arrowType() == Qt.ArrowType.DownArrow
+    assert group.summaryButton.arrowType() == Qt.ArrowType.NoArrow
     assert any(
         card.property("summaryName") == "Inside Forward"
         for card in group.findChildren(SummaryCard)
     )
+
+    qtbot.mouseClick(group.summaryButton, Qt.MouseButton.LeftButton)
+
+    assert not group.rolesContainer.isVisible()
+    assert group.summaryButton.arrowType() == Qt.ArrowType.NoArrow
 
 
 def testCapturedRoleCardShowsBehavioursAndOpensEditor(qtbot) -> None:  # type: ignore[no-untyped-def]

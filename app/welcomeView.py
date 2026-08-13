@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QScrollArea,
+    QSizePolicy,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -87,13 +88,21 @@ class PositionRoleGroup(QWidget):
         )
         self.summaryButton.setCheckable(True)
         self.summaryButton.setChecked(False)
-        self.summaryButton.setArrowType(Qt.ArrowType.RightArrow)
-        self.summaryButton.setToolButtonStyle(
-            Qt.ToolButtonStyle.ToolButtonTextBesideIcon
+        self.summaryButton.setArrowType(Qt.ArrowType.NoArrow)
+        self.summaryButton.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
+        self.summaryButton.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Fixed,
         )
+        self.summaryButton.setCursor(Qt.CursorShape.PointingHandCursor)
         self.summaryButton.setStyleSheet(
-            "QToolButton { font-weight: bold; text-align: left; "
-            "padding: 7px; border: 1px solid palette(mid); border-radius: 3px; }"
+            "QToolButton#positionSummaryButton {"
+            "background: #31b98f; color: #061510; font-weight: 700; text-align: left; "
+            "padding: 9px 12px; border: 0; border-radius: 7px;"
+            "}"
+            "QToolButton#positionSummaryButton:hover { background: #56d6b0; }"
+            "QToolButton#positionSummaryButton:pressed, "
+            "QToolButton#positionSummaryButton:checked { background: #28a77f; }"
         )
         layout.addWidget(self.summaryButton)
 
@@ -120,9 +129,6 @@ class PositionRoleGroup(QWidget):
 
     def _expandedSet(self, expanded: bool) -> None:
         self.rolesContainer.setVisible(expanded)
-        self.summaryButton.setArrowType(
-            Qt.ArrowType.DownArrow if expanded else Qt.ArrowType.RightArrow
-        )
 
 
 class WelcomeService:
