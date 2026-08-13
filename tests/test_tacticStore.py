@@ -24,7 +24,10 @@ from fmsat.tactics.tactic import Tactic
 from fmsat.tactics.transition import Transition
 
 
-def _sampleTactic(name: str = "High Press") -> Tactic:
+def _sampleTactic(
+    name: str = "High Press",
+    sourceImportSessionId: int | None = None,
+) -> Tactic:
     """Return a small but complete tactic model for persistence tests."""
 
     attackingWidth = Instruction(name="Attacking Width")
@@ -45,7 +48,19 @@ def _sampleTactic(name: str = "High Press") -> Tactic:
     inPossession = Formation(
         name="3-4-2-1",
         positions=[
-            Position(PositionIdentity.GK, goalkeeper, defendProfile),
+            Position(
+                PositionIdentity.GK,
+                goalkeeper,
+                defendProfile,
+                slotId="in-gk",
+                duty="defend",
+                x=0.5,
+                y=0.9,
+                player="Example Keeper",
+                confidence=0.96,
+                sourceImportSessionId=sourceImportSessionId,
+                validationState="confirmed",
+            ),
             Position(PositionIdentity.DC, centreBack, defendProfile),
             Position(PositionIdentity.WBL, wingBack, supportProfile),
             Position(PositionIdentity.ST, centreForward, attackProfile),
@@ -86,7 +101,7 @@ def testStorePersistsTacticIntoObjectModelSchema(tmp_path) -> None:
     )
 
     store = TacticStore(database.engine)
-    result = store.tacticSave(_sampleTactic())
+    result = store.tacticSave(_sampleTactic(sourceImportSessionId=1))
 
     assert result.replacedExisting is False
 
@@ -127,6 +142,15 @@ def testStorePersistsTacticIntoObjectModelSchema(tmp_path) -> None:
             "ST",
         ]
         assert inPossession.teamInstructions[0].category == "Attacking Width"
+        goalkeeperPosition = inPossession.positions[0]
+        assert goalkeeperPosition.slotId == "in-gk"
+        assert goalkeeperPosition.duty == "defend"
+        assert goalkeeperPosition.x == 0.5
+        assert goalkeeperPosition.y == 0.9
+        assert goalkeeperPosition.displayedPlayer == "Example Keeper"
+        assert goalkeeperPosition.confidence == 0.96
+        assert goalkeeperPosition.sourceImportSessionId == 1
+        assert goalkeeperPosition.validationState == "confirmed"
         assert stored.transitionInstructions[0].category == "Possession Lost"
 
         # Confirm legacy structured extraction rows remain separate and untouched.

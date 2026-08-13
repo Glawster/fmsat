@@ -191,6 +191,14 @@ class TacticModelLoader:
             role=role,
             roleProfile=profile,
             instructions=self._instructionSetBuild(model.instructions),
+            slotId=model.slotId,
+            duty=model.duty,
+            x=model.x,
+            y=model.y,
+            player=model.displayedPlayer,
+            confidence=model.confidence,
+            sourceImportSessionId=model.sourceImportSessionId,
+            validationState=model.validationState,
         )
 
     def _tacticFromObjectModel(self, model: ObjectModelTactic) -> Tactic:

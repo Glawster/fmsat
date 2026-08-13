@@ -28,6 +28,10 @@ requirement.
    instructions, extraction issues, completeness and confirmation state.
 6. Keep typed tactical domain objects separate from SQLAlchemy persistence
    models and Qt widgets.
+7. Persist only values actually observed by an extractor or explicitly supplied
+   and confirmed by the user. Missing slot or instruction extraction must create
+   unresolved issues; templates, neutral defaults and formation-to-phase copying
+   must not be persisted as extracted facts.
 
 ## Canonical vocabulary
 

@@ -86,29 +86,9 @@ class TacticBuilder:
         # alongside mapping issues discovered by this builder.
         issues.extend(TacticBuildIssue(issue.code, issue.message) for issue in definition.issues)
 
-        formationSlots = self._slotsForPhase(definition, "formation")
         inPossessionSlots = self._slotsForPhase(definition, "inPossession")
         outOfPossessionSlots = self._slotsForPhase(definition, "outOfPossession")
         instructionCatalog = self._instructionCatalogBuild(definition)
-
-        # Formation slots are the canonical fallback when phase-specific slots
-        # are not yet extracted or reviewed.
-        if not inPossessionSlots and formationSlots:
-            inPossessionSlots = formationSlots
-            issues.append(
-                TacticBuildIssue(
-                    "inPossessionFallbackToFormation",
-                    "In-possession slots are missing; using formation slots as fallback",
-                )
-            )
-        if not outOfPossessionSlots and formationSlots:
-            outOfPossessionSlots = formationSlots
-            issues.append(
-                TacticBuildIssue(
-                    "outOfPossessionFallbackToFormation",
-                    "Out-of-possession slots are missing; using formation slots as fallback",
-                )
-            )
 
         inPossessionModel = self._formationBuild(
             formationName=definition.tacticMetadata.get("inPossessionName", "inPossession"),
@@ -279,6 +259,14 @@ class TacticBuilder:
             identity=identity,
             role=role,
             roleProfile=roleProfile,
+            slotId=slot.slotId,
+            duty=slot.duty,
+            x=slot.x,
+            y=slot.y,
+            player=slot.displayedPlayer,
+            confidence=slot.confidence,
+            sourceImportSessionId=slot.sourceImportSessionId,
+            validationState=slot.validationState,
         )
 
     def _slotSortKey(self, slot: StructuredFormationSlot) -> tuple[int, str]:

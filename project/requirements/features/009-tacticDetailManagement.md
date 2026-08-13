@@ -97,6 +97,10 @@ labels as imported facts.
 7. Keep the football object model suitable for redrawing formations, comparing
    revisions, analysing spacing and later calculating role suitability without
    reopening screenshots.
+8. Preserve each slot's canonical position and role together with its duty,
+   stable slot ID, coordinates, optional player, confidence, source import and
+   validation state when generating, persisting and loading the football object
+   model.
 
 An illustrative slot representation is:
 
@@ -274,24 +278,27 @@ instructions:
    name and the correct Build Up, Attack, Transition or Defence group.
 5. Missing and unresolved values remain explicit and are never filled by
    inference or sample defaults.
-6. Opening or switching tabs performs no OCR.
-7. The Analysis tab has a useful empty state and does not misrepresent generated
+6. The generated football object model round-trips canonical position, role,
+   duty, slot ID, coordinates, optional player, confidence, source import and
+   validation state without evidence loss.
+7. Opening or switching tabs performs no OCR.
+8. The Analysis tab has a useful empty state and does not misrepresent generated
    conclusions as imported data.
-8. Assigned squads and player mappings are persisted independently of OCR.
-9. A changed screenshot import marks the current model as requiring
+9. Assigned squads and player mappings are persisted independently of OCR.
+10. A changed screenshot import marks the current model as requiring
    regeneration; regeneration creates a new immutable revision only when the
    screenshot-derived data changed.
-10. Earlier revisions remain inspectable and two revisions can be compared using
+11. Earlier revisions remain inspectable and two revisions can be compared using
     structured factual changes.
-11. Existing tactics without a football object model remain accessible with a
+12. Existing tactics without a football object model remain accessible with a
     safe incomplete-data or processing-required state.
-12. The UI displays evidence-updated and model-generated dates and identifies
+13. The UI displays evidence-updated and model-generated dates and identifies
     whether the current model was built from the latest screenshot-derived data.
-13. Automated tests cover populated, partial and missing data; both formation
+14. Automated tests cover populated, partial and missing data; both formation
     phases; instruction grouping; squad assignment; revision creation and
     deduplication; freshness detection; revision comparison; and database
     migration.
-14. Ruff, Black and the complete applicable automated test suite pass.
+15. Ruff, Black and the complete applicable automated test suite pass.
 
 ## Out of scope
 

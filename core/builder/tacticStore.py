@@ -122,6 +122,14 @@ class TacticStore:
             roleIdentity=position.role.identity.value,
             roleProfileName=position.roleProfile.name,
             roleProfileDescription=position.roleProfile.description,
+            slotId=position.slotId,
+            duty=position.duty,
+            x=position.x,
+            y=position.y,
+            displayedPlayer=position.player,
+            confidence=position.confidence,
+            sourceImportSessionId=position.sourceImportSessionId,
+            validationState=position.validationState,
         )
         storedPosition.instructions.extend(
             ObjectModelPositionInstruction(

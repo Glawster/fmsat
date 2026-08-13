@@ -45,6 +45,11 @@ is intentionally separate from `ScreenshotDerivedTacticDefinition`: screenshot-d
 records what was observed, while the football object model is the usable model generated
 from that evidence. Re-imported screenshot evidence requires the object model to be
 regenerated before it represents the latest capture.
+Object-model positions retain the evidence-bearing slot ID, duty, normalized coordinates,
+optional displayed player, confidence, source import and validation state alongside their
+canonical position and role. Extractors never manufacture missing slots or instructions:
+unsupported coverage is stored as unresolved issues until an observed extractor or user
+review supplies it.
 
 New squads may also own `SquadClubScreenshot` records. The associated Club Information
 screenshot supplies the squad-card badge image. It is previewed and persisted through

@@ -144,6 +144,14 @@ def testBuilderLoadsStructuredTacticIntoObjectModel(tmp_path) -> None:
     assert result.tactic.outOfPossession.name == "4-4-1-1"
     assert len(result.tactic.inPossession.positions) == 11
     assert len(result.tactic.outOfPossession.positions) == 11
+    firstPosition = result.tactic.inPossession.positions[0]
+    assert firstPosition.slotId == "in-1"
+    assert firstPosition.duty == "support"
+    assert firstPosition.x == 0.0
+    assert firstPosition.y == 0.5
+    assert firstPosition.confidence == 0.95
+    assert firstPosition.sourceImportSessionId == imported.id
+    assert firstPosition.validationState == "confirmed"
     inPossessionInstruction = next(iter(result.tactic.inPossession.instructions.keys()))
     outOfPossessionInstruction = next(iter(result.tactic.outOfPossession.instructions.keys()))
     assert inPossessionInstruction is outOfPossessionInstruction

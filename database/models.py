@@ -281,7 +281,20 @@ class ObjectModelPosition(Base):
     roleProfileDescription: Mapped[str] = mappedColumn(
         "role_profile_description", Text, default="", nullable=False
     )
+    slotId: Mapped[str | None] = mappedColumn("slot_id", String(100))
+    duty: Mapped[str | None] = mappedColumn(String(32))
+    x: Mapped[float | None] = mappedColumn(Float)
+    y: Mapped[float | None] = mappedColumn(Float)
+    displayedPlayer: Mapped[str | None] = mappedColumn("displayed_player", String(255))
+    confidence: Mapped[float | None] = mappedColumn(Float)
+    sourceImportSessionId: Mapped[int | None] = mappedColumn(
+        "source_import_session_id", ForeignKey("import_sessions.id"), index=True
+    )
+    validationState: Mapped[str] = mappedColumn(
+        "validation_state", String(32), default="unresolved", nullable=False
+    )
     formation: Mapped[ObjectModelFormation] = relationship(back_populates="positions")
+    sourceImportSession: Mapped[ImportSession | None] = relationship()
     instructions: Mapped[list[ObjectModelPositionInstruction]] = relationship(
         back_populates="position",
         cascade="all, delete-orphan",

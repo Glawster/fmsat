@@ -29,8 +29,8 @@ def _screenshotWrite(path) -> None:
     assert cv2.imwrite(str(path), np.zeros((40, 80, 3), dtype=np.uint8))
 
 
-def testExtractorCreatesStructuredRowsFromSavedScreenshots(tmp_path) -> None:
-    """Screenshot-only tactics should gain structured rows after extraction."""
+def testExtractorPersistsOnlyObservedValuesFromSavedScreenshots(tmp_path) -> None:
+    """Unsupported slot and instruction extraction must remain unresolved."""
 
     database = Database(tmp_path / "test.sqlite3")
     database.initialize()
@@ -50,7 +50,7 @@ def testExtractorCreatesStructuredRowsFromSavedScreenshots(tmp_path) -> None:
     result = extractor.tacticExtract("High Press")
 
     assert result.structuredCreated is True
-    assert result.complete is True
+    assert result.complete is False
     assert result.screenshotCount == 3
 
     with Session(database.engine) as session:
@@ -71,9 +71,12 @@ def testExtractorCreatesStructuredRowsFromSavedScreenshots(tmp_path) -> None:
         )
         assert tactic is not None
         assert tactic.structuredDefinition is not None
-        assert len(tactic.structuredDefinition.slots) == 33
-        assert len(tactic.structuredDefinition.instructions) > 0
-        assert tactic.structuredDefinition.issues
+        assert tactic.structuredDefinition.slots == []
+        assert tactic.structuredDefinition.instructions == []
+        issueCodes = {issue.code for issue in tactic.structuredDefinition.issues}
+        assert "formationSlotExtractionUnresolved" in issueCodes
+        assert "teamInstructionExtractionUnresolved" in issueCodes
+        assert "templateExtraction" not in issueCodes
         assert tactic.structuredDefinition.tacticMetadata["formationName"] == (
             "4-2-3-1 DM AM Wide"
         )
@@ -127,5 +130,5 @@ def testExtractorCanReplaceExistingStructuredRows(tmp_path) -> None:
         )
         assert tactic is not None
         assert tactic.structuredDefinition is not None
-        assert len(tactic.structuredDefinition.slots) == 33
-        assert len(tactic.structuredDefinition.instructions) > 0
+        assert tactic.structuredDefinition.slots == []
+        assert tactic.structuredDefinition.instructions == []
