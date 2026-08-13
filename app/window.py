@@ -58,6 +58,7 @@ from fmsat.core.services import (
 )
 from fmsat.core.validation import PlayerValidator, SquadSanityReport
 from fmsat.database import Database, DatabaseError
+from fmsat.tactics.tactic import Tactic as ModelTactic
 
 logger = getLogger()
 
@@ -354,6 +355,17 @@ class MainWindow(QMainWindow):
                         self.tacticShow(tacticName)
                     return
 
+                # A failed regeneration remains useful screenshot-derived
+                # evidence, but it must never replace the current saved model.
+                if not extraction.complete:
+                    self.statusBar().showMessage(
+                        f"Regeneration incomplete for {tacticName}; existing model retained.",
+                        15000,
+                    )
+                    if openDetail:
+                        self.tacticShow(tacticName)
+                    return
+
                 progress.setLabelText("Building tactic model from regenerated data...")
                 loadResult = self.tacticModelLoader.tacticLoad(tacticName, preferStructured=True)
                 progress.setValue(4)
@@ -362,6 +374,14 @@ class MainWindow(QMainWindow):
                     self.statusBar().showMessage(
                         f"Regeneration finished for {tacticName}, but model build still failed.",
                         12000,
+                    )
+                    if openDetail:
+                        self.tacticShow(tacticName)
+                    return
+                if not self._generatedModelValid(loadResult.tactic):
+                    self.statusBar().showMessage(
+                        f"Regeneration invalid for {tacticName}; existing model retained.",
+                        15000,
                     )
                     if openDetail:
                         self.tacticShow(tacticName)
@@ -385,6 +405,14 @@ class MainWindow(QMainWindow):
                     if openDetail:
                         self.tacticShow(tacticName)
                     return
+                if not extraction.complete:
+                    self.statusBar().showMessage(
+                        f"Processing incomplete for {tacticName}; no model was saved.",
+                        15000,
+                    )
+                    if openDetail:
+                        self.tacticShow(tacticName)
+                    return
                 progress.setLabelText("Reloading structured model...")
                 loadResult = self.tacticModelLoader.tacticLoad(tacticName)
                 progress.setValue(4)
@@ -393,6 +421,14 @@ class MainWindow(QMainWindow):
                     self.statusBar().showMessage(
                         f"Processing {tacticName} created structured data but model build still failed.",
                         12000,
+                    )
+                    if openDetail:
+                        self.tacticShow(tacticName)
+                    return
+                if not self._generatedModelValid(loadResult.tactic):
+                    self.statusBar().showMessage(
+                        f"Processing invalid for {tacticName}; no model was saved.",
+                        15000,
                     )
                     if openDetail:
                         self.tacticShow(tacticName)
@@ -419,6 +455,26 @@ class MainWindow(QMainWindow):
             self._errorShow("Tactic processing error", str(exc))
         finally:
             progress.close()
+
+    @staticmethod
+    def _generatedModelValid(tactic: ModelTactic) -> bool:
+        """Return whether a generated tactic is safe to persist as the usable model."""
+
+        for formation in (tactic.inPossession, tactic.outOfPossession):
+            if len(formation.positions) != 11:
+                return False
+            for position in formation.positions:
+                if (
+                    not position.slotId
+                    or not position.duty
+                    or position.x is None
+                    or position.y is None
+                    or position.confidence is None
+                    or position.sourceImportSessionId is None
+                    or position.validationState == "unresolved"
+                ):
+                    return False
+        return True
 
     def _tacticImportRun(self, tacticName: str | None = None) -> None:
         """Run tactic import flow, optionally anchored to a known tactic name."""

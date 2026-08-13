@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import Mock
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -176,6 +178,30 @@ def testBuilderReportsMissingStructuredDefinition(tmp_path) -> None:
     assert result.complete is False
     assert result.confirmed is False
     assert any(issue.code == "missingStructuredDefinition" for issue in result.issues)
+
+
+def testBuilderRejectsPositionWithoutDuty() -> None:
+    """An unresolved duty must not become an inferred Default role profile."""
+
+    builder = TacticBuilder(Mock())
+    issues = []
+    slot = StructuredFormationSlot(
+        slotId="slot-01",
+        phase="inPossession",
+        position="ST",
+        role="centreForward",
+        duty=None,
+        x=0.5,
+        y=0.1,
+        observedRole="CFD",
+        confidence=0.9,
+        validationState="unresolved",
+    )
+
+    position = builder._positionBuild(slot, "inPossession", issues, {}, {})
+
+    assert position is None
+    assert [issue.code for issue in issues] == ["missingDuty"]
 
 
 def testBuilderOrdersPositionsBySemanticPositionIdentity(tmp_path) -> None:

@@ -293,7 +293,7 @@ def _positionBase(position: Position) -> tuple[float, float, str]:
 
 
 def _slotsBuild(formation: Formation) -> tuple[DisplaySlot, ...]:
-    """Build display slots with stable fallback coordinates from positions."""
+    """Build display slots, preferring evidence retained by the object model."""
 
     grouped: dict[PositionIdentity, list[Position]] = {}
     for position in formation.positions:
@@ -308,16 +308,19 @@ def _slotsBuild(formation: Formation) -> tuple[DisplaySlot, ...]:
         baseX, baseY, row = _positionBase(siblings[0])
         offsetStart = -(len(siblings) - 1) / 2
         for siblingIndex, position in enumerate(siblings):
-            x = max(0.05, min(0.95, baseX + (offsetStart + siblingIndex) * 0.12))
+            fallbackX = baseX + (offsetStart + siblingIndex) * 0.12
+            x = position.x if position.x is not None else fallbackX
+            y = position.y if position.y is not None else baseY
             slots.append(
                 DisplaySlot(
-                    slotId=f"{slotIndex:02d}",
+                    slotId=position.slotId or f"{slotIndex:02d}",
                     position=position.identity.value,
                     role=position.role.identity.value,
-                    duty=position.roleProfile.name,
-                    x=x,
-                    y=baseY,
+                    duty=position.duty or "Unresolved",
+                    x=max(0.0, min(1.0, x)),
+                    y=max(0.0, min(1.0, y)),
                     row=row,
+                    player=position.player,
                 )
             )
             slotIndex += 1

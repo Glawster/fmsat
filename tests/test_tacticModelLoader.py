@@ -139,6 +139,7 @@ def testLoaderPrefersSavedObjectModelOverStructuredDefinition(tmp_path) -> None:
 
     assert loaded.tactic is not None
     assert loaded.source == "objectModel"
+    assert loaded.phaseSlots == {}
     assert loaded.tactic.inPossession.name == "Saved Shape"
     loadedKeeper = loaded.tactic.inPossession.positions[0]
     assert loadedKeeper.slotId == "in-gk"

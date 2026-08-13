@@ -264,6 +264,9 @@ instructions:
    revision changes.
 6. Preserve all existing tactic list, welcome screen, import, squad and CLI
    workflows.
+7. Do not replace the current football object model when regeneration produces
+   incomplete or unresolved evidence. Retain the attempted extraction and its
+   issues for review while continuing to display the existing saved model.
 
 ## Acceptance criteria
 
