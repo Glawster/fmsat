@@ -9,6 +9,7 @@ import cv2
 
 from fmsat.core.config import Configuration
 from fmsat.core.detection import ScreenType
+from fmsat.core.logUtils import getLogger
 from fmsat.core.ocr import OcrEngine, PaddleOcrEngine
 from fmsat.core.parser import (
     TacticalPhase,
@@ -28,6 +29,8 @@ from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session, selectinload
 
 from .tacticMetadataExtractor import TacticMetadataExtractor
+
+logger = getLogger()
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,7 +71,9 @@ class TacticScreenshotExtractor:
         """Create or replace one tactic's structured rows from saved captures."""
 
         cleanName = tacticName.strip()
+        logger.doing(f"extracting tactic screenshots for {cleanName or '<empty>'}")
         if not cleanName:
+            logger.info("tactic extraction stopped because the name is empty")
             return TacticScreenshotExtractResult(
                 tacticName=tacticName,
                 screenshotCount=0,
@@ -95,6 +100,7 @@ class TacticScreenshotExtractor:
                 )
             )
             if tactic is None:
+                logger.info(f"tactic extraction stopped because {cleanName} was not found")
                 return TacticScreenshotExtractResult(
                     tacticName=cleanName,
                     screenshotCount=0,
@@ -104,7 +110,9 @@ class TacticScreenshotExtractor:
                 )
 
             screenshots = list(tactic.screenshots)
+            logger.value("saved tactic screenshots", len(screenshots))
             if not screenshots:
+                logger.info(f"tactic extraction stopped because {tactic.name} has no captures")
                 return TacticScreenshotExtractResult(
                     tacticName=tactic.name,
                     screenshotCount=0,
@@ -122,6 +130,8 @@ class TacticScreenshotExtractor:
                     byType[ScreenType(screenshot.screenType)] = screenshot
 
             metadata, metadataIssues = self._metadataExtract(byType)
+            logger.value("extracted tactic metadata fields", len(metadata))
+            logger.value("tactic metadata issues", len(metadataIssues))
 
             if tactic.structuredDefinition is None:
                 definition = ScreenshotDerivedTacticDefinition(
@@ -156,10 +166,15 @@ class TacticScreenshotExtractor:
                     )
                 )
             self._formationBuild(definition, byType)
+            logger.value("extracted formation slots", len(definition.slots))
             self._instructionsBuild(definition, byType)
+            logger.value("extracted team instructions", len(definition.instructions))
             complete = self._completeCalculate(definition)
             definition.complete = complete
+            logger.value("tactic extraction issues", len(definition.issues))
+            logger.value("tactic extraction complete", complete)
 
+        logger.done(f"tactic screenshot extraction finished for {cleanName}")
         return TacticScreenshotExtractResult(
             tacticName=cleanName,
             screenshotCount=len(screenshots),
@@ -206,6 +221,8 @@ class TacticScreenshotExtractor:
         result = self.formationExtractor.formationExtract(
             image, screenshot.importSession.imageFilename
         )
+        logger.value("formation extractor slots", len(result.slots))
+        logger.value("formation extractor issues", len(result.issues))
         for slot in result.slots:
             definition.slots.append(StructuredFormationSlot(
                 slotId=slot.slotId,
@@ -253,6 +270,10 @@ class TacticScreenshotExtractor:
                 continue
             result = self.instructionExtractor.instructionsExtract(
                 image, phase, screenshot.importSession.imageFilename
+            )
+            logger.info(
+                f"{phase.value} instruction result: {len(result.instructions)} values, "
+                f"{len(result.issues)} issues"
             )
             for instruction in result.instructions:
                 definition.instructions.append(StructuredTeamInstruction(
@@ -306,6 +327,10 @@ class TacticScreenshotExtractor:
 
     @staticmethod
     def _issueAdd(definition, code: str, message: str, observedText: str | None = None) -> None:
+        logger.info(
+            f"tactic extraction issue {code}: {message}"
+            + (f"; observed={observedText}" if observedText else "")
+        )
         definition.issues.append(StructuredTacticIssue(
             code=code, message=message, observedText=observedText
         ))

@@ -307,6 +307,12 @@ instructions:
 17. Mutually exclusive instruction categories persist exactly one value only
     when selected-row evidence clearly distinguishes it from every alternative;
     decorative colour and unselected controls do not constitute selection.
+18. Tactic processing presents a readable, repainting progress dialog and logs
+    each extraction, build, integrity-gate and persistence stage with sufficient
+    candidate counts, scores and issue details to diagnose failed regeneration.
+19. The validation panel gives issue diagnostics most of the available side
+    height, supports mouse text selection and copies the complete summary and
+    issue list as plain text.
 
 ## Out of scope
 

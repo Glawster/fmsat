@@ -317,22 +317,30 @@ class MainWindow(QMainWindow):
     ) -> None:
         """Process one stored tactic into the object model without new screenshots."""
 
+        logger.doing(
+            f"{'regenerating' if forceRebuild else 'processing'} tactic model {tacticName}"
+        )
         progress = QProgressDialog("Processing tactic model...", None, 0, 6, self)
         progress.setWindowTitle("Process Tactic")
         progress.setWindowModality(Qt.WindowModality.WindowModal)
         progress.setCancelButton(None)
         progress.setMinimumDuration(0)
-        progress.setValue(0)
-        QApplication.processEvents()
+        progress.setAutoClose(False)
+        progress.setAutoReset(False)
+        progress.setMinimumWidth(560)
+        progress.setMinimumHeight(140)
+        progress.resize(560, 140)
+        progress.show()
+        self._progressUpdate(progress, "Loading saved tactic data...", 0)
         try:
-            progress.setLabelText("Loading saved tactic data...")
             loadResult = self.tacticModelLoader.tacticLoad(tacticName)
-            progress.setValue(1)
-            QApplication.processEvents()
+            logger.info(f"loaded tactic source: {loadResult.source}")
+            logger.value("loaded tactic issues", len(getattr(loadResult, "issues", ())))
+            self._progressUpdate(progress, "Loaded saved tactic data.", 1)
 
             if loadResult.source == "objectModel" and not forceRebuild:
-                progress.setLabelText("Tactic model already available.")
-                progress.setValue(4)
+                self._progressUpdate(progress, "Tactic model already available.", 4)
+                logger.info(f"existing tactic model retained for {tacticName}")
                 self.statusBar().showMessage(
                     f"{tacticName} is already processed into the tactic model.",
                     8000,
@@ -342,11 +350,19 @@ class MainWindow(QMainWindow):
                 return
 
             if forceRebuild:
-                progress.setLabelText("Regenerating structured data from saved captures...")
+                self._progressUpdate(
+                    progress,
+                    "Regenerating structured data from saved captures...",
+                    2,
+                )
                 extraction = self.tacticScreenshotExtractor.tacticExtract(tacticName)
-                progress.setValue(2)
-                QApplication.processEvents()
+                logger.info(
+                    f"regeneration extraction result: created={extraction.structuredCreated}, "
+                    f"complete={extraction.complete}, "
+                    f"captures={getattr(extraction, 'screenshotCount', 'unknown')}"
+                )
                 if not extraction.structuredCreated:
+                    logger.info(f"regeneration stopped: {extraction.message}")
                     self.statusBar().showMessage(
                         f"Unable to regenerate {tacticName}: {extraction.message}",
                         12000,
@@ -358,6 +374,7 @@ class MainWindow(QMainWindow):
                 # A failed regeneration remains useful screenshot-derived
                 # evidence, but it must never replace the current saved model.
                 if not extraction.complete:
+                    logger.info("regeneration stopped by incomplete extraction integrity gate")
                     self.statusBar().showMessage(
                         f"Regeneration incomplete for {tacticName}; existing model retained.",
                         15000,
@@ -366,11 +383,15 @@ class MainWindow(QMainWindow):
                         self.tacticShow(tacticName)
                     return
 
-                progress.setLabelText("Building tactic model from regenerated data...")
+                self._progressUpdate(
+                    progress,
+                    "Building tactic model from regenerated data...",
+                    3,
+                )
                 loadResult = self.tacticModelLoader.tacticLoad(tacticName, preferStructured=True)
-                progress.setValue(4)
-                QApplication.processEvents()
+                self._progressUpdate(progress, "Built regenerated tactic model.", 4)
                 if loadResult.tactic is None:
+                    logger.info("regeneration stopped because model build returned no tactic")
                     self.statusBar().showMessage(
                         f"Regeneration finished for {tacticName}, but model build still failed.",
                         12000,
@@ -379,6 +400,7 @@ class MainWindow(QMainWindow):
                         self.tacticShow(tacticName)
                     return
                 if not self._generatedModelValid(loadResult.tactic):
+                    logger.info("regeneration stopped by generated-model integrity gate")
                     self.statusBar().showMessage(
                         f"Regeneration invalid for {tacticName}; existing model retained.",
                         15000,
@@ -388,15 +410,24 @@ class MainWindow(QMainWindow):
                     return
 
             if not forceRebuild:
-                progress.setLabelText("Building tactic model from structured data...")
-                progress.setValue(2)
-                QApplication.processEvents()
+                self._progressUpdate(
+                    progress,
+                    "Building tactic model from structured data...",
+                    2,
+                )
 
             if loadResult.tactic is None and not forceRebuild:
-                progress.setLabelText("Extracting structured data from saved captures...")
+                self._progressUpdate(
+                    progress,
+                    "Extracting structured data from saved captures...",
+                    3,
+                )
                 extraction = self.tacticScreenshotExtractor.tacticExtract(tacticName)
-                progress.setValue(3)
-                QApplication.processEvents()
+                logger.info(
+                    f"processing extraction result: created={extraction.structuredCreated}, "
+                    f"complete={extraction.complete}, "
+                    f"captures={getattr(extraction, 'screenshotCount', 'unknown')}"
+                )
                 if not extraction.structuredCreated:
                     self.statusBar().showMessage(
                         f"Unable to process {tacticName}: {extraction.message}",
@@ -413,10 +444,8 @@ class MainWindow(QMainWindow):
                     if openDetail:
                         self.tacticShow(tacticName)
                     return
-                progress.setLabelText("Reloading structured model...")
+                self._progressUpdate(progress, "Reloading structured model...", 4)
                 loadResult = self.tacticModelLoader.tacticLoad(tacticName)
-                progress.setValue(4)
-                QApplication.processEvents()
                 if loadResult.tactic is None:
                     self.statusBar().showMessage(
                         f"Processing {tacticName} created structured data but model build still failed.",
@@ -434,11 +463,10 @@ class MainWindow(QMainWindow):
                         self.tacticShow(tacticName)
                     return
 
-            progress.setLabelText("Saving tactic model...")
-            progress.setValue(5)
-            QApplication.processEvents()
+            self._progressUpdate(progress, "Saving tactic model...", 5)
             TacticStore(self.database.engine).tacticSave(loadResult.tactic)
-            progress.setValue(6)
+            self._progressUpdate(progress, "Tactic model saved.", 6)
+            logger.done(f"tactic model saved for {tacticName}")
 
             self.statusBar().showMessage(
                 (
@@ -452,9 +480,27 @@ class MainWindow(QMainWindow):
             if openDetail:
                 self.tacticShow(tacticName)
         except Exception as exc:
+            logger.exception(f"tactic processing failed for {tacticName}")
             self._errorShow("Tactic processing error", str(exc))
         finally:
             progress.close()
+
+    @staticmethod
+    def _progressUpdate(
+        progress: QProgressDialog,
+        message: str,
+        value: int,
+    ) -> None:
+        """Paint one progress step before a potentially blocking operation."""
+
+        logger.info(f"tactic progress {value}/{progress.maximum()}: {message}")
+        progress.setLabelText(message)
+        progress.setValue(value)
+        progress.adjustSize()
+        if progress.width() < 560 or progress.height() < 140:
+            progress.resize(max(560, progress.width()), max(140, progress.height()))
+        progress.repaint()
+        QApplication.processEvents()
 
     @staticmethod
     def _generatedModelValid(tactic: ModelTactic) -> bool:
