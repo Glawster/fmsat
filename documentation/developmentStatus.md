@@ -46,6 +46,11 @@ Remaining
 - Review UI
 - CLI diagnostics
 
+Until formation-slot and team-instruction parsers are implemented, processing stored tactic
+screenshots persists only observed header metadata and explicit unresolved issues. It does
+not generate template formations, default instructions or copy formation evidence into a
+phase.
+
 ---
 
 ### Requirement 010

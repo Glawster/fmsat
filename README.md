@@ -40,7 +40,10 @@ application.
 When a tactic is saved through the football object-model workflow, FMSAT writes it to a
 dedicated object-model schema (`object_model_*` tables). These rows are intentionally kept
 separate from structured extraction evidence tables (`structured_*`) so object-model edits
-do not overwrite OCR review provenance.
+do not overwrite OCR review provenance. Position rows preserve canonical position and role,
+duty, slot identity, coordinates, optional player, confidence, source import and validation
+state. Missing slot and instruction extraction remains unresolved; it is not filled from
+templates or neutral defaults.
 
 On first launch after upgrading from the repository-local data layout, FMSAT copies an
 existing `data/fmsat.sqlite3` and its retained screenshots into the persistent user-data
