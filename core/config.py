@@ -29,6 +29,7 @@ class Configuration:
         self.directory = directory or Path(__file__).parents[1] / "config"
         self.screens = self._yamlLoad("screens.yaml")
         self.regions = self._yamlLoad("regions.yaml")
+        self.tacticExtraction = self._yamlLoad("tacticExtraction.yaml")
         attributeData = self._yamlLoad("attributes.yaml")
         rawAttributes = attributeData.get("attributes", {})
         if not isinstance(rawAttributes, dict):

@@ -3,12 +3,24 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
+import cv2
+
+from fmsat.core.config import Configuration
 from fmsat.core.detection import ScreenType
 from fmsat.core.ocr import OcrEngine, PaddleOcrEngine
+from fmsat.core.parser import (
+    TacticalPhase,
+    TacticFormationExtractor,
+    TacticInstructionExtractor,
+    TacticVocabulary,
+)
 from fmsat.database.models import (
     ScreenshotDerivedTacticDefinition,
+    StructuredFormationSlot,
     StructuredTacticIssue,
+    StructuredTeamInstruction,
     Tactic,
     TacticScreenshot,
 )
@@ -33,13 +45,22 @@ class TacticScreenshotExtractor:
     """Extract structured tactic rows from existing persisted screenshot records.
 
     Only values directly observed by an implemented extractor are persisted.
-    Unsupported extraction coverage is recorded as unresolved issues rather
-    than being filled with formation templates or neutral instruction defaults.
+    Missing or ambiguous extraction coverage is recorded as unresolved issues
+    rather than being filled with formation templates or neutral defaults.
     """
 
     def __init__(self, engine: Engine, ocr: OcrEngine | None = None) -> None:
         self.engine = engine
-        self.metadataExtractor = TacticMetadataExtractor(ocr or PaddleOcrEngine())
+        self.ocr = ocr or PaddleOcrEngine()
+        configuration = Configuration().tacticExtraction
+        vocabulary = TacticVocabulary()
+        self.metadataExtractor = TacticMetadataExtractor(self.ocr)
+        self.formationExtractor = TacticFormationExtractor(
+            self.ocr, vocabulary, configuration
+        )
+        self.instructionExtractor = TacticInstructionExtractor(
+            self.ocr, vocabulary, configuration
+        )
 
     ## tactic
 
@@ -100,15 +121,12 @@ class TacticScreenshotExtractor:
                 if screenshot.screenType in ScreenType._value2member_map_:
                     byType[ScreenType(screenshot.screenType)] = screenshot
 
-            # Slot and team-instruction extraction is not implemented yet, so
-            # screenshot coverage alone cannot make the definition complete.
-            complete = False
             metadata, metadataIssues = self._metadataExtract(byType)
 
             if tactic.structuredDefinition is None:
                 definition = ScreenshotDerivedTacticDefinition(
                     confirmed=False,
-                    complete=complete,
+                    complete=False,
                     tacticMetadata={
                         "source": "storedScreenshots",
                         **metadata,
@@ -118,7 +136,7 @@ class TacticScreenshotExtractor:
             else:
                 definition = tactic.structuredDefinition
                 definition.confirmed = False
-                definition.complete = complete
+                definition.complete = False
                 definition.tacticMetadata = {
                     "source": "storedScreenshots",
                     **metadata,
@@ -137,7 +155,10 @@ class TacticScreenshotExtractor:
                         message=message,
                     )
                 )
-            self._coverageIssuesBuild(definition, byType)
+            self._formationBuild(definition, byType)
+            self._instructionsBuild(definition, byType)
+            complete = self._completeCalculate(definition)
+            definition.complete = complete
 
         return TacticScreenshotExtractResult(
             tacticName=cleanName,
@@ -163,48 +184,128 @@ class TacticScreenshotExtractor:
 
     ## extraction coverage
 
-    def _coverageIssuesBuild(
+    def _formationBuild(
         self,
         definition: ScreenshotDerivedTacticDefinition,
         byType: dict[ScreenType, TacticScreenshot],
     ) -> None:
-        """Record absent screenshots and unsupported extraction as unresolved."""
+        """Detect both phase pitches from the Formation capture."""
+
+        screenshot = byType.get(ScreenType.TACTIC_FORMATION)
+        if screenshot is None:
+            self._issueAdd(definition, "missingScreenshot", "Formation screenshot is missing")
+            return
+        image = self._imageRead(screenshot.importSession.imageFilename)
+        if image is None:
+            self._issueAdd(
+                definition,
+                "formationImageUnavailable",
+                "Formation screenshot could not be decoded",
+            )
+            return
+        result = self.formationExtractor.formationExtract(
+            image, screenshot.importSession.imageFilename
+        )
+        for slot in result.slots:
+            definition.slots.append(StructuredFormationSlot(
+                slotId=slot.slotId,
+                phase=slot.phase.value,
+                position=slot.position,
+                role=slot.role,
+                duty=slot.duty,
+                x=slot.x,
+                y=slot.y,
+                observedRole=slot.observedRole,
+                displayedPlayer=slot.displayedPlayer,
+                confidence=slot.confidence,
+                sourceImportSession=screenshot.importSession,
+                validationState=slot.validationState.value,
+            ))
+        for issue in result.issues:
+            self._issueAdd(definition, issue.code, issue.message, issue.observedText)
+
+    def _instructionsBuild(
+        self,
+        definition: ScreenshotDerivedTacticDefinition,
+        byType: dict[ScreenType, TacticScreenshot],
+    ) -> None:
+        """Extract only visually selected values from each instruction capture."""
 
         for phase, screenType in (
-            ("formation", ScreenType.TACTIC_FORMATION),
-            ("inPossession", ScreenType.TACTIC_IN_POSSESSION),
-            ("outOfPossession", ScreenType.TACTIC_OUT_OF_POSSESSION),
+            (TacticalPhase.IN_POSSESSION, ScreenType.TACTIC_IN_POSSESSION),
+            (TacticalPhase.OUT_OF_POSSESSION, ScreenType.TACTIC_OUT_OF_POSSESSION),
         ):
-            if screenType not in byType:
-                definition.issues.append(
-                    StructuredTacticIssue(
-                        code="missingScreenshot",
-                        message=f"{phase} screenshot is missing",
-                    )
+            screenshot = byType.get(screenType)
+            if screenshot is None:
+                self._issueAdd(
+                    definition,
+                    "missingScreenshot",
+                    f"{phase.value} screenshot is missing",
                 )
-            definition.issues.append(
-                StructuredTacticIssue(
-                    code="formationSlotExtractionUnresolved",
-                    message=(
-                        f"{phase} slot extraction is unresolved because its screenshot is missing"
-                        if screenType not in byType
-                        else f"{phase} slot extraction is not yet available"
-                    ),
+                continue
+            image = self._imageRead(screenshot.importSession.imageFilename)
+            if image is None:
+                self._issueAdd(
+                    definition,
+                    "instructionImageUnavailable",
+                    f"{phase.value} screenshot could not be decoded",
                 )
+                continue
+            result = self.instructionExtractor.instructionsExtract(
+                image, phase, screenshot.importSession.imageFilename
             )
+            for instruction in result.instructions:
+                definition.instructions.append(StructuredTeamInstruction(
+                    phase=instruction.phase.value,
+                    category=instruction.category,
+                    canonicalValue=instruction.value,
+                    displayValue=instruction.displayValue,
+                    confidence=instruction.confidence,
+                    sourceImportSession=screenshot.importSession,
+                    validationState=instruction.validationState.value,
+                ))
+            for issue in result.issues:
+                self._issueAdd(definition, issue.code, issue.message, issue.observedText)
 
-        for phase, screenType in (
-            ("inPossession", ScreenType.TACTIC_IN_POSSESSION),
-            ("outOfPossession", ScreenType.TACTIC_OUT_OF_POSSESSION),
-        ):
-            definition.issues.append(
-                StructuredTacticIssue(
-                    code="teamInstructionExtractionUnresolved",
-                    message=(
-                        f"{phase} team-instruction extraction is unresolved because its "
-                        "screenshot is missing"
-                        if screenType not in byType
-                        else f"{phase} team-instruction extraction is not yet available"
-                    ),
-                )
-            )
+    @staticmethod
+    def _completeCalculate(definition: ScreenshotDerivedTacticDefinition) -> bool:
+        phaseCounts = {
+            phase: sum(slot.phase == phase for slot in definition.slots)
+            for phase in ("inPossession", "outOfPossession")
+        }
+        blockingCodes = {
+            "metadataExtractionIncomplete",
+            "missingScreenshot",
+            "formationImageUnavailable",
+            "instructionImageUnavailable",
+            "missingPitchRegion",
+            "emptyPitchRegion",
+            "missingFormationSlots",
+            "formationTileOcrFailed",
+            "unresolvedPosition",
+            "unresolvedRole",
+            "unresolvedDuty",
+            "ambiguousPhaseLink",
+            "uncertainPhaseLink",
+            "unmatchedPhaseSlot",
+            "missingInstructionEvidence",
+            "ambiguousInstructionEvidence",
+            "unknownInstructionValue",
+            "instructionOcrFailed",
+            "missingInstructionConfiguration",
+            "emptyInstructionRegion",
+        }
+        return all(count == 11 for count in phaseCounts.values()) and not any(
+            issue.code in blockingCodes for issue in definition.issues
+        )
+
+    @staticmethod
+    def _imageRead(filename: str):
+        path = Path(filename).expanduser()
+        return cv2.imread(str(path), cv2.IMREAD_COLOR) if path.is_file() else None
+
+    @staticmethod
+    def _issueAdd(definition, code: str, message: str, observedText: str | None = None) -> None:
+        definition.issues.append(StructuredTacticIssue(
+            code=code, message=message, observedText=observedText
+        ))

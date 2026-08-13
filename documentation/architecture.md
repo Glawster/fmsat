@@ -51,6 +51,15 @@ canonical position and role. Extractors never manufacture missing slots or instr
 unsupported coverage is stored as unresolved issues until an observed extractor or user
 review supplies it.
 
+Formation processing now crops the configured In Possession and Out of Possession pitches,
+detects coloured role tiles with computer vision, and applies OCR only to each detected tile.
+Tile centres are normalized against their pitch crop and classified through configurable
+pitch zones. Cross-phase identity uses displayed player, shirt number where retained,
+relative ordering and spatial proximity; ambiguous and unmatched links remain explicit
+issues. Instruction processing crops each configured card and persists a value only when OCR
+and coloured selected-state evidence identify exactly one canonical selection. Missing,
+unknown or ambiguous selections create issues instead of default instruction rows.
+
 New squads may also own `SquadClubScreenshot` records. The associated Club Information
 screenshot supplies the squad-card badge image. It is previewed and persisted through
 `ScreenshotStore` without screen detection, OCR or player parsing. Keeping this provenance
