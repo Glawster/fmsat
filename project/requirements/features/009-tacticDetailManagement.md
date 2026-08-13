@@ -304,6 +304,9 @@ instructions:
 15. Ruff, Black and the complete applicable automated test suite pass.
 16. Validation issues scroll within their panel so model maintenance actions,
     including regeneration, remain visible at supported window sizes.
+17. Mutually exclusive instruction categories persist exactly one value only
+    when selected-row evidence clearly distinguishes it from every alternative;
+    decorative colour and unselected controls do not constitute selection.
 
 ## Out of scope
 

@@ -11,7 +11,12 @@ from fmsat.tests.conftest import FakeOcr
 
 def _configuration():
     return {
-        "selection": {"minimumSaturation": 45, "minimumScore": 0.25, "padding": 2},
+        "selection": {
+            "minimumSaturation": 45,
+            "minimumScore": 0.25,
+            "minimumMargin": 0.12,
+            "padding": 2,
+        },
         "instructionRegions": {
             "inPossession": {
                 "tempo": {"x": 0.0, "y": 0.0, "width": 1.0, "height": 1.0},
@@ -58,6 +63,33 @@ def testInstructionExtractorReportsMissingAndAmbiguousSelectedEvidence() -> None
     assert ambiguousResult.issues[0].code == "ambiguousInstructionEvidence"
     assert missingResult.instructions == ()
     assert missingResult.issues[0].code == "missingInstructionEvidence"
+
+
+def testInstructionExtractorChoosesOnlyClearlyDominantOptionRow() -> None:
+    """Small coloured controls on other rows must not create three selections."""
+
+    image = np.full((120, 200, 3), 35, dtype=np.uint8)
+    image[8:34, :] = (180, 20, 180)
+    image[48:74, :55] = (180, 20, 180)
+    image[88:114, :60] = (180, 20, 180)
+    ocr = FakeOcr([[
+        OcrResult("Stay On Feet", 0.96, (40, 10, 150, 30)),
+        OcrResult("Balanced", 0.98, (55, 50, 145, 70)),
+        OcrResult("Get Stuck In", 0.97, (40, 90, 155, 110)),
+    ]], suppliesGeometry=True)
+    configuration = _configuration()
+    configuration["instructionRegions"]["outOfPossession"] = {
+        "tackling": {"x": 0.0, "y": 0.0, "width": 1.0, "height": 1.0},
+    }
+
+    result = TacticInstructionExtractor(
+        ocr, TacticVocabulary(), configuration
+    ).instructionsExtract(image, TacticalPhase.OUT_OF_POSSESSION, "oop.png")
+
+    assert len(result.instructions) == 1
+    assert result.instructions[0].category == "tackling"
+    assert result.instructions[0].value == "stay on feet"
+    assert not result.issues
 
 
 def testInstructionExtractorPreservesUnknownSelectedTextAsIssue() -> None:

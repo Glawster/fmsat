@@ -171,6 +171,12 @@ def testStoreReplacesExistingObjectModelRowsByName(tmp_path) -> None:
     first = _sampleTactic("Counter Press")
     second = _sampleTactic("Counter Press")
     second.inPossession.name = "3-2-4-1"
+    second.inPossession.instructions = {
+        Instruction(name="Attacking Width"): InstructionValue(
+            name="Narrow",
+            description="Narrow",
+        )
+    }
 
     firstResult = store.tacticSave(first)
     secondResult = store.tacticSave(second)
@@ -191,3 +197,5 @@ def testStoreReplacesExistingObjectModelRowsByName(tmp_path) -> None:
             formation for formation in stored.formations if formation.phase == "inPossession"
         )
         assert inPossession.name == "3-2-4-1"
+        assert len(inPossession.teamInstructions) == 1
+        assert inPossession.teamInstructions[0].valueName == "Narrow"
