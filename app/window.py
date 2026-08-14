@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from pathlib import Path
+from typing import TypeVar
 
 import numpy as np
 from fmsat.core.logUtils import getLogger
-from PySide6.QtCore import QSignalBlocker, Qt, Signal
+from PySide6.QtCore import QEventLoop, QSignalBlocker, Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QCloseEvent, QColor, QImage, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
@@ -61,6 +64,7 @@ from fmsat.database import Database, DatabaseError
 from fmsat.tactics.tactic import Tactic as ModelTactic
 
 logger = getLogger()
+ResultType = TypeVar("ResultType")
 
 
 class MainWindow(QMainWindow):
@@ -346,7 +350,9 @@ class MainWindow(QMainWindow):
                     "Regenerating structured data from saved captures...",
                     2,
                 )
-                extraction = self.tacticScreenshotExtractor.tacticExtract(tacticName)
+                extraction = self._backgroundRun(
+                    lambda: self.tacticScreenshotExtractor.tacticExtract(tacticName)
+                )
                 logger.info(
                     f"regeneration extraction result: created={extraction.structuredCreated}, "
                     f"complete={extraction.complete}, "
@@ -413,7 +419,9 @@ class MainWindow(QMainWindow):
                     "Extracting structured data from saved captures...",
                     3,
                 )
-                extraction = self.tacticScreenshotExtractor.tacticExtract(tacticName)
+                extraction = self._backgroundRun(
+                    lambda: self.tacticScreenshotExtractor.tacticExtract(tacticName)
+                )
                 logger.info(
                     f"processing extraction result: created={extraction.structuredCreated}, "
                     f"complete={extraction.complete}, "
@@ -503,6 +511,28 @@ class MainWindow(QMainWindow):
             "background-color: #31b98f; border-radius: 6px; }"
         )
         return progress
+
+    def _backgroundRun(self, action: Callable[[], ResultType]) -> ResultType:
+        """Run blocking extraction while the Qt interface continues processing events."""
+
+        logger.doing("running tactic extraction worker")
+        with ThreadPoolExecutor(
+            max_workers=1,
+            thread_name_prefix="tactic-extraction",
+        ) as executor:
+            future = executor.submit(action)
+            loop = QEventLoop(self)
+            completionPoll = QTimer(self)
+            completionPoll.setInterval(50)
+            completionPoll.timeout.connect(
+                lambda: loop.quit() if future.done() else None
+            )
+            completionPoll.start()
+            loop.exec()
+            completionPoll.stop()
+            result = future.result()
+        logger.done("tactic extraction worker finished")
+        return result
 
     @staticmethod
     def _progressUpdate(

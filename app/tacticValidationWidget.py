@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Protocol
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QApplication,
     QAbstractScrollArea,
@@ -45,6 +45,9 @@ class TacticValidationWidget(QFrame):
     ) -> None:
         super().__init__(parent)
         self.setObjectName("validationPanel")
+        self.copyResetTimer = QTimer(self)
+        self.copyResetTimer.setSingleShot(True)
+        self.copyResetTimer.timeout.connect(self._copyStatusReset)
         self._layoutCreate()
         self.resultShow(result)
 
@@ -84,10 +87,10 @@ class TacticValidationWidget(QFrame):
         heading.setObjectName("cardTitle")
         headingRow.addWidget(heading)
         headingRow.addStretch()
-        copyButton = QPushButton("Copy details")
-        copyButton.setObjectName("secondaryButton")
-        copyButton.clicked.connect(self._detailsCopy)
-        headingRow.addWidget(copyButton)
+        self.copyButton = QPushButton("Copy details")
+        self.copyButton.setObjectName("secondaryButton")
+        self.copyButton.clicked.connect(self._detailsCopy)
+        headingRow.addWidget(self.copyButton)
         self.statusLabel = QLabel()
         self.statusLabel.setObjectName("validationStatus")
         headingRow.addWidget(self.statusLabel)
@@ -175,6 +178,19 @@ class TacticValidationWidget(QFrame):
             if label.text().strip()
         )
         QApplication.clipboard().setText("\n".join(lines))
+        self.copyButton.setText("Copied")
+        self.copyButton.setProperty("copyState", "copied")
+        self.copyButton.style().unpolish(self.copyButton)
+        self.copyButton.style().polish(self.copyButton)
+        self.copyResetTimer.start(2500)
+
+    def _copyStatusReset(self) -> None:
+        """Restore the validation-copy action after its confirmation period."""
+
+        self.copyButton.setText("Copy details")
+        self.copyButton.setProperty("copyState", "ready")
+        self.copyButton.style().unpolish(self.copyButton)
+        self.copyButton.style().polish(self.copyButton)
 
     def _phaseAdd(self, title: str, count: int | None) -> None:
         row = QFrame()

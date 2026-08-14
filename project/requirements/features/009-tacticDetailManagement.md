@@ -316,6 +316,11 @@ instructions:
 20. Validation scroll viewports and tactic progress dialogs use explicit opaque
     application colours, including readable labels, progress tracks and chunks;
     they do not inherit a white platform base or reveal underlying page content.
+21. Screenshot extraction runs outside the Qt UI thread while regeneration is
+    active, allowing repaint, progress-dialog and window-manager heartbeat events
+    to continue without changing the sequential integrity and persistence flow.
+22. Copying validation details changes the action label to `Copied` for a short
+    confirmation period before restoring `Copy details`.
 
 ## Out of scope
 

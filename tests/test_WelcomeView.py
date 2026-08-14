@@ -3,7 +3,7 @@
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtTest import QSignalSpy
 from PySide6.QtWidgets import (
     QDialog,
@@ -690,6 +690,18 @@ def testTacticProgressDialogRemainsReadable(qtbot) -> None:  # type: ignore[no-u
     assert progress.objectName() == "tacticProgressDialog"
     assert "background-color: #101f2e" in progress.styleSheet()
     assert "QProgressBar::chunk" in progress.styleSheet()
+
+
+def testBackgroundRunKeepsQtEventLoopResponsive(qtbot) -> None:  # type: ignore[no-untyped-def]
+    window = _mainWindowCreate()
+    qtbot.addWidget(window)
+    eventObserved = []
+    QTimer.singleShot(10, lambda: eventObserved.append(True))
+
+    result = window._backgroundRun(lambda: "finished")
+
+    assert result == "finished"
+    assert eventObserved == [True]
 
 
 def testTacticProcessBuildsModelFromScreenshotOnlyTactic(qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
