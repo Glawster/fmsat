@@ -586,12 +586,10 @@ class MainWindow(QMainWindow):
             for position in formation.positions:
                 if (
                     not position.slotId
-                    or not position.duty
                     or position.x is None
                     or position.y is None
                     or position.confidence is None
                     or position.sourceImportSessionId is None
-                    or position.validationState == "unresolved"
                 ):
                     return False
         return True

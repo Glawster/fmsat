@@ -253,9 +253,8 @@ class TacticBuilder:
             )
             return None
 
-        # Duty is required evidence. Do not turn its absence into a synthetic
-        # "Default" profile because that would promote an unresolved value into
-        # the generated football model.
+        # FM26's Both view does not display duties. Retain that absence as None
+        # and an unresolved validation issue; never manufacture a Default duty.
         if not slot.duty:
             issues.append(
                 TacticBuildIssue(
@@ -263,20 +262,23 @@ class TacticBuilder:
                     f"{phaseName} slot {slot.slotId!r} has no resolved duty",
                 )
             )
-            return None
 
         role = roleCache.get(roleIdentity)
         if role is None:
             role = Role(identity=roleIdentity)
             roleCache[roleIdentity] = role
 
-        profileKey = (roleIdentity, slot.duty)
+        profileKey = (roleIdentity, slot.duty or "__unresolved__")
         roleProfile = profileCache.get(profileKey)
         if roleProfile is None:
-            profileName = slot.duty.capitalize()
+            profileName = slot.duty.capitalize() if slot.duty else "Unresolved"
             roleProfile = RoleProfile(
                 name=profileName,
-                description=f"{slot.role or roleIdentity.value} ({profileName})",
+                description=(
+                    f"{slot.role or roleIdentity.value} ({profileName})"
+                    if slot.duty
+                    else f"{slot.role or roleIdentity.value} (duty unresolved)"
+                ),
             )
             profileCache[profileKey] = roleProfile
 

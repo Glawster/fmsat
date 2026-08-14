@@ -75,6 +75,18 @@ def testFormationExtractorDetectsTilesBeforeFocusedOcr() -> None:
     assert not result.issues
 
 
+def testFormationTileDetectionCollapsesElementsFromOnePlayerCard() -> None:
+    boxes = [
+        (100, 100, 170, 118),
+        (112, 122, 157, 145),
+        (260, 100, 330, 118),
+    ]
+
+    retained = TacticFormationExtractor._duplicatesRemove(boxes, 400, 400)
+
+    assert len(retained) == 2
+
+
 def testPhaseLinkerRetainsUnmatchedSlotsAndReportsIssue() -> None:
     source = FormationSlot(
         "ip", TacticalPhase.IN_POSSESSION, "STC", "centreForward", "ATTACK", 0.5, 0.1

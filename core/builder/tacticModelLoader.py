@@ -121,12 +121,19 @@ class TacticModelLoader:
                 structuredMetadata, structuredSlots = self._structuredSnapshot(
                     objectModel.sourceTactic
                 )
+            sourceDefinition = (
+                objectModel.sourceTactic.structuredDefinition
+                if objectModel.sourceTactic is not None
+                else None
+            )
             return TacticModelLoadResult(
                 tactic=self._tacticFromObjectModel(objectModel),
                 source="objectModel",
                 issues=self._structuredIssues(objectModel.sourceTactic),
-                complete=True,
-                confirmed=True,
+                complete=(sourceDefinition.complete if sourceDefinition is not None else True),
+                confirmed=(
+                    sourceDefinition.confirmed if sourceDefinition is not None else True
+                ),
                 metadata=structuredMetadata,
                 # The saved object model is authoritative for its formation.
                 # Latest extraction issues may be newer, but partial structured
