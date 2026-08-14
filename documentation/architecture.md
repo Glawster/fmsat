@@ -73,6 +73,11 @@ positions remain authoritative; newer partial extraction slots are not overlaid 
 An absent duty remains unresolved and blocks position generation rather than creating a
 synthetic `Default` role profile.
 
+Tactic maintenance diagnostics are rendered with explicit opaque palettes. The
+validation issue viewport owns its dark background and scrollbar styling, while the
+progress dialog owns its panel, label, track and chunk colours. This avoids platform
+palette leakage and prevents the tactic workspace showing through modal progress UI.
+
 New squads may also own `SquadClubScreenshot` records. The associated Club Information
 screenshot supplies the squad-card badge image. It is previewed and persisted through
 `ScreenshotStore` without screen detection, OCR or player parsing. Keeping this provenance
