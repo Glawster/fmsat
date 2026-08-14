@@ -7,6 +7,10 @@ anchors:
   tabBandYMax: 0.24
   instructionTabSplit: 0.18
   underlineBrightness: 170
+  # Whole-screen OCR frequently misses the small modal breadcrumb. Retry only
+  # this stable upper-centre area at higher resolution.
+  instructionBreadcrumbRegion: {x: 0.15, y: 0.12, width: 0.70, height: 0.24}
+  instructionBreadcrumbScale: 3.0
 
 # Normalized regions for the two pitches visible in the FM26 Planner "Both"
 # Formation capture. These values are data rather than parser constants so a
@@ -27,6 +31,11 @@ tileDetection:
   minimumAspectRatio: 1.45
   minimumInteriorSaturation: 70
   minimumInteriorValue: 82
+  # The eye/dropdown control and the phase-name badge share the role-tile
+  # colour and geometry but occupy stable non-player areas at the left edge.
+  excludedRegions:
+    - {x: 0.00, y: 0.00, width: 0.20, height: 0.10}
+    - {x: 0.00, y: 0.90, width: 0.25, height: 0.10}
 
 linking:
   maximumDistance: 0.38

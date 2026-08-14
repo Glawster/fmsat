@@ -75,3 +75,23 @@ def testCroppedFormationUsesImageAsReferenceWhenBreadcrumbIsVisible() -> None:
     assert result.anchored is True
     assert result.image.shape == image.shape
     assert not result.issues
+
+
+def testSmallInstructionBreadcrumbUsesFocusedEnlargedRetry() -> None:
+    image = np.full((600, 900, 3), 15, dtype=np.uint8)
+    cv2.rectangle(image, (100, 80), (800, 500), (120, 120, 120), 2)
+    cv2.line(image, (125, 140), (245, 140), (240, 240, 240), 3)
+    # The configured focus begins at (135, 72) and is enlarged threefold.
+    focusedBounds = (135, 234, 915, 300)
+    ocr = FakeOcr([
+        [],
+        [OcrResult("Team Instructions", 0.98, focusedBounds)],
+    ], suppliesGeometry=True)
+
+    result = TacticLayoutAnchor(ocr, _configuration()).referenceExtract(
+        image, TacticalPhase.IN_POSSESSION
+    )
+
+    assert result.anchored is True
+    assert result.detectedPhase is TacticalPhase.IN_POSSESSION
+    assert not result.issues
