@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from PySide6.QtWidgets import QLabel, QTabWidget
+from PySide6.QtWidgets import QApplication, QLabel, QPushButton, QScrollArea, QTabWidget
 
 from fmsat.app.tacticDetailView import TacticDetailView
 from fmsat.app.tacticValidationWidget import TacticValidationWidget
@@ -77,13 +77,62 @@ def testValidationWidgetShowsIncompletePhase(qtbot) -> None:  # type: ignore[no-
     assert "●  inPossession has 9 mapped positions; 11 expected" in labels
 
 
+def testValidationIssuesAreContainedInScrollArea(qtbot) -> None:  # type: ignore[no-untyped-def]
+    """A long issue list must not increase the tactic page's minimum height."""
+
+    result = DummyResult(
+        tactic=_tacticCreate(inPossessionCount=2),
+        issues=tuple(DummyIssue(f"Unresolved issue {index}") for index in range(30)),
+        complete=False,
+        confirmed=False,
+    )
+    widget = TacticValidationWidget(result)
+    qtbot.addWidget(widget)
+
+    issueScroll = widget.findChild(QScrollArea, "validationIssueScroll")
+
+    assert issueScroll is not None
+    assert issueScroll.widgetResizable()
+    assert issueScroll.widget() is widget.content
+    assert issueScroll.minimumHeight() == 260
+    assert "#0c1926" in issueScroll.styleSheet()
+    assert "#0c1926" in issueScroll.viewport().styleSheet()
+
+
+def testValidationDetailsCanBeCopied(qtbot) -> None:  # type: ignore[no-untyped-def]
+    result = DummyResult(
+        tactic=_tacticCreate(inPossessionCount=9),
+        issues=(DummyIssue("One unresolved position"),),
+        complete=False,
+        confirmed=False,
+    )
+    widget = TacticValidationWidget(result)
+    qtbot.addWidget(widget)
+
+    copyButton = next(
+        button
+        for button in widget.findChildren(QPushButton)
+        if button.text() == "Copy details"
+    )
+    copyButton.click()
+
+    copied = QApplication.clipboard().text()
+    assert "Review required" in copied
+    assert "●  One unresolved position" in copied
+    assert copyButton.text() == "Copied"
+
+    qtbot.wait(2600)
+
+    assert copyButton.text() == "Copy details"
+
+
 def testTacticShowRefreshesValidationResult(qtbot) -> None:  # type: ignore[no-untyped-def]
     view = TacticDetailView()
     qtbot.addWidget(view)
     result = DummyResult(
         tactic=None,
         issues=(
-            DummyIssue("No structured tactic definition exists"),
+            DummyIssue("No screenshot-derived tactic definition exists"),
         ),
         complete=False,
         confirmed=False,
@@ -93,7 +142,7 @@ def testTacticShowRefreshesValidationResult(qtbot) -> None:  # type: ignore[no-u
     labels = [label.text() for label in view.overviewTab.validationWidget.findChildren(QLabel)]
 
     assert "Unable to build" in labels
-    assert "●  No structured tactic definition exists" in labels
+    assert "●  No screenshot-derived tactic definition exists" in labels
 
 
 def _tacticCreate(*, inPossessionCount: int = 11) -> DummyTactic:

@@ -24,7 +24,10 @@ from fmsat.tactics.tactic import Tactic
 from fmsat.tactics.transition import Transition
 
 
-def _sampleTactic(name: str = "High Press") -> Tactic:
+def _sampleTactic(
+    name: str = "High Press",
+    sourceImportSessionId: int | None = None,
+) -> Tactic:
     """Return a small but complete tactic model for persistence tests."""
 
     attackingWidth = Instruction(name="Attacking Width")
@@ -45,7 +48,19 @@ def _sampleTactic(name: str = "High Press") -> Tactic:
     inPossession = Formation(
         name="3-4-2-1",
         positions=[
-            Position(PositionIdentity.GK, goalkeeper, defendProfile),
+            Position(
+                PositionIdentity.GK,
+                goalkeeper,
+                defendProfile,
+                slotId="in-gk",
+                duty="defend",
+                x=0.5,
+                y=0.9,
+                player="Example Keeper",
+                confidence=0.96,
+                sourceImportSessionId=sourceImportSessionId,
+                validationState="confirmed",
+            ),
             Position(PositionIdentity.DC, centreBack, defendProfile),
             Position(PositionIdentity.WBL, wingBack, supportProfile),
             Position(PositionIdentity.ST, centreForward, attackProfile),
@@ -86,7 +101,7 @@ def testStorePersistsTacticIntoObjectModelSchema(tmp_path) -> None:
     )
 
     store = TacticStore(database.engine)
-    result = store.tacticSave(_sampleTactic())
+    result = store.tacticSave(_sampleTactic(sourceImportSessionId=1))
 
     assert result.replacedExisting is False
 
@@ -109,6 +124,7 @@ def testStorePersistsTacticIntoObjectModelSchema(tmp_path) -> None:
         assert stored.name == "High Press"
         assert stored.sourceTactic is not None
         assert stored.sourceTactic.normalizedName == "high press"
+        assert stored.sourceImportSessionId == 1
         assert len(stored.formations) == 2
 
         inPossession = next(
@@ -127,6 +143,15 @@ def testStorePersistsTacticIntoObjectModelSchema(tmp_path) -> None:
             "ST",
         ]
         assert inPossession.teamInstructions[0].category == "Attacking Width"
+        goalkeeperPosition = inPossession.positions[0]
+        assert goalkeeperPosition.slotId == "in-gk"
+        assert goalkeeperPosition.duty == "defend"
+        assert goalkeeperPosition.x == 0.5
+        assert goalkeeperPosition.y == 0.9
+        assert goalkeeperPosition.displayedPlayer is None
+        assert goalkeeperPosition.confidence == 0.96
+        assert goalkeeperPosition.sourceImportSessionId == 1
+        assert goalkeeperPosition.validationState == "confirmed"
         assert stored.transitionInstructions[0].category == "Possession Lost"
 
         # Confirm legacy structured extraction rows remain separate and untouched.
@@ -147,6 +172,12 @@ def testStoreReplacesExistingObjectModelRowsByName(tmp_path) -> None:
     first = _sampleTactic("Counter Press")
     second = _sampleTactic("Counter Press")
     second.inPossession.name = "3-2-4-1"
+    second.inPossession.instructions = {
+        Instruction(name="Attacking Width"): InstructionValue(
+            name="Narrow",
+            description="Narrow",
+        )
+    }
 
     firstResult = store.tacticSave(first)
     secondResult = store.tacticSave(second)
@@ -167,3 +198,5 @@ def testStoreReplacesExistingObjectModelRowsByName(tmp_path) -> None:
             formation for formation in stored.formations if formation.phase == "inPossession"
         )
         assert inPossession.name == "3-2-4-1"
+        assert len(inPossession.teamInstructions) == 1
+        assert inPossession.teamInstructions[0].valueName == "Narrow"

@@ -2,7 +2,11 @@
 
 ## Status
 
-In Progress
+InProgress
+
+The end-to-end extraction, role-gap and model-generation workflow is
+operational. Completion remains open for the general correction workflow,
+diagnostic CLI, final acceptance verification and documentation reconciliation.
 
 ## Objective
 
@@ -28,6 +32,15 @@ requirement.
    instructions, extraction issues, completeness and confirmation state.
 6. Keep typed tactical domain objects separate from SQLAlchemy persistence
    models and Qt widgets.
+7. Persist only values actually observed by an extractor or explicitly supplied
+   and confirmed by the user. Missing slot or instruction extraction must create
+   unresolved issues; templates, neutral defaults and formation-to-phase copying
+   must not be persisted as extracted facts.
+8. A player displayed in a Formation screenshot is extraction evidence only.
+   It may be retained in `ScreenshotDerivedTacticDefinition` and used transiently
+   to link the same slot across phases, but it must not become a player assignment
+   in the reusable football object model. Player assignments require a separate,
+   explicit squad-assignment action.
 
 ## Canonical vocabulary
 
@@ -72,12 +85,21 @@ from those fixtures.
    screenshot and retain them as tactic-level metadata; missing values must
    produce explicit review issues rather than placeholders presented as data.
 3. Use screen-specific parsers with shared reusable components where useful.
-4. Locate the pitch through normalized, configurable regions.
+4. Locate the tactic window from the stable `Squad > Tactics Planner`
+   breadcrumb, then apply normalized configurable pitch regions inside that
+   detected reference frame. Desktop resolution, Steam window position and
+   outer screenshot cropping must not change the resulting pitch coordinates.
+   Retain the complete Formation capture as its reference frame and select a
+   calibrated pitch-region profile for FM's compact two-pitch layout or wide
+   planner-with-squad layout; an interior contour must not truncate a pitch.
 5. Detect player or role tiles using computer vision before applying focused
    OCR where practical; do not infer the formation from unrestricted whole-pitch
    text order.
 6. Extract the visible role abbreviation and displayed player name when
-   available, normalize role and duty, and calculate component-level confidence.
+   available and calculate component-level confidence. The FM26 Tactics Planner
+   Both view does not expose a separate duty: retain duty as `null` unless it is
+   explicitly observed from another source, and do not report its expected
+   absence on this screen as an extraction failure.
 7. Store tile centres as coordinates normalized between zero and one.
 8. Classify coordinates into canonical position codes using configurable pitch
    zones that distinguish depth, width, centre and half-space variants without
@@ -108,20 +130,29 @@ from those fixtures.
 ## Team-instruction extraction
 
 1. Parse the labelled cards in the In Possession and Out of Possession screens.
-2. For each configured category, detect its region, extract the selected value,
+2. Locate the modal using the `Squad > Tactics Planner > Team Instructions`
+   breadcrumb. Determine the active phase from the horizontal position of the
+   underline beneath In Possession or Out of Possession, and report a mismatch
+   when it disagrees with the requested capture type.
+3. For each configured category, detect its region relative to the modal,
+   extract the selected value,
    normalize it through aliases, retain original OCR text and confidence, and
    report missing or ambiguous values.
-3. Support at least the supplied In Possession categories: passing directness,
+4. Support at least the supplied In Possession categories: passing directness,
    tempo, time wasting, attacking transition, attacking width, play for set
    pieces, creative freedom, build-up strategy, goal kicks, goalkeeper
    distribution, supporting runs, dribbling, progress through, pass reception,
    patience, shots from distance, crossing style and goalkeeper distribution
    speed.
-4. Support at least the supplied Out of Possession categories: line of
+5. Support at least the supplied Out of Possession categories: line of
    engagement, defensive line, trigger press, defensive transition, tackling,
    cross engagement, pressing trap, short goalkeeper distribution and defensive
    line behaviour.
-5. Do not use values from sample tactics as defaults.
+6. Do not use values from sample tactics as defaults.
+7. If automatic anchor or panel detection fails, retain an explicit unresolved
+   layout issue so a later review workflow can ask the user to mark or adjust
+   the reference region; never silently revert to treating a whole desktop
+   screenshot as the instruction panel.
 
 ## Review and correction
 
@@ -233,3 +264,14 @@ warning or information. At minimum validate:
   full-resolution screenshots.
 - Reuse requirement 005's formation-row palette and role-icon component in the
   structured review UI when that component is implemented.
+
+## Change history
+
+- 2026-08-13: disabled template-generated tactic facts and required unresolved
+  issues for absent evidence.
+- 2026-08-13: implemented configurable Formation tile detection, focused OCR,
+  pitch-zone normalization, evidence-ranked phase linking and selected-only
+  instruction extraction.
+- 2026-08-14: added breadcrumb-relative tactic-window and Team Instructions
+  modal detection, including active-tab underline validation and modal-local
+  instruction grids.

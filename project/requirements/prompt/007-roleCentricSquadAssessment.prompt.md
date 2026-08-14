@@ -4,16 +4,18 @@
 
 Football Manager Squad Assessment Tool — FMSAT
 
-- Repository: `Glawster/myHandbook`
-- Prerequisite: requirement 006 structured tactic extraction
-- Working directory: `fmsat/`
+- Repository: `Glawster/fmsat`
+- Prerequisites: requirement 006 structured tactic extraction, requirement 009
+  tactic viewer baseline and requirement 010 factual role definitions
 
 ## Objective
 
 Implement requirement
 [`007-roleCentricSquadAssessment.md`](../features/007-roleCentricSquadAssessment.md).
-Make the tactical role the primary squad-planning object. Players are evaluated
-against roles; roles are not reduced to labels on player records.
+Create a dedicated squad viewer in the same visual family as the tactic viewer.
+Make the tactical role the primary squad-planning object inside that viewer.
+Players are evaluated against roles; roles are not reduced to labels on player
+records.
 
 ## Architecture boundary
 
@@ -33,21 +35,26 @@ Keep these layers separate:
 
 The UI must not implement scoring formulas or query SQLAlchemy directly.
 
-## Required workflow
+## Initial delivery workflow
 
-1. Open a confirmed structured tactic applied to a squad.
-2. Default to the Roles view within Overview, Roles, Pitch, Instructions and
-   Sources navigation.
-3. Group one selectable Role Card per required tactic role using requirement
+1. Open a stored squad in a dedicated squad viewer.
+2. Provide Overview, Players, Roles and Analysis navigation with useful states
+   when no tactic or generated analysis is available.
+3. Show the selected squad, tactic revision, squad-data date and
+   knowledge/scoring identity without coupling those sources.
+4. Group one selectable Role Card per required tactic role using requirement
    005's colour families and abbreviation icons.
-4. Open a Role Workspace with Overview, Candidates and Comparison views.
-5. Rank all squad players for the role by Overall Suitability.
-6. Show Generic Role Fit, Tactical Fit, Position Familiarity and Overall
-   Suitability separately.
-7. Explain strengths, weaknesses, weighted contributions and tactical modifiers.
-8. Compare two or more candidates using the same role and scoring context.
-9. Calculate each player's best alternative roles through the same engine.
-10. Display explainable Role Health independently from player scores.
+5. Open a Role Workspace with Overview and Candidates views prepared for later
+   Comparison support.
+6. Rank every squad player using configuration-driven Generic Role Fit.
+7. Treat missing attributes or role requirements as unavailable, not zero.
+8. Explain the weighted attribute contributions for every available result.
+9. Show the best candidate, backup candidate and uncovered state without
+   automatically assigning a lineup.
+
+After the initial increment, add Tactical Fit, Position Familiarity, Overall
+Suitability, candidate comparison, alternative roles and Role Health through
+the same domain and application-service boundaries.
 
 Use **Role Workspace**, never **Role Detail**, in new user-facing text and
 documentation.
@@ -105,10 +112,11 @@ limitations and future extension points.
 
 ## Definition of done
 
-Requirement 007 is complete only when every acceptance criterion in the stable
-requirement is met, existing workflows remain compatible, the Roles workspace
-is the default tactic view, calculations are explainable and reproducible, and
-the complete applicable test, Ruff and Black checks pass.
+The initial squad-viewer increment is ready for review when its defined workflow
+is implemented, Generic Role Fit is explainable and reproducible, existing
+workflows remain compatible, and the complete applicable test, Ruff and Black
+checks pass. Requirement 007 is complete only when every acceptance criterion
+in the stable requirement is met.
 
 ## Explicit non-goals
 

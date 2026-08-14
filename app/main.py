@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from fmsat.core.logUtils import getLogger
+from fmsat.core.logUtils import getApplicationLogDir, getLogger
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from fmsat.app.window import MainWindow
@@ -34,11 +34,16 @@ def main() -> int:
     """Create dependencies, initialize storage, and start the Qt event loop."""
 
     projectRoot = Path(__file__).parents[2]
+    logger.doing("starting fmsat desktop application")
+    logger.value("application log directory", getApplicationLogDir())
+    logger.value("project root", projectRoot)
     application = QApplication(sys.argv)
     application.setApplicationName("FMSAT")
     application.setOrganizationName("FMSAT")
     try:
         dataPaths = persistentDataPrepare(projectRoot)
+        logger.value("persistent data directory", dataPaths.directory)
+        logger.value("database", dataPaths.database)
         config = Configuration()
         ocr = PaddleOcrEngine()
         detection = config.screens.get("detection", {})
@@ -72,6 +77,7 @@ def main() -> int:
         )
         database = Database(dataPaths.database)
         database.initialize()
+        logger.done("database initialized")
         window = MainWindow(
             service,
             database,
@@ -91,7 +97,10 @@ def main() -> int:
         QMessageBox.critical(None, "FMSAT startup failed", str(exc))
         return 1
     window.show()
-    return application.exec()
+    logger.done("fmsat desktop window shown")
+    exitCode = application.exec()
+    logger.value("fmsat desktop exit code", exitCode)
+    return exitCode
 
 
 if __name__ == "__main__":

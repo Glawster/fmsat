@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from collections.abc import Iterable
 from typing import Any
 
 import yaml
@@ -82,6 +83,32 @@ class TacticVocabulary:
                 self._aliasAdd(values, alias, code, "roles")
         return self._normalize(observedText, values)
 
+    def capturedRolesAdd(self, definitions: Iterable[object]) -> None:
+        """Add confirmed user role definitions to the live OCR vocabulary."""
+
+        for definition in definitions:
+            roleID = getattr(definition, "roleID", None)
+            roleCode = getattr(definition, "roleCode", None)
+            if not isinstance(roleID, int) or roleID < 1:
+                continue
+            code = roleCode or f"capturedRole{roleID}"
+            if code in self.roles:
+                continue
+            abbreviations = tuple(getattr(definition, "abbreviations", ()))
+            positions = tuple(getattr(definition, "positions", ()))
+            displayName = str(getattr(definition, "displayName", code))
+            if not abbreviations:
+                continue
+            self.roles[code] = RoleDefinition(
+                code=code,
+                roleID=roleID,
+                displayName=displayName,
+                abbreviations=tuple(str(value).upper() for value in abbreviations),
+                aliases=(),
+                positions=tuple(str(value) for value in positions),
+                duties=(),
+            )
+
     def roleIndicatorNormalize(self, observedText: str) -> NormalizedValue:
         """Normalize an observed role-performance indicator."""
 
@@ -131,9 +158,20 @@ class TacticVocabulary:
             for category, rawValues in rawCategories.items():
                 if not isinstance(rawValues, list):
                     raise ConfigurationError(f"instructions.{phase}.{category} must be a list")
+                values: dict[str, list[str]] = {}
+                for item in rawValues:
+                    if isinstance(item, dict):
+                        for canonical, aliases in item.items():
+                            if not isinstance(aliases, list):
+                                raise ConfigurationError(
+                                    f"instructions.{phase}.{category}.{canonical} aliases "
+                                    "must be a list"
+                                )
+                            values[str(canonical)] = [str(alias) for alias in aliases]
+                    else:
+                        values[str(item)] = []
                 categories[str(category)] = self._aliasMap(
-                    {str(value): [] for value in rawValues},
-                    f"instructions.{phase}.{category}",
+                    values, f"instructions.{phase}.{category}"
                 )
             instructions[str(phase)] = categories
         return instructions
@@ -145,7 +183,25 @@ class TacticVocabulary:
 
     @classmethod
     def _normalize(cls, observedText: str, values: dict[str, str]) -> NormalizedValue:
-        return NormalizedValue(values.get(cls._key(observedText)), observedText)
+        key = cls._key(observedText)
+        exact = values.get(key)
+        if exact is not None:
+            return NormalizedValue(exact, observedText)
+
+        # Narrow FM26 overview cards visibly abbreviate long selected values
+        # with an ellipsis. Accept that observed prefix only when it identifies
+        # one canonical value, so truncated evidence cannot guess between two
+        # valid settings.
+        if key.endswith("...") or key.endswith("…"):
+            prefix = key.rstrip(".…").rstrip()
+            matches = {
+                canonical
+                for alias, canonical in values.items()
+                if len(prefix) >= 5 and alias.startswith(prefix)
+            }
+            if len(matches) == 1:
+                return NormalizedValue(matches.pop(), observedText)
+        return NormalizedValue(None, observedText)
 
     def _rolesLoad(self, rawRoles: Any) -> dict[str, RoleDefinition]:
         if not isinstance(rawRoles, dict) or not rawRoles:

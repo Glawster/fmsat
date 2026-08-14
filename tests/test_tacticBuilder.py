@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import Mock
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -11,10 +13,12 @@ from fmsat.database import (
     Database,
     ImportSession,
     StructuredFormationSlot,
-    StructuredTacticDefinition,
+    ScreenshotDerivedTacticDefinition,
     StructuredTeamInstruction,
     Tactic,
 )
+from fmsat.football.roleIdentity import RoleIdentity
+from fmsat.tactics.positionIdentity import PositionIdentity
 
 
 def testBuilderLoadsStructuredTacticIntoObjectModel(tmp_path) -> None:
@@ -94,7 +98,7 @@ def testBuilderLoadsStructuredTacticIntoObjectModel(tmp_path) -> None:
             )
         ]
 
-        tactic.structuredDefinition = StructuredTacticDefinition(
+        tactic.structuredDefinition = ScreenshotDerivedTacticDefinition(
             confirmed=True,
             complete=True,
             tacticMetadata={
@@ -144,6 +148,14 @@ def testBuilderLoadsStructuredTacticIntoObjectModel(tmp_path) -> None:
     assert result.tactic.outOfPossession.name == "4-4-1-1"
     assert len(result.tactic.inPossession.positions) == 11
     assert len(result.tactic.outOfPossession.positions) == 11
+    firstPosition = result.tactic.inPossession.positions[0]
+    assert firstPosition.slotId == "in-1"
+    assert firstPosition.duty == "support"
+    assert firstPosition.x == 0.0
+    assert firstPosition.y == 0.5
+    assert firstPosition.confidence == 0.95
+    assert firstPosition.sourceImportSessionId == imported.id
+    assert firstPosition.validationState == "confirmed"
     inPossessionInstruction = next(iter(result.tactic.inPossession.instructions.keys()))
     outOfPossessionInstruction = next(iter(result.tactic.outOfPossession.instructions.keys()))
     assert inPossessionInstruction is outOfPossessionInstruction
@@ -170,6 +182,51 @@ def testBuilderReportsMissingStructuredDefinition(tmp_path) -> None:
     assert any(issue.code == "missingStructuredDefinition" for issue in result.issues)
 
 
+def testBuilderPreservesPositionWhenDutyIsNotShown() -> None:
+    """A missing duty remains None and is not an extraction failure or default."""
+
+    builder = TacticBuilder(Mock())
+    issues = []
+    slot = StructuredFormationSlot(
+        slotId="slot-01",
+        phase="inPossession",
+        position="ST",
+        role="centreForward",
+        duty=None,
+        x=0.5,
+        y=0.1,
+        observedRole="CFD",
+        displayedPlayer="Example Forward",
+        confidence=0.9,
+        validationState="extracted",
+    )
+
+    position = builder._positionBuild(slot, "inPossession", issues, {}, {})
+
+    assert position is not None
+    assert position.duty is None
+    assert position.roleProfile.name == "Observed role"
+    assert position.validationState == "extracted"
+    assert position.player is None
+    assert issues == []
+
+
+def testBuilderMapsCanonicalLateralPositionsToDomainIdentities() -> None:
+    builder = TacticBuilder(Mock())
+
+    assert builder._positionIdentityParse("STC") is PositionIdentity.ST
+    assert builder._positionIdentityParse("DCL") is PositionIdentity.DC
+    assert builder._positionIdentityParse("DCR") is PositionIdentity.DC
+    assert builder._positionIdentityParse("DMCL") is PositionIdentity.DM
+    assert builder._positionIdentityParse("DMCR") is PositionIdentity.DM
+
+
+def testBuilderMapsKnownFullBackRoleToSharedWideDefenderIdentity() -> None:
+    builder = TacticBuilder(Mock())
+
+    assert builder._roleIdentityParse("fullBack", "FB") is RoleIdentity.WB
+
+
 def testBuilderOrdersPositionsBySemanticPositionIdentity(tmp_path) -> None:
     """Builder should order positions by PositionIdentity rather than slot ID."""
 
@@ -188,50 +245,30 @@ def testBuilderOrdersPositionsBySemanticPositionIdentity(tmp_path) -> None:
         assert sourceImport is not None
 
         # Deliberately scramble slot IDs to ensure semantic ordering is applied.
-        tactic.structuredDefinition = StructuredTacticDefinition(
+        tactic.structuredDefinition = ScreenshotDerivedTacticDefinition(
             confirmed=False,
             complete=False,
             tacticMetadata={},
             slots=[
                 StructuredFormationSlot(
-                    slotId="slot-z",
-                    phase="formation",
-                    position="ST",
-                    role="centreForward",
-                    duty="attack",
+                    slotId=f"{phase}-{slotId}",
+                    phase=phase,
+                    position=position,
+                    role=role,
+                    duty=duty,
                     x=0.5,
-                    y=0.1,
+                    y=y,
                     observedRole="",
                     confidence=0.9,
                     sourceImportSession=sourceImport,
                     validationState="confirmed",
-                ),
-                StructuredFormationSlot(
-                    slotId="slot-a",
-                    phase="formation",
-                    position="GK",
-                    role="goalkeeper",
-                    duty="defend",
-                    x=0.5,
-                    y=0.9,
-                    observedRole="",
-                    confidence=0.9,
-                    sourceImportSession=sourceImport,
-                    validationState="confirmed",
-                ),
-                StructuredFormationSlot(
-                    slotId="slot-m",
-                    phase="formation",
-                    position="DC",
-                    role="centreBack",
-                    duty="defend",
-                    x=0.5,
-                    y=0.7,
-                    observedRole="",
-                    confidence=0.9,
-                    sourceImportSession=sourceImport,
-                    validationState="confirmed",
-                ),
+                )
+                for phase in ("inPossession", "outOfPossession")
+                for slotId, position, role, duty, y in (
+                    ("slot-z", "ST", "centreForward", "attack", 0.1),
+                    ("slot-a", "GK", "goalkeeper", "defend", 0.9),
+                    ("slot-m", "DC", "centreBack", "defend", 0.7),
+                )
             ],
             instructions=[],
         )

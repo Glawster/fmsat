@@ -12,7 +12,7 @@ from fmsat.database.models import (
     ObjectModelPositionInstruction,
     ObjectModelTactic,
     ObjectModelTransitionInstruction,
-    StructuredTacticDefinition,
+    ScreenshotDerivedTacticDefinition,
     Tactic as DatabaseTactic,
 )
 from fmsat.football.instruction import Instruction, InstructionSet, InstructionValue
@@ -38,9 +38,10 @@ class TacticModelLoadResult:
     complete: bool
     confirmed: bool
     metadata: dict[str, str] = field(default_factory=dict)
-    phaseSlots: dict[str, tuple[tuple[str, str, str, str, float, float, str | None], ...]] = field(
+    phaseSlots: dict[str, tuple[tuple[str, str, str, str, float, float], ...]] = field(
         default_factory=dict
     )
+    stale: bool = False
 
 
 class TacticModelLoader:
@@ -78,11 +79,12 @@ class TacticModelLoader:
                 .where(DatabaseTactic.normalizedName == cleanName.casefold())
                 .options(
                     selectinload(DatabaseTactic.structuredDefinition).selectinload(
-                        StructuredTacticDefinition.slots
+                        ScreenshotDerivedTacticDefinition.slots
                     ),
                     selectinload(DatabaseTactic.structuredDefinition).selectinload(
-                        StructuredTacticDefinition.issues
+                        ScreenshotDerivedTacticDefinition.issues
                     ),
+                    selectinload(DatabaseTactic.screenshots),
                 )
             )
             structuredMetadata, structuredSlots = self._structuredSnapshot(sourceTactic)
@@ -92,10 +94,13 @@ class TacticModelLoader:
                 .options(
                     selectinload(ObjectModelTactic.sourceTactic)
                     .selectinload(DatabaseTactic.structuredDefinition)
-                    .selectinload(StructuredTacticDefinition.slots),
+                    .selectinload(ScreenshotDerivedTacticDefinition.slots),
                     selectinload(ObjectModelTactic.sourceTactic)
                     .selectinload(DatabaseTactic.structuredDefinition)
-                    .selectinload(StructuredTacticDefinition.issues),
+                    .selectinload(ScreenshotDerivedTacticDefinition.issues),
+                    selectinload(ObjectModelTactic.sourceTactic).selectinload(
+                        DatabaseTactic.screenshots
+                    ),
                     selectinload(ObjectModelTactic.formations).selectinload(
                         ObjectModelFormation.positions
                     ),
@@ -116,14 +121,25 @@ class TacticModelLoader:
                 structuredMetadata, structuredSlots = self._structuredSnapshot(
                     objectModel.sourceTactic
                 )
+            sourceDefinition = (
+                objectModel.sourceTactic.structuredDefinition
+                if objectModel.sourceTactic is not None
+                else None
+            )
             return TacticModelLoadResult(
                 tactic=self._tacticFromObjectModel(objectModel),
                 source="objectModel",
                 issues=self._structuredIssues(objectModel.sourceTactic),
-                complete=True,
-                confirmed=True,
+                complete=(sourceDefinition.complete if sourceDefinition is not None else True),
+                confirmed=(
+                    sourceDefinition.confirmed if sourceDefinition is not None else True
+                ),
                 metadata=structuredMetadata,
-                phaseSlots=structuredSlots,
+                # The saved object model is authoritative for its formation.
+                # Latest extraction issues may be newer, but partial structured
+                # slots must not visually replace a retained model.
+                phaseSlots={},
+                stale=self._objectModelStale(objectModel),
             )
 
         built = self.structuredBuilder.tacticBuild(cleanName)
@@ -135,6 +151,20 @@ class TacticModelLoader:
             confirmed=built.confirmed,
             metadata=structuredMetadata,
             phaseSlots=structuredSlots,
+            stale=False,
+        )
+
+    @staticmethod
+    def _objectModelStale(model: ObjectModelTactic) -> bool:
+        """Return whether newer screenshot evidence exists than the saved model used."""
+
+        source = model.sourceTactic
+        if source is None or not source.screenshots:
+            return False
+        latestImportId = max(capture.importSessionId for capture in source.screenshots)
+        return (
+            model.sourceImportSessionId is None
+            or latestImportId > model.sourceImportSessionId
         )
 
     @staticmethod
@@ -191,6 +221,16 @@ class TacticModelLoader:
             role=role,
             roleProfile=profile,
             instructions=self._instructionSetBuild(model.instructions),
+            slotId=model.slotId,
+            duty=model.duty,
+            x=model.x,
+            y=model.y,
+            # Legacy rows may contain the player visible during screenshot
+            # capture. It is evidence, not a tactic-slot assignment.
+            player=None,
+            confidence=model.confidence,
+            sourceImportSessionId=model.sourceImportSessionId,
+            validationState=model.validationState,
         )
 
     def _tacticFromObjectModel(self, model: ObjectModelTactic) -> Tactic:
@@ -220,7 +260,7 @@ class TacticModelLoader:
         tactic: DatabaseTactic | None,
     ) -> tuple[
         dict[str, str],
-        dict[str, tuple[tuple[str, str, str, str, float, float, str | None], ...]],
+        dict[str, tuple[tuple[str, str, str, str, float, float], ...]],
     ]:
         """Return structured metadata and slots when persisted for this tactic."""
 
@@ -233,22 +273,21 @@ class TacticModelLoader:
             for key, value in definition.tacticMetadata.items()
             if isinstance(key, str) and isinstance(value, str)
         }
-        phaseSlots: dict[str, list[tuple[str, str, str, str, float, float, str | None]]] = {}
+        phaseSlots: dict[str, list[tuple[str, str, str, str, float, float]]] = {}
         for slot in sorted(
             definition.slots,
             key=lambda item: (item.phase.casefold(), item.slotId.casefold()),
         ):
-            if slot.position is None or slot.role is None or slot.duty is None:
+            if slot.position is None or slot.role is None:
                 continue
             phaseSlots.setdefault(slot.phase, []).append(
                 (
                     slot.slotId,
                     slot.position,
                     slot.role,
-                    slot.duty,
+                    slot.duty or "",
                     slot.x,
                     slot.y,
-                    slot.displayedPlayer,
                 )
             )
 

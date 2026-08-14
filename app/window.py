@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
+from datetime import datetime
 from pathlib import Path
+from typing import TypeVar
 
 import numpy as np
 from fmsat.core.logUtils import getLogger
-from PySide6.QtCore import QSignalBlocker, Qt, Signal
+from PySide6.QtCore import QEventLoop, QSignalBlocker, Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QCloseEvent, QColor, QImage, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
@@ -19,6 +23,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QProgressDialog,
+    QPlainTextEdit,
     QPushButton,
     QStackedWidget,
     QTableWidget,
@@ -29,6 +34,7 @@ from PySide6.QtWidgets import (
 )
 
 from fmsat.app.managementWindow import ManagementWindow
+from fmsat.app.screenshotWindow import ScreenshotWindow
 from fmsat.app.tacticDetailMapping import (
     tacticDetailIncompleteModelBuild,
     tacticDetailModelBuild,
@@ -36,7 +42,11 @@ from fmsat.app.tacticDetailMapping import (
 from fmsat.app.roleProfileDialog import RoleProfileReviewDialog
 from fmsat.app.tacticDetailView import TacticDetailView
 from fmsat.app.welcomeView import WelcomeService, WelcomeView
-from fmsat.core.builder.tacticModelLoader import TacticModelLoader
+from fmsat.core.builder.tacticBuilder import TacticBuildIssue
+from fmsat.core.builder.tacticModelLoader import (
+    TacticModelLoader,
+    TacticModelLoadResult,
+)
 from fmsat.core.builder.tacticScreenshotExtractor import TacticScreenshotExtractor
 from fmsat.core.builder.tacticStore import TacticStore
 from fmsat.core.config import AttributeDefinition
@@ -58,8 +68,10 @@ from fmsat.core.services import (
 )
 from fmsat.core.validation import PlayerValidator, SquadSanityReport
 from fmsat.database import Database, DatabaseError
+from fmsat.tactics.tactic import Tactic as ModelTactic
 
 logger = getLogger()
+ResultType = TypeVar("ResultType")
 
 
 class MainWindow(QMainWindow):
@@ -88,8 +100,21 @@ class MainWindow(QMainWindow):
         self.screenshotStore = screenshotStore
         self.roleKnowledgeService = roleKnowledgeService
         self.tacticVocabulary = tacticVocabulary
+        self.statusHistory: list[str] = []
+        self.tacticProcessStatuses: dict[str, str] = {}
+        self.tacticValidationOverrides: dict[str, TacticModelLoadResult] = {}
+        self.statusLogDialog: QDialog | None = None
+        self.ocrDiagnosticPaths: tuple[str, ...] = ()
+        self.ocrDiagnosticWindows: list[ScreenshotWindow] = []
         self.tacticModelLoader = TacticModelLoader(database.engine)
-        self.tacticScreenshotExtractor = TacticScreenshotExtractor(database.engine)
+        self.tacticScreenshotExtractor = TacticScreenshotExtractor(
+            database.engine,
+            roleDefinitionsProvider=(
+                roleKnowledgeService.definitionsList
+                if roleKnowledgeService is not None
+                else None
+            ),
+        )
         self.currentResult: ImportResult | None = None
         self.currentTactic: str | None = None
         self.currentSquad: str | None = None
@@ -105,6 +130,7 @@ class MainWindow(QMainWindow):
         self._toolbarCreate()
         self._contentCreate()
         self.dataChanged.connect(self.welcomeView.refresh)
+        self.statusBar().messageChanged.connect(self._statusRecord)
         self.statusBar().showMessage(
             "Ready — choose to Import a Tactic or Squad, or view Tactics or Squads "
             "from the Database."
@@ -316,22 +342,25 @@ class MainWindow(QMainWindow):
     ) -> None:
         """Process one stored tactic into the object model without new screenshots."""
 
-        progress = QProgressDialog("Processing tactic model...", None, 0, 6, self)
-        progress.setWindowTitle("Process Tactic")
-        progress.setWindowModality(Qt.WindowModality.WindowModal)
-        progress.setCancelButton(None)
-        progress.setMinimumDuration(0)
-        progress.setValue(0)
-        QApplication.processEvents()
+        logger.doing(
+            f"{'regenerating' if forceRebuild else 'processing'} tactic model {tacticName}"
+        )
+        progress = self._tacticProgressCreate()
+        unresolvedRoles: tuple[str, ...] = ()
+        normalizedTacticName = tacticName.casefold()
+        if forceRebuild:
+            self.tacticValidationOverrides.pop(normalizedTacticName, None)
+        progress.show()
+        self._progressUpdate(progress, "Loading saved tactic data...", 0)
         try:
-            progress.setLabelText("Loading saved tactic data...")
             loadResult = self.tacticModelLoader.tacticLoad(tacticName)
-            progress.setValue(1)
-            QApplication.processEvents()
+            logger.info(f"loaded tactic source: {loadResult.source}")
+            logger.value("loaded tactic issues", len(getattr(loadResult, "issues", ())))
+            self._progressUpdate(progress, "Loaded saved tactic data.", 1)
 
             if loadResult.source == "objectModel" and not forceRebuild:
-                progress.setLabelText("Tactic model already available.")
-                progress.setValue(4)
+                self._progressUpdate(progress, "Tactic model already available.", 4)
+                logger.info(f"existing tactic model retained for {tacticName}")
                 self.statusBar().showMessage(
                     f"{tacticName} is already processed into the tactic model.",
                     8000,
@@ -341,42 +370,114 @@ class MainWindow(QMainWindow):
                 return
 
             if forceRebuild:
-                progress.setLabelText("Regenerating structured data from saved captures...")
-                extraction = self.tacticScreenshotExtractor.tacticExtract(tacticName)
-                progress.setValue(2)
-                QApplication.processEvents()
+                self._progressUpdate(
+                    progress,
+                    "Regenerating structured data from saved captures...",
+                    2,
+                )
+                self._progressBusy(progress, "Reading screenshot evidence with OCR...")
+                extraction = self._backgroundRun(
+                    lambda: self.tacticScreenshotExtractor.tacticExtract(tacticName)
+                )
+                unresolvedRoles = tuple(getattr(extraction, "unresolvedRoles", ()))
+                self._ocrDiagnosticsCapture(extraction)
+                self._progressRestore(progress, "Screenshot extraction finished.", 3)
+                logger.info(
+                    f"regeneration extraction result: created={extraction.structuredCreated}, "
+                    f"complete={extraction.complete}, "
+                    f"captures={getattr(extraction, 'screenshotCount', 'unknown')}"
+                )
                 if not extraction.structuredCreated:
-                    self.statusBar().showMessage(
+                    logger.info(f"regeneration stopped: {extraction.message}")
+                    self._regenerationFailed(
+                        tacticName,
                         f"Unable to regenerate {tacticName}: {extraction.message}",
-                        12000,
                     )
                     if openDetail:
                         self.tacticShow(tacticName)
                     return
 
-                progress.setLabelText("Building tactic model from regenerated data...")
+                # A failed regeneration remains useful screenshot-derived
+                # evidence, but it must never replace the current saved model.
+                if not extraction.complete:
+                    logger.info("regeneration stopped by incomplete extraction integrity gate")
+                    self.tacticValidationOverrides[normalizedTacticName] = (
+                        self.tacticModelLoader.tacticLoad(
+                            tacticName,
+                            preferStructured=True,
+                        )
+                    )
+                    self._regenerationFailed(
+                        tacticName,
+                        f"Regeneration incomplete for {tacticName}; existing model retained.",
+                    )
+                    if openDetail:
+                        self.tacticShow(tacticName)
+                    return
+
+                self._progressUpdate(
+                    progress,
+                    "Building tactic model from regenerated data...",
+                    3,
+                )
                 loadResult = self.tacticModelLoader.tacticLoad(tacticName, preferStructured=True)
-                progress.setValue(4)
-                QApplication.processEvents()
+                self._progressUpdate(progress, "Built regenerated tactic model.", 4)
                 if loadResult.tactic is None:
-                    self.statusBar().showMessage(
+                    logger.info("regeneration stopped because model build returned no tactic")
+                    self.tacticValidationOverrides[normalizedTacticName] = loadResult
+                    self._regenerationFailed(
+                        tacticName,
                         f"Regeneration finished for {tacticName}, but model build still failed.",
-                        12000,
+                    )
+                    if openDetail:
+                        self.tacticShow(tacticName)
+                    return
+                if not self._generatedModelValid(loadResult.tactic):
+                    logger.info("regeneration stopped by generated-model integrity gate")
+                    integrityIssues = tuple(
+                        TacticBuildIssue("generatedModelIntegrity", message)
+                        for message in self._generatedModelIntegrityIssues(loadResult.tactic)
+                    )
+                    loadResult = replace(
+                        loadResult,
+                        issues=(*loadResult.issues, *integrityIssues),
+                        complete=False,
+                        confirmed=False,
+                    )
+                    self.tacticValidationOverrides[normalizedTacticName] = loadResult
+                    self._regenerationFailed(
+                        tacticName,
+                        f"Regeneration invalid for {tacticName}; existing model retained.",
                     )
                     if openDetail:
                         self.tacticShow(tacticName)
                     return
 
             if not forceRebuild:
-                progress.setLabelText("Building tactic model from structured data...")
-                progress.setValue(2)
-                QApplication.processEvents()
+                self._progressUpdate(
+                    progress,
+                    "Building tactic model from structured data...",
+                    2,
+                )
 
             if loadResult.tactic is None and not forceRebuild:
-                progress.setLabelText("Extracting structured data from saved captures...")
-                extraction = self.tacticScreenshotExtractor.tacticExtract(tacticName)
-                progress.setValue(3)
-                QApplication.processEvents()
+                self._progressUpdate(
+                    progress,
+                    "Extracting structured data from saved captures...",
+                    3,
+                )
+                self._progressBusy(progress, "Reading screenshot evidence with OCR...")
+                extraction = self._backgroundRun(
+                    lambda: self.tacticScreenshotExtractor.tacticExtract(tacticName)
+                )
+                unresolvedRoles = tuple(getattr(extraction, "unresolvedRoles", ()))
+                self._ocrDiagnosticsCapture(extraction)
+                self._progressRestore(progress, "Screenshot extraction finished.", 4)
+                logger.info(
+                    f"processing extraction result: created={extraction.structuredCreated}, "
+                    f"complete={extraction.complete}, "
+                    f"captures={getattr(extraction, 'screenshotCount', 'unknown')}"
+                )
                 if not extraction.structuredCreated:
                     self.statusBar().showMessage(
                         f"Unable to process {tacticName}: {extraction.message}",
@@ -385,10 +486,16 @@ class MainWindow(QMainWindow):
                     if openDetail:
                         self.tacticShow(tacticName)
                     return
-                progress.setLabelText("Reloading structured model...")
+                if not extraction.complete:
+                    self.statusBar().showMessage(
+                        f"Processing incomplete for {tacticName}; no model was saved.",
+                        15000,
+                    )
+                    if openDetail:
+                        self.tacticShow(tacticName)
+                    return
+                self._progressUpdate(progress, "Reloading structured model...", 4)
                 loadResult = self.tacticModelLoader.tacticLoad(tacticName)
-                progress.setValue(4)
-                QApplication.processEvents()
                 if loadResult.tactic is None:
                     self.statusBar().showMessage(
                         f"Processing {tacticName} created structured data but model build still failed.",
@@ -397,12 +504,21 @@ class MainWindow(QMainWindow):
                     if openDetail:
                         self.tacticShow(tacticName)
                     return
+                if not self._generatedModelValid(loadResult.tactic):
+                    self.statusBar().showMessage(
+                        f"Processing invalid for {tacticName}; no model was saved.",
+                        15000,
+                    )
+                    if openDetail:
+                        self.tacticShow(tacticName)
+                    return
 
-            progress.setLabelText("Saving tactic model...")
-            progress.setValue(5)
-            QApplication.processEvents()
+            self._progressUpdate(progress, "Saving tactic model...", 5)
             TacticStore(self.database.engine).tacticSave(loadResult.tactic)
-            progress.setValue(6)
+            self.tacticProcessStatuses.pop(tacticName.casefold(), None)
+            self.tacticValidationOverrides.pop(tacticName.casefold(), None)
+            self._progressUpdate(progress, "Tactic model saved.", 6)
+            logger.done(f"tactic model saved for {tacticName}")
 
             self.statusBar().showMessage(
                 (
@@ -416,9 +532,163 @@ class MainWindow(QMainWindow):
             if openDetail:
                 self.tacticShow(tacticName)
         except Exception as exc:
+            logger.exception(f"tactic processing failed for {tacticName}")
+            if forceRebuild:
+                self.tacticProcessStatuses[tacticName.casefold()] = "Regeneration failed"
             self._errorShow("Tactic processing error", str(exc))
         finally:
             progress.close()
+            if openDetail and unresolvedRoles:
+                self._unresolvedRolesOffer(unresolvedRoles)
+
+    def _unresolvedRolesOffer(self, roles: tuple[str, ...]) -> None:
+        """Ask whether the user wants to define observed, unknown role labels."""
+
+        labels = ", ".join(roles)
+        logger.info(f"role definitions required for observed labels: {labels}")
+        self.statusBar().showMessage(
+            f"Role definition required for: {labels}. "
+            "Observed roles were retained provisionally.",
+            15000,
+        )
+        message = QMessageBox(self)
+        message.setWindowTitle("Role definition required")
+        message.setIcon(QMessageBox.Icon.Question)
+        message.setText("The tactic contains role labels that FMSAT does not recognise.")
+        message.setInformativeText(
+            f"Observed: {labels}\n\n"
+            "They have been retained provisionally in the tactic model. "
+            "Would you like to import a role definition now?"
+        )
+        defineButton = message.addButton("Define role", QMessageBox.ButtonRole.AcceptRole)
+        message.addButton("Later", QMessageBox.ButtonRole.RejectRole)
+        message.exec()
+        if message.clickedButton() is defineButton:
+            QTimer.singleShot(0, self.roleProfileImport)
+
+    def _tacticProgressCreate(self) -> QProgressDialog:
+        """Create an opaque, readable progress dialog owned by the main window."""
+
+        progress = QProgressDialog("Processing tactic model...", None, 0, 6, self)
+        progress.setObjectName("tacticProgressDialog")
+        progress.setWindowTitle("Process Tactic")
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setCancelButton(None)
+        progress.setMinimumDuration(0)
+        progress.setAutoClose(False)
+        progress.setAutoReset(False)
+        progress.setMinimumWidth(560)
+        progress.setMinimumHeight(140)
+        progress.resize(560, 140)
+        progress.setStyleSheet(
+            "QProgressDialog#tacticProgressDialog { background-color: #101f2e; "
+            "color: #e8eef5; } "
+            "QProgressDialog#tacticProgressDialog QLabel { background: transparent; "
+            "color: #e8eef5; font-size: 14px; font-weight: 600; "
+            "padding: 12px 10px; min-height: 34px; } "
+            "QProgressDialog#tacticProgressDialog QProgressBar { "
+            "background-color: #08131f; color: #e8eef5; border: 1px solid #30465a; "
+            "border-radius: 7px; min-height: 24px; text-align: center; } "
+            "QProgressDialog#tacticProgressDialog QProgressBar::chunk { "
+            "background-color: #31b98f; border-radius: 6px; }"
+        )
+        return progress
+
+    def _backgroundRun(self, action: Callable[[], ResultType]) -> ResultType:
+        """Run blocking extraction while the Qt interface continues processing events."""
+
+        logger.doing("running tactic extraction worker")
+        with ThreadPoolExecutor(
+            max_workers=1,
+            thread_name_prefix="tactic-extraction",
+        ) as executor:
+            future = executor.submit(action)
+            loop = QEventLoop(self)
+            completionPoll = QTimer(self)
+            completionPoll.setInterval(50)
+            completionPoll.timeout.connect(
+                lambda: loop.quit() if future.done() else None
+            )
+            completionPoll.start()
+            loop.exec()
+            completionPoll.stop()
+            result = future.result()
+        logger.done("tactic extraction worker finished")
+        return result
+
+    @staticmethod
+    def _progressBusy(progress: QProgressDialog, message: str) -> None:
+        """Show animated indeterminate progress during variable-duration OCR work."""
+
+        logger.info(f"tactic progress busy: {message}")
+        progress.setLabelText(message)
+        progress.setRange(0, 0)
+        progress.repaint()
+        QApplication.processEvents()
+
+    @staticmethod
+    def _progressRestore(
+        progress: QProgressDialog,
+        message: str,
+        value: int,
+    ) -> None:
+        """Restore the six-stage progress range after indeterminate OCR work."""
+
+        progress.setRange(0, 6)
+        MainWindow._progressUpdate(progress, message, value)
+
+    @staticmethod
+    def _progressUpdate(
+        progress: QProgressDialog,
+        message: str,
+        value: int,
+    ) -> None:
+        """Paint one progress step before a potentially blocking operation."""
+
+        logger.info(f"tactic progress {value}/{progress.maximum()}: {message}")
+        progress.setLabelText(message)
+        progress.setValue(value)
+        progress.adjustSize()
+        if progress.width() < 560 or progress.height() < 140:
+            progress.resize(max(560, progress.width()), max(140, progress.height()))
+        progress.repaint()
+        QApplication.processEvents()
+
+    @staticmethod
+    def _generatedModelValid(tactic: ModelTactic) -> bool:
+        """Return whether a generated tactic is safe to persist as the usable model."""
+
+        return not MainWindow._generatedModelIntegrityIssues(tactic)
+
+    @staticmethod
+    def _generatedModelIntegrityIssues(tactic: ModelTactic) -> tuple[str, ...]:
+        """Describe every reason a generated tactic cannot replace the saved model."""
+
+        issues: list[str] = []
+        for phase, formation in (
+            ("In Possession", tactic.inPossession),
+            ("Out Of Possession", tactic.outOfPossession),
+        ):
+            if len(formation.positions) != 11:
+                issues.append(
+                    f"{phase} generated {len(formation.positions)} positions; 11 are required"
+                )
+            for position in formation.positions:
+                missing = []
+                if not position.slotId:
+                    missing.append("slot ID")
+                if position.x is None or position.y is None:
+                    missing.append("coordinates")
+                if position.confidence is None:
+                    missing.append("confidence")
+                if position.sourceImportSessionId is None:
+                    missing.append("source screenshot")
+                if missing:
+                    issues.append(
+                        f"{phase} slot {position.slotId or '<unknown>'} lacks "
+                        + ", ".join(missing)
+                    )
+        return tuple(issues)
 
     def _tacticImportRun(self, tacticName: str | None = None) -> None:
         """Run tactic import flow, optionally anchored to a known tactic name."""
@@ -506,6 +776,7 @@ class MainWindow(QMainWindow):
                 self._errorShow("Database error", str(exc))
                 return
             captured.add(result.screenType)
+            self.tacticProcessStatuses.pop(tacticName.casefold(), None)
             remaining = requirementsToImport[index + 1 :]
             outstanding = [item for item in tacticRequirements if item.screenType not in captured]
             if remaining:
@@ -636,24 +907,6 @@ class MainWindow(QMainWindow):
         if not accepted:
             return
         role = roleLabels[selected]
-        expectedPosition = ""
-        if role is None:
-            # New roles are not anchored to a canonical role yet, so ask for
-            # the expected tactical position to guide review defaults.
-            positions = sorted(
-                set(self.tacticVocabulary.positions.values()),
-                key=WelcomeService.positionSortKey,
-            )
-            expectedPosition, accepted = QInputDialog.getItem(
-                self,
-                "Expected position",
-                "Choose the position shown in Football Manager:",
-                positions,
-                0,
-                False,
-            )
-            if not accepted:
-                return
         replaceExisting = (
             self.roleKnowledgeService.definitionExists(role.code) if role is not None else False
         )
@@ -661,7 +914,7 @@ class MainWindow(QMainWindow):
         if result is None or result.roleProfile is None:
             return
         normalizedPosition = self.tacticVocabulary.positionNormalize(result.roleProfile.position)
-        if role is not None and not normalizedPosition.resolved:
+        if not normalizedPosition.resolved:
             self._errorShow(
                 "Role unavailable",
                 "The imported role profile does not contain a recognized position.",
@@ -677,7 +930,7 @@ class MainWindow(QMainWindow):
         evidence = replace(result.roleProfile, sourceImport=str(screenshotPath))
         dialog = RoleProfileReviewDialog(
             evidence,
-            expectedPosition or normalizedPosition.value,
+            normalizedPosition.value,
             expectedRole,
             self.roleKnowledgeService,
             self,
@@ -708,6 +961,10 @@ class MainWindow(QMainWindow):
             self._errorShow("Database error", str(exc))
             return
         loadResult = self.tacticModelLoader.tacticLoad(tacticName)
+        validationResult = self.tacticValidationOverrides.get(
+            tacticName.casefold(),
+            loadResult,
+        )
         if loadResult.tactic is None:
             reason = "; ".join(issue.message for issue in loadResult.issues) or "No model data"
             detailModel = tacticDetailIncompleteModelBuild(
@@ -720,7 +977,7 @@ class MainWindow(QMainWindow):
                 tacticName,
                 detailModel,
                 sourceLabel="Incomplete Data",
-                validation=loadResult,
+                validation=validationResult,
             )
             self.contentStack.setCurrentWidget(self.tacticDetailView)
             self.statusBar().showMessage(
@@ -737,13 +994,21 @@ class MainWindow(QMainWindow):
             phaseSlots=loadResult.phaseSlots,
             assignedSquads=detailRecord.assignedSquads if detailRecord is not None else (),
             updatedAt=detailRecord.updatedAt if detailRecord is not None else None,
+            regenerationRequired=loadResult.stale,
+            statusOverride=self.tacticProcessStatuses.get(tacticName.casefold()),
         )
-        sourceLabel = "Saved Tactic Model" if loadResult.source == "objectModel" else "Built Model"
+        sourceLabel = (
+            "Regeneration Required"
+            if loadResult.stale
+            else "Saved Tactic Model"
+            if loadResult.source == "objectModel"
+            else "Built Model"
+        )
         self.tacticDetailView.tacticShow(
             loadResult.tactic.name,
             detailModel,
             sourceLabel=sourceLabel,
-            validation=loadResult,
+            validation=validationResult,
         )
         self.contentStack.setCurrentWidget(self.tacticDetailView)
 
@@ -976,6 +1241,11 @@ class MainWindow(QMainWindow):
         self.rolesAction.triggered.connect(self.rolesShow)
         self.settingsAction = QAction("Settings", self)
         self.settingsAction.triggered.connect(self.settingsShow)
+        self.statusLogAction = QAction("Show Status Log", self)
+        self.statusLogAction.triggered.connect(self.statusLogShow)
+        self.ocrDiagnosticsAction = QAction("Show OCR Zones", self)
+        self.ocrDiagnosticsAction.setEnabled(False)
+        self.ocrDiagnosticsAction.triggered.connect(self.ocrDiagnosticsShow)
         self.saveAction = QAction("Save Confirmed Data", self)
         self.saveAction.setShortcut("Ctrl+S")
         self.saveAction.setEnabled(False)
@@ -1215,6 +1485,79 @@ class MainWindow(QMainWindow):
         viewMenu.addAction(self.rolesAction)
         viewMenu.addAction(self.playersAction)
         viewMenu.addAction(self.settingsAction)
+        viewMenu.addSeparator()
+        viewMenu.addAction(self.statusLogAction)
+        viewMenu.addAction(self.ocrDiagnosticsAction)
+
+    def _regenerationFailed(self, tacticName: str, message: str) -> None:
+        """Retain a failed regeneration state after its status message expires."""
+
+        self.tacticProcessStatuses[tacticName.casefold()] = "Regeneration failed"
+        self.statusBar().showMessage(message, 15000)
+
+    def _statusRecord(self, message: str) -> None:
+        """Record non-empty status messages newest-first for the current session."""
+
+        cleanMessage = message.strip()
+        if not cleanMessage:
+            return
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        entry = f"{timestamp}  {cleanMessage}"
+        if self.statusHistory and self.statusHistory[0] == entry:
+            return
+        self.statusHistory.insert(0, entry)
+        logger.info("status: %s", cleanMessage)
+
+    def statusLogShow(self) -> None:
+        """Show the session's status-bar history with the newest item first."""
+
+        if self.statusLogDialog is None:
+            dialog = QDialog(self)
+            dialog.setObjectName("statusLogDialog")
+            dialog.setWindowTitle("FMSAT Status Log")
+            dialog.resize(820, 480)
+            layout = QVBoxLayout(dialog)
+            heading = QLabel("Status messages — most recent first")
+            heading.setObjectName("pageTitle")
+            layout.addWidget(heading)
+            content = QPlainTextEdit(dialog)
+            content.setObjectName("statusLogContent")
+            content.setReadOnly(True)
+            layout.addWidget(content, 1)
+            closeButton = QPushButton("Close", dialog)
+            closeButton.clicked.connect(dialog.close)
+            layout.addWidget(closeButton, 0, Qt.AlignmentFlag.AlignRight)
+            self.statusLogDialog = dialog
+        content = self.statusLogDialog.findChild(QPlainTextEdit, "statusLogContent")
+        if content is not None:
+            content.setPlainText("\n".join(self.statusHistory) or "No status messages recorded.")
+        self.statusLogDialog.show()
+        self.statusLogDialog.raise_()
+        self.statusLogDialog.activateWindow()
+
+    def _ocrDiagnosticsCapture(self, extraction) -> None:  # type: ignore[no-untyped-def]
+        """Retain and expose annotated OCR references produced by extraction."""
+
+        self.ocrDiagnosticPaths = tuple(
+            path
+            for path in getattr(extraction, "diagnosticPaths", ())
+            if Path(path).is_file()
+        )
+        self.ocrDiagnosticsAction.setEnabled(bool(self.ocrDiagnosticPaths))
+        logger.value("OCR diagnostic images", len(self.ocrDiagnosticPaths))
+
+    def ocrDiagnosticsShow(self) -> None:
+        """Open the latest annotated extraction images in zoomable viewers."""
+
+        self.ocrDiagnosticWindows = [
+            window for window in self.ocrDiagnosticWindows if window.isVisible()
+        ]
+        for pathValue in self.ocrDiagnosticPaths:
+            viewer = ScreenshotWindow.pathOpen(pathValue, self)
+            if viewer is None:
+                continue
+            viewer.setWindowTitle(f"FMSAT OCR zones — {Path(pathValue).name}")
+            self.ocrDiagnosticWindows.append(viewer)
 
     def _managementForget(self) -> None:
         self.dataChanged.emit()

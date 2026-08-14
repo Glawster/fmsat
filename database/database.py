@@ -8,7 +8,7 @@ from pathlib import Path
 
 from fmsat.core.logUtils import getLogger
 from sqlalchemy import create_engine as createEngine
-from sqlalchemy import select
+from sqlalchemy import inspect, select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, selectinload, sessionmaker
 
@@ -62,9 +62,51 @@ class Database:
 
         try:
             Base.metadata.create_all(self.engine)
+            self._objectModelPositionColumnsAdd()
+            self._objectModelTacticColumnsAdd()
             logger.info("database initialized path=%s", self.path)
         except SQLAlchemyError as exc:
             raise DatabaseError(f"Unable to create database tables: {exc}") from exc
+
+    def _objectModelPositionColumnsAdd(self) -> None:
+        """Add evidence columns to existing SQLite databases in place."""
+
+        tableName = "object_model_positions"
+        inspector = inspect(self.engine)
+        if tableName not in inspector.get_table_names():
+            return
+        existing = {column["name"] for column in inspector.get_columns(tableName)}
+        additions = {
+            "slot_id": "VARCHAR(100)",
+            "duty": "VARCHAR(32)",
+            "x": "FLOAT",
+            "y": "FLOAT",
+            "displayed_player": "VARCHAR(255)",
+            "confidence": "FLOAT",
+            "source_import_session_id": "INTEGER REFERENCES import_sessions(id)",
+            "validation_state": "VARCHAR(32) NOT NULL DEFAULT 'unresolved'",
+        }
+        with self.engine.begin() as connection:
+            for name, sqlType in additions.items():
+                if name not in existing:
+                    connection.execute(
+                        text(f"ALTER TABLE {tableName} ADD COLUMN {name} {sqlType}")
+                    )
+
+    def _objectModelTacticColumnsAdd(self) -> None:
+        """Add the capture high-water mark used for model freshness checks."""
+
+        tableName = "object_model_tactics"
+        inspector = inspect(self.engine)
+        if tableName not in inspector.get_table_names():
+            return
+        existing = {column["name"] for column in inspector.get_columns(tableName)}
+        if "source_import_session_id" not in existing:
+            with self.engine.begin() as connection:
+                connection.execute(text(
+                    "ALTER TABLE object_model_tactics ADD COLUMN "
+                    "source_import_session_id INTEGER REFERENCES import_sessions(id)"
+                ))
 
     def importSave(
         self,

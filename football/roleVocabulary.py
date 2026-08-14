@@ -15,11 +15,17 @@ class RoleVocabulary:
     def identityResolve(cls, *candidates: str) -> RoleIdentity | None:
         """Resolve one role identity from any number of candidate strings."""
 
+        explicitAliases = {
+            "fullback": RoleIdentity.WB,
+            "fb": RoleIdentity.WB,
+        }
         # Prefer explicit enum-like tokens first (for example "DLP", "WB", "GK").
         for candidate in candidates:
             normalized = cls.normalize(candidate)
             if not normalized:
                 continue
+            if normalized in explicitAliases:
+                return explicitAliases[normalized]
             direct = cls._identityFromToken(normalized)
             if direct is not None:
                 return direct
@@ -62,7 +68,7 @@ class RoleVocabulary:
         # "BPGK"). Map these to the most specific known enum token by prefix
         # or suffix without maintaining a static alias table.
         candidates = sorted(
-            (identity for identity in RoleIdentity),
+            (identity for identity in RoleIdentity if identity is not RoleIdentity.UNRESOLVED),
             key=lambda item: len(cls.normalize(item.value)),
             reverse=True,
         )

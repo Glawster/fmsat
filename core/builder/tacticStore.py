@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from fmsat.core.logUtils import getLogger
 from fmsat.database.models import (
     ObjectModelFormation,
     ObjectModelFormationInstruction,
@@ -19,6 +20,8 @@ from fmsat.tactics.position import Position
 from fmsat.tactics.tactic import Tactic
 from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session
+
+logger = getLogger()
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +50,7 @@ class TacticStore:
         if not cleanName:
             raise ValueError("Tactic name is required")
         normalizedName = cleanName.casefold()
+        logger.doing(f"saving tactic object model for {cleanName}")
 
         with Session(self.engine) as session, session.begin():
             sourceTactic = session.scalar(
@@ -57,6 +61,7 @@ class TacticStore:
             )
 
             replacedExisting = stored is not None
+            logger.value("replacing existing tactic object model", replacedExisting)
             if stored is None:
                 stored = ObjectModelTactic(
                     name=cleanName,
@@ -74,10 +79,26 @@ class TacticStore:
                 session.flush()
 
             stored.sourceTactic = sourceTactic
+            stored.sourceImportSessionId = (
+                max(
+                    (capture.importSessionId for capture in sourceTactic.screenshots),
+                    default=None,
+                )
+                if sourceTactic is not None
+                else None
+            )
             self._formationStore(stored, "inPossession", tactic.inPossession)
             self._formationStore(stored, "outOfPossession", tactic.outOfPossession)
             self._transitionStore(stored, tactic)
             session.flush()
+
+            logger.info(
+                f"stored tactic model: {len(tactic.inPossession.positions)} "
+                "in-possession positions, "
+                f"{len(tactic.outOfPossession.positions)} out-of-possession positions, "
+                f"{len(tactic.inPossession.instructions)} in-possession instructions, "
+                f"{len(tactic.outOfPossession.instructions)} out-of-possession instructions"
+            )
 
             return TacticStoreResult(
                 tacticId=stored.id,
@@ -122,6 +143,16 @@ class TacticStore:
             roleIdentity=position.role.identity.value,
             roleProfileName=position.roleProfile.name,
             roleProfileDescription=position.roleProfile.description,
+            slotId=position.slotId,
+            duty=position.duty,
+            x=position.x,
+            y=position.y,
+            # Player mappings belong to explicit squad assignments, not the
+            # reusable tactic definition persisted here.
+            displayedPlayer=None,
+            confidence=position.confidence,
+            sourceImportSessionId=position.sourceImportSessionId,
+            validationState=position.validationState,
         )
         storedPosition.instructions.extend(
             ObjectModelPositionInstruction(

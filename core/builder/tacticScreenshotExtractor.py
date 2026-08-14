@@ -2,14 +2,25 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from pathlib import Path
 
+import cv2
+
+from fmsat.core.config import Configuration
 from fmsat.core.detection import ScreenType
+from fmsat.core.logUtils import getLogger
 from fmsat.core.ocr import OcrEngine, PaddleOcrEngine
-from fmsat.core.parser import TacticVocabulary
+from fmsat.core.parser import (
+    TacticalPhase,
+    TacticFormationExtractor,
+    TacticInstructionExtractor,
+    TacticVocabulary,
+)
 from fmsat.database.models import (
+    ScreenshotDerivedTacticDefinition,
     StructuredFormationSlot,
-    StructuredTacticDefinition,
     StructuredTacticIssue,
     StructuredTeamInstruction,
     Tactic,
@@ -19,6 +30,8 @@ from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session, selectinload
 
 from .tacticMetadataExtractor import TacticMetadataExtractor
+
+logger = getLogger()
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,48 +43,36 @@ class TacticScreenshotExtractResult:
     structuredCreated: bool
     complete: bool
     message: str
+    diagnosticPaths: tuple[str, ...] = ()
+    unresolvedRoles: tuple[str, ...] = ()
 
 
 class TacticScreenshotExtractor:
     """Extract structured tactic rows from existing persisted screenshot records.
 
-    This implementation intentionally uses deterministic template fallback data
-    so existing screenshot-only tactics can be promoted into the structured
-    model pipeline without requiring re-capture.
+    Only values directly observed by an implemented extractor are persisted.
+    Missing or ambiguous extraction coverage is recorded as unresolved issues
+    rather than being filled with formation templates or neutral defaults.
     """
 
-    _FORMATION_TEMPLATE = (
-        ("01", "GK", "goalkeeper", "defend", 0.50, 0.90),
-        ("02", "WBL", "wingBack", "support", 0.14, 0.66),
-        ("03", "DC", "centreBack", "defend", 0.40, 0.74),
-        ("04", "DC", "centreBack", "defend", 0.60, 0.74),
-        ("05", "WBR", "wingBack", "support", 0.86, 0.66),
-        ("06", "DM", "defensiveMidfielder", "defend", 0.50, 0.55),
-        ("07", "MC", "centralMidfielder", "support", 0.40, 0.47),
-        ("08", "MC", "centralMidfielder", "support", 0.60, 0.47),
-        ("09", "AML", "insideForward", "support", 0.22, 0.30),
-        ("10", "AMR", "insideForward", "support", 0.78, 0.30),
-        ("11", "ST", "centreForward", "attack", 0.50, 0.12),
-    )
-
-    _OUT_OF_POSSESSION_TEMPLATE = (
-        ("01", "GK", "goalkeeper", "defend", 0.50, 0.91),
-        ("02", "DL", "wingBack", "support", 0.18, 0.73),
-        ("03", "DC", "centreBack", "defend", 0.40, 0.75),
-        ("04", "DC", "centreBack", "defend", 0.60, 0.75),
-        ("05", "DR", "wingBack", "support", 0.82, 0.73),
-        ("06", "ML", "winger", "support", 0.24, 0.50),
-        ("07", "MC", "centralMidfielder", "support", 0.44, 0.52),
-        ("08", "MC", "centralMidfielder", "support", 0.56, 0.52),
-        ("09", "MR", "winger", "support", 0.76, 0.50),
-        ("10", "AMC", "attackingMidfielder", "support", 0.50, 0.34),
-        ("11", "ST", "centreForward", "attack", 0.50, 0.14),
-    )
-
-    def __init__(self, engine: Engine, ocr: OcrEngine | None = None) -> None:
+    def __init__(
+        self,
+        engine: Engine,
+        ocr: OcrEngine | None = None,
+        roleDefinitionsProvider: Callable[[], Iterable[object]] | None = None,
+    ) -> None:
         self.engine = engine
+        self.ocr = ocr or PaddleOcrEngine()
+        self.roleDefinitionsProvider = roleDefinitionsProvider
+        configuration = Configuration().tacticExtraction
         self.vocabulary = TacticVocabulary()
-        self.metadataExtractor = TacticMetadataExtractor(ocr or PaddleOcrEngine())
+        self.metadataExtractor = TacticMetadataExtractor(self.ocr)
+        self.formationExtractor = TacticFormationExtractor(
+            self.ocr, self.vocabulary, configuration
+        )
+        self.instructionExtractor = TacticInstructionExtractor(
+            self.ocr, self.vocabulary, configuration
+        )
 
     ## tactic
 
@@ -79,7 +80,10 @@ class TacticScreenshotExtractor:
         """Create or replace one tactic's structured rows from saved captures."""
 
         cleanName = tacticName.strip()
+        logger.doing(f"extracting tactic screenshots for {cleanName or '<empty>'}")
+        self._capturedRolesRefresh()
         if not cleanName:
+            logger.info("tactic extraction stopped because the name is empty")
             return TacticScreenshotExtractResult(
                 tacticName=tacticName,
                 screenshotCount=0,
@@ -88,6 +92,7 @@ class TacticScreenshotExtractor:
                 message="Tactic name is empty",
             )
 
+        diagnosticPaths: list[str] = []
         with Session(self.engine) as session, session.begin():
             tactic = session.scalar(
                 select(Tactic)
@@ -95,17 +100,18 @@ class TacticScreenshotExtractor:
                 .options(
                     selectinload(Tactic.screenshots).selectinload(TacticScreenshot.importSession),
                     selectinload(Tactic.structuredDefinition).selectinload(
-                        StructuredTacticDefinition.slots
+                        ScreenshotDerivedTacticDefinition.slots
                     ),
                     selectinload(Tactic.structuredDefinition).selectinload(
-                        StructuredTacticDefinition.instructions
+                        ScreenshotDerivedTacticDefinition.instructions
                     ),
                     selectinload(Tactic.structuredDefinition).selectinload(
-                        StructuredTacticDefinition.issues
+                        ScreenshotDerivedTacticDefinition.issues
                     ),
                 )
             )
             if tactic is None:
+                logger.info(f"tactic extraction stopped because {cleanName} was not found")
                 return TacticScreenshotExtractResult(
                     tacticName=cleanName,
                     screenshotCount=0,
@@ -115,7 +121,9 @@ class TacticScreenshotExtractor:
                 )
 
             screenshots = list(tactic.screenshots)
+            logger.value("saved tactic screenshots", len(screenshots))
             if not screenshots:
+                logger.info(f"tactic extraction stopped because {tactic.name} has no captures")
                 return TacticScreenshotExtractResult(
                     tacticName=tactic.name,
                     screenshotCount=0,
@@ -132,21 +140,15 @@ class TacticScreenshotExtractor:
                 if screenshot.screenType in ScreenType._value2member_map_:
                     byType[ScreenType(screenshot.screenType)] = screenshot
 
-            required = {
-                ScreenType.TACTIC_FORMATION,
-                ScreenType.TACTIC_IN_POSSESSION,
-                ScreenType.TACTIC_OUT_OF_POSSESSION,
-            }
-            complete = required.issubset(byType.keys())
             metadata, metadataIssues = self._metadataExtract(byType)
+            logger.value("extracted tactic metadata fields", len(metadata))
+            logger.value("tactic metadata issues", len(metadataIssues))
 
             if tactic.structuredDefinition is None:
-                definition = StructuredTacticDefinition(
+                definition = ScreenshotDerivedTacticDefinition(
                     confirmed=False,
-                    complete=complete,
+                    complete=False,
                     tacticMetadata={
-                        "inPossessionName": "inPossession",
-                        "outOfPossessionName": "outOfPossession",
                         "source": "storedScreenshots",
                         **metadata,
                     },
@@ -155,10 +157,8 @@ class TacticScreenshotExtractor:
             else:
                 definition = tactic.structuredDefinition
                 definition.confirmed = False
-                definition.complete = complete
+                definition.complete = False
                 definition.tacticMetadata = {
-                    "inPossessionName": "inPossession",
-                    "outOfPossessionName": "outOfPossession",
                     "source": "storedScreenshots",
                     **metadata,
                 }
@@ -169,8 +169,6 @@ class TacticScreenshotExtractor:
                 definition.issues.clear()
                 session.flush()
 
-            self._slotsBuild(definition, byType)
-            self._instructionsBuild(definition, byType)
             for message in metadataIssues:
                 definition.issues.append(
                     StructuredTacticIssue(
@@ -178,23 +176,43 @@ class TacticScreenshotExtractor:
                         message=message,
                     )
                 )
-            definition.issues.append(
-                StructuredTacticIssue(
-                    code="templateExtraction",
-                    message=(
-                        "Structured rows were generated from stored captures using "
-                        "template fallback extraction."
-                    ),
-                )
-            )
+            self._formationBuild(definition, byType, diagnosticPaths)
+            logger.value("extracted formation slots", len(definition.slots))
+            self._instructionsBuild(definition, byType, diagnosticPaths)
+            logger.value("extracted team instructions", len(definition.instructions))
+            complete = self._completeCalculate(definition)
+            definition.complete = complete
+            unresolvedRoles = tuple(sorted({
+                slot.observedRole
+                for slot in definition.slots
+                if slot.observedRole and not slot.role
+            }))
+            logger.value("tactic extraction issues", len(definition.issues))
+            logger.value("tactic extraction complete", complete)
 
+        logger.done(f"tactic screenshot extraction finished for {cleanName}")
         return TacticScreenshotExtractResult(
             tacticName=cleanName,
             screenshotCount=len(screenshots),
             structuredCreated=True,
             complete=complete,
-            message="Structured tactic data generated from stored captures",
+            message="Observed tactic data extracted with unresolved coverage",
+            diagnosticPaths=tuple(diagnosticPaths),
+            unresolvedRoles=unresolvedRoles,
         )
+
+    def _capturedRolesRefresh(self) -> None:
+        """Refresh OCR aliases from confirmed user role definitions."""
+
+        if self.roleDefinitionsProvider is None:
+            return
+        try:
+            definitions = tuple(self.roleDefinitionsProvider())
+        except TypeError:
+            logger.warning("captured role provider did not return an iterable")
+            return
+        self.vocabulary.capturedRolesAdd(definitions)
+        logger.value("captured role definitions available to OCR", len(definitions))
 
     ## metadata
 
@@ -210,92 +228,177 @@ class TacticScreenshotExtractor:
         result = self.metadataExtractor.metadataExtract(formation.importSession.imageFilename)
         return result.metadata, result.issues
 
-    ## instructions
+    ## extraction coverage
+
+    def _formationBuild(
+        self,
+        definition: ScreenshotDerivedTacticDefinition,
+        byType: dict[ScreenType, TacticScreenshot],
+        diagnosticPaths: list[str],
+    ) -> None:
+        """Detect both phase pitches from the Formation capture."""
+
+        screenshot = byType.get(ScreenType.TACTIC_FORMATION)
+        if screenshot is None:
+            self._issueAdd(definition, "missingScreenshot", "Formation screenshot is missing")
+            return
+        image = self._imageRead(screenshot.importSession.imageFilename)
+        if image is None:
+            self._issueAdd(
+                definition,
+                "formationImageUnavailable",
+                "Formation screenshot could not be decoded",
+            )
+            return
+        result = self.formationExtractor.formationExtract(
+            image, screenshot.importSession.imageFilename
+        )
+        diagnosticPath = self._diagnosticSave(
+            result.diagnosticImage,
+            screenshot.importSession.imageFilename,
+            "formation",
+        )
+        if diagnosticPath:
+            diagnosticPaths.append(diagnosticPath)
+        logger.value("formation extractor slots", len(result.slots))
+        logger.value("formation extractor issues", len(result.issues))
+        for slot in result.slots:
+            definition.slots.append(StructuredFormationSlot(
+                slotId=slot.slotId,
+                phase=slot.phase.value,
+                position=slot.position,
+                role=slot.role,
+                duty=slot.duty,
+                x=slot.x,
+                y=slot.y,
+                observedRole=slot.observedRole,
+                displayedPlayer=slot.displayedPlayer,
+                confidence=slot.confidence,
+                sourceImportSession=screenshot.importSession,
+                validationState=slot.validationState.value,
+            ))
+        for issue in result.issues:
+            self._issueAdd(definition, issue.code, issue.message, issue.observedText)
 
     def _instructionsBuild(
         self,
-        definition: StructuredTacticDefinition,
+        definition: ScreenshotDerivedTacticDefinition,
         byType: dict[ScreenType, TacticScreenshot],
+        diagnosticPaths: list[str],
     ) -> None:
-        """Generate stable fallback in/out-of-possession instruction rows."""
+        """Extract only visually selected values from each instruction capture."""
 
         for phase, screenType in (
-            ("inPossession", ScreenType.TACTIC_IN_POSSESSION),
-            ("outOfPossession", ScreenType.TACTIC_OUT_OF_POSSESSION),
+            (TacticalPhase.IN_POSSESSION, ScreenType.TACTIC_IN_POSSESSION),
+            (TacticalPhase.OUT_OF_POSSESSION, ScreenType.TACTIC_OUT_OF_POSSESSION),
         ):
-            source = byType.get(screenType)
-            sourceImport = source.importSession if source is not None else None
-            categories = self.vocabulary.instructions.get(phase, {})
-            for category, aliases in categories.items():
-                canonical = self._defaultCanonicalValue(aliases)
-                value = self._canonicalValueParse(canonical)
-                definition.instructions.append(
-                    StructuredTeamInstruction(
-                        phase=phase,
-                        category=category,
-                        canonicalValue=value,
-                        displayValue=str(canonical),
-                        confidence=0.30,
-                        sourceImportSession=sourceImport,
-                        validationState="extracted",
-                    )
+            screenshot = byType.get(screenType)
+            if screenshot is None:
+                self._issueAdd(
+                    definition,
+                    "missingScreenshot",
+                    f"{phase.value} screenshot is missing",
                 )
+                continue
+            image = self._imageRead(screenshot.importSession.imageFilename)
+            if image is None:
+                self._issueAdd(
+                    definition,
+                    "instructionImageUnavailable",
+                    f"{phase.value} screenshot could not be decoded",
+                )
+                continue
+            result = self.instructionExtractor.instructionsExtract(
+                image, phase, screenshot.importSession.imageFilename
+            )
+            diagnosticPath = self._diagnosticSave(
+                result.diagnosticImage,
+                screenshot.importSession.imageFilename,
+                phase.value,
+            )
+            if diagnosticPath:
+                diagnosticPaths.append(diagnosticPath)
+            logger.info(
+                f"{phase.value} instruction result: {len(result.instructions)} values, "
+                f"{len(result.issues)} issues"
+            )
+            for instruction in result.instructions:
+                definition.instructions.append(StructuredTeamInstruction(
+                    phase=instruction.phase.value,
+                    category=instruction.category,
+                    canonicalValue=instruction.value,
+                    displayValue=instruction.displayValue,
+                    confidence=instruction.confidence,
+                    sourceImportSession=screenshot.importSession,
+                    validationState=instruction.validationState.value,
+                ))
+            for issue in result.issues:
+                self._issueAdd(definition, issue.code, issue.message, issue.observedText)
 
     @staticmethod
-    def _canonicalValueParse(value: str) -> str | bool:
-        lowered = value.strip().casefold()
-        if lowered == "true":
-            return True
-        if lowered == "false":
-            return False
-        return value
+    def _completeCalculate(definition: ScreenshotDerivedTacticDefinition) -> bool:
+        phaseCounts = {
+            phase: sum(slot.phase == phase for slot in definition.slots)
+            for phase in ("inPossession", "outOfPossession")
+        }
+        blockingCodes = {
+            "metadataExtractionIncomplete",
+            "missingScreenshot",
+            "formationImageUnavailable",
+            "instructionImageUnavailable",
+            "missingPitchRegion",
+            "emptyPitchRegion",
+            "missingFormationSlots",
+            "formationTileOcrFailed",
+            "unresolvedPosition",
+            "ambiguousPhaseLink",
+            "uncertainPhaseLink",
+            "unmatchedPhaseSlot",
+            "missingInstructionEvidence",
+            "ambiguousInstructionEvidence",
+            "unknownInstructionValue",
+            "instructionOcrFailed",
+            "missingInstructionConfiguration",
+            "emptyInstructionRegion",
+        }
+        return all(count == 11 for count in phaseCounts.values()) and not any(
+            issue.code in blockingCodes for issue in definition.issues
+        )
 
     @staticmethod
-    def _defaultCanonicalValue(aliases: dict[str, str]) -> str:
-        """Prefer neutral defaults where possible, otherwise use first canonical."""
+    def _imageRead(filename: str):
+        path = Path(filename).expanduser()
+        return cv2.imread(str(path), cv2.IMREAD_COLOR) if path.is_file() else None
 
-        canonicalValues = sorted(set(aliases.values()), key=str.casefold)
-        for candidate in canonicalValues:
-            if candidate.casefold() == "standard":
-                return candidate
-        for candidate in canonicalValues:
-            if candidate.casefold() == "false":
-                return candidate
-        return canonicalValues[0] if canonicalValues else "standard"
+    @staticmethod
+    def _diagnosticSave(
+        image,
+        sourceFilename: str,
+        phase: str,
+    ) -> str | None:
+        """Persist the latest annotated OCR reference beside its retained capture."""
 
-    ## slots
+        if image is None:
+            return None
+        source = Path(sourceFilename).expanduser()
+        directory = source.parent / "ocr-diagnostics"
+        path = directory / f"{source.stem}-{phase}-ocr-zones.png"
+        try:
+            directory.mkdir(parents=True, exist_ok=True)
+            if not cv2.imwrite(str(path), image):
+                raise OSError("OpenCV did not encode the diagnostic image")
+        except (OSError, cv2.error):
+            logger.exception(f"unable to save OCR diagnostic image {path}")
+            return None
+        logger.info(f"saved OCR diagnostic image: {path}")
+        return str(path)
 
-    def _slotsBuild(
-        self,
-        definition: StructuredTacticDefinition,
-        byType: dict[ScreenType, TacticScreenshot],
-    ) -> None:
-        """Generate fallback slots for formation and both tactical phases."""
-
-        for phase, screenType, template in (
-            ("formation", ScreenType.TACTIC_FORMATION, self._FORMATION_TEMPLATE),
-            ("inPossession", ScreenType.TACTIC_IN_POSSESSION, self._FORMATION_TEMPLATE),
-            (
-                "outOfPossession",
-                ScreenType.TACTIC_OUT_OF_POSSESSION,
-                self._OUT_OF_POSSESSION_TEMPLATE,
-            ),
-        ):
-            source = byType.get(screenType)
-            sourceImport = source.importSession if source is not None else None
-            for slotId, position, role, duty, x, y in template:
-                definition.slots.append(
-                    StructuredFormationSlot(
-                        slotId=f"{phase}-{slotId}",
-                        phase=phase,
-                        position=position,
-                        role=role,
-                        duty=duty,
-                        x=x,
-                        y=y,
-                        observedRole=role,
-                        confidence=0.30,
-                        sourceImportSession=sourceImport,
-                        validationState="extracted",
-                    )
-                )
+    @staticmethod
+    def _issueAdd(definition, code: str, message: str, observedText: str | None = None) -> None:
+        logger.info(
+            f"tactic extraction issue {code}: {message}"
+            + (f"; observed={observedText}" if observedText else "")
+        )
+        definition.issues.append(StructuredTacticIssue(
+            code=code, message=message, observedText=observedText
+        ))

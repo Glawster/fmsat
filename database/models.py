@@ -57,7 +57,7 @@ class Tactic(Base):
     squadApplications: Mapped[list[SquadTacticApplication]] = relationship(
         back_populates="tactic", cascade="all, delete-orphan"
     )
-    structuredDefinition: Mapped[StructuredTacticDefinition | None] = relationship(
+    structuredDefinition: Mapped[ScreenshotDerivedTacticDefinition | None] = relationship(
         back_populates="tactic",
         cascade="all, delete-orphan",
         single_parent=True,
@@ -87,8 +87,8 @@ class TacticScreenshot(Base):
     importSession: Mapped[ImportSession] = relationship(back_populates="tacticCapture")
 
 
-class StructuredTacticDefinition(Base):
-    """The current persistent structured definition for one tactic."""
+class ScreenshotDerivedTacticDefinition(Base):
+    """The current tactic definition extracted from screenshot evidence."""
 
     __tablename__ = "structured_tactic_definitions"
 
@@ -148,7 +148,9 @@ class StructuredFormationSlot(Base):
         "source_import_session_id", ForeignKey("import_sessions.id"), index=True
     )
     validationState: Mapped[str] = mappedColumn("validation_state", String(32), nullable=False)
-    definition: Mapped[StructuredTacticDefinition] = relationship(back_populates="slots")
+    definition: Mapped[ScreenshotDerivedTacticDefinition] = relationship(
+        back_populates="slots"
+    )
     sourceImportSession: Mapped[ImportSession | None] = relationship()
 
 
@@ -180,7 +182,9 @@ class StructuredTeamInstruction(Base):
         "source_import_session_id", ForeignKey("import_sessions.id"), index=True
     )
     validationState: Mapped[str] = mappedColumn("validation_state", String(32), nullable=False)
-    definition: Mapped[StructuredTacticDefinition] = relationship(back_populates="instructions")
+    definition: Mapped[ScreenshotDerivedTacticDefinition] = relationship(
+        back_populates="instructions"
+    )
     sourceImportSession: Mapped[ImportSession | None] = relationship()
 
 
@@ -199,7 +203,9 @@ class StructuredTacticIssue(Base):
     code: Mapped[str] = mappedColumn(String(100), nullable=False)
     message: Mapped[str] = mappedColumn(Text, nullable=False)
     observedText: Mapped[str | None] = mappedColumn("observed_text", Text)
-    definition: Mapped[StructuredTacticDefinition] = relationship(back_populates="issues")
+    definition: Mapped[ScreenshotDerivedTacticDefinition] = relationship(
+        back_populates="issues"
+    )
 
 
 class ObjectModelTactic(Base):
@@ -217,6 +223,12 @@ class ObjectModelTactic(Base):
         ForeignKey("tactics.id"),
         unique=True,
         index=True,
+    )
+    sourceImportSessionId: Mapped[int | None] = mappedColumn(
+        "source_import_session_id", ForeignKey("import_sessions.id"), index=True
+    )
+    sourceImportSession: Mapped[ImportSession | None] = relationship(
+        foreign_keys=[sourceImportSessionId]
     )
     sourceTactic: Mapped[Tactic | None] = relationship(back_populates="objectModelTactic")
     formations: Mapped[list[ObjectModelFormation]] = relationship(
@@ -275,7 +287,20 @@ class ObjectModelPosition(Base):
     roleProfileDescription: Mapped[str] = mappedColumn(
         "role_profile_description", Text, default="", nullable=False
     )
+    slotId: Mapped[str | None] = mappedColumn("slot_id", String(100))
+    duty: Mapped[str | None] = mappedColumn(String(32))
+    x: Mapped[float | None] = mappedColumn(Float)
+    y: Mapped[float | None] = mappedColumn(Float)
+    displayedPlayer: Mapped[str | None] = mappedColumn("displayed_player", String(255))
+    confidence: Mapped[float | None] = mappedColumn(Float)
+    sourceImportSessionId: Mapped[int | None] = mappedColumn(
+        "source_import_session_id", ForeignKey("import_sessions.id"), index=True
+    )
+    validationState: Mapped[str] = mappedColumn(
+        "validation_state", String(32), default="unresolved", nullable=False
+    )
     formation: Mapped[ObjectModelFormation] = relationship(back_populates="positions")
+    sourceImportSession: Mapped[ImportSession | None] = relationship()
     instructions: Mapped[list[ObjectModelPositionInstruction]] = relationship(
         back_populates="position",
         cascade="all, delete-orphan",

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import cv2
 import numpy as np
 from sqlalchemy import select
@@ -10,7 +12,7 @@ from sqlalchemy.orm import Session, selectinload
 from fmsat.core.builder.tacticScreenshotExtractor import TacticScreenshotExtractor
 from fmsat.core.detection import ScreenType
 from fmsat.core.ocr import OcrEngine, OcrResult
-from fmsat.database import Database, StructuredTacticDefinition, Tactic
+from fmsat.database import Database, ScreenshotDerivedTacticDefinition, Tactic
 
 
 class FakeOcr(OcrEngine):
@@ -29,8 +31,8 @@ def _screenshotWrite(path) -> None:
     assert cv2.imwrite(str(path), np.zeros((40, 80, 3), dtype=np.uint8))
 
 
-def testExtractorCreatesStructuredRowsFromSavedScreenshots(tmp_path) -> None:
-    """Screenshot-only tactics should gain structured rows after extraction."""
+def testExtractorPersistsOnlyObservedValuesFromSavedScreenshots(tmp_path) -> None:
+    """Unsupported slot and instruction extraction must remain unresolved."""
 
     database = Database(tmp_path / "test.sqlite3")
     database.initialize()
@@ -50,8 +52,10 @@ def testExtractorCreatesStructuredRowsFromSavedScreenshots(tmp_path) -> None:
     result = extractor.tacticExtract("High Press")
 
     assert result.structuredCreated is True
-    assert result.complete is True
+    assert result.complete is False
     assert result.screenshotCount == 3
+    assert len(result.diagnosticPaths) == 1
+    assert Path(result.diagnosticPaths[0]).is_file()
 
     with Session(database.engine) as session:
         tactic = session.scalar(
@@ -59,21 +63,24 @@ def testExtractorCreatesStructuredRowsFromSavedScreenshots(tmp_path) -> None:
             .where(Tactic.normalizedName == "high press")
             .options(
                 selectinload(Tactic.structuredDefinition).selectinload(
-                    StructuredTacticDefinition.slots
+                    ScreenshotDerivedTacticDefinition.slots
                 ),
                 selectinload(Tactic.structuredDefinition).selectinload(
-                    StructuredTacticDefinition.instructions
+                    ScreenshotDerivedTacticDefinition.instructions
                 ),
                 selectinload(Tactic.structuredDefinition).selectinload(
-                    StructuredTacticDefinition.issues
+                    ScreenshotDerivedTacticDefinition.issues
                 ),
             )
         )
         assert tactic is not None
         assert tactic.structuredDefinition is not None
-        assert len(tactic.structuredDefinition.slots) == 33
-        assert len(tactic.structuredDefinition.instructions) > 0
-        assert tactic.structuredDefinition.issues
+        assert tactic.structuredDefinition.slots == []
+        assert tactic.structuredDefinition.instructions == []
+        issueCodes = {issue.code for issue in tactic.structuredDefinition.issues}
+        assert "layoutAnchorUnavailable" in issueCodes
+        assert "instructionImageUnavailable" in issueCodes
+        assert "templateExtraction" not in issueCodes
         assert tactic.structuredDefinition.tacticMetadata["formationName"] == (
             "4-2-3-1 DM AM Wide"
         )
@@ -118,14 +125,14 @@ def testExtractorCanReplaceExistingStructuredRows(tmp_path) -> None:
             .where(Tactic.normalizedName == "high press")
             .options(
                 selectinload(Tactic.structuredDefinition).selectinload(
-                    StructuredTacticDefinition.slots
+                    ScreenshotDerivedTacticDefinition.slots
                 ),
                 selectinload(Tactic.structuredDefinition).selectinload(
-                    StructuredTacticDefinition.instructions
+                    ScreenshotDerivedTacticDefinition.instructions
                 ),
             )
         )
         assert tactic is not None
         assert tactic.structuredDefinition is not None
-        assert len(tactic.structuredDefinition.slots) == 33
-        assert len(tactic.structuredDefinition.instructions) > 0
+        assert tactic.structuredDefinition.slots == []
+        assert tactic.structuredDefinition.instructions == []

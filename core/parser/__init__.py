@@ -9,6 +9,14 @@ from .roleProfile import (
 )
 from .squadAttributes import SquadAttributesParser
 from .tactic import ExtractedTactic, TacticParser
+from .tacticFormation import (
+    FormationExtractResult,
+    FormationPhaseLinker,
+    PitchZoneClassifier,
+    TacticFormationExtractor,
+)
+from .tacticLayout import TacticLayoutAnchor, TacticLayoutResult
+from .tacticInstructions import InstructionExtractResult, TacticInstructionExtractor
 from .tacticModels import (
     FormationSlot,
     StructuredTactic,
@@ -22,8 +30,12 @@ from .tacticVocabulary import NormalizedValue, RoleDefinition, TacticVocabulary
 __all__ = [
     "ExtractedPlayer",
     "ExtractedTactic",
+    "FormationExtractResult",
+    "FormationPhaseLinker",
     "FormationSlot",
+    "InstructionExtractResult",
     "NormalizedValue",
+    "PitchZoneClassifier",
     "RoleDefinition",
     "RoleDefinitionDraft",
     "RoleKnowledgeGap",
@@ -34,6 +46,10 @@ __all__ = [
     "TacticalPhase",
     "TacticIssue",
     "TacticParser",
+    "TacticFormationExtractor",
+    "TacticLayoutAnchor",
+    "TacticLayoutResult",
+    "TacticInstructionExtractor",
     "TacticVocabulary",
     "TeamInstruction",
     "ValidationState",

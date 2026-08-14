@@ -24,3 +24,4 @@ class RoleIdentity(StrEnum):
     W = "W"  # Winger
     CF = "CF"  # Centre Forward
     GK = "GK"  # Goalkeeper
+    UNRESOLVED = "UNRESOLVED"  # Observed role awaiting a user-supplied definition

@@ -2,7 +2,12 @@
 
 ## Status
 
-In Progress
+InProgress
+
+Evidence-driven role acquisition and confirmed user role definitions are
+operational. Attribute and position knowledge completion, assessment
+requirements, tactical modifiers, scoring, version identity and calculation
+traces remain active for requirement 007.
 
 ## Objective
 

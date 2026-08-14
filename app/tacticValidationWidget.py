@@ -5,8 +5,19 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Protocol
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtWidgets import (
+    QApplication,
+    QAbstractScrollArea,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
+)
 
 
 class BuildIssue(Protocol):
@@ -34,6 +45,9 @@ class TacticValidationWidget(QFrame):
     ) -> None:
         super().__init__(parent)
         self.setObjectName("validationPanel")
+        self.copyResetTimer = QTimer(self)
+        self.copyResetTimer.setSingleShot(True)
+        self.copyResetTimer.timeout.connect(self._copyStatusReset)
         self._layoutCreate()
         self.resultShow(result)
 
@@ -73,6 +87,10 @@ class TacticValidationWidget(QFrame):
         heading.setObjectName("cardTitle")
         headingRow.addWidget(heading)
         headingRow.addStretch()
+        self.copyButton = QPushButton("Copy details")
+        self.copyButton.setObjectName("secondaryButton")
+        self.copyButton.clicked.connect(self._detailsCopy)
+        headingRow.addWidget(self.copyButton)
         self.statusLabel = QLabel()
         self.statusLabel.setObjectName("validationStatus")
         headingRow.addWidget(self.statusLabel)
@@ -84,11 +102,44 @@ class TacticValidationWidget(QFrame):
         layout.addWidget(self.detailLabel)
 
         self.content = QWidget()
+        self.content.setObjectName("validationIssueContent")
+        self.content.setStyleSheet("background-color: #0c1926; color: #f0c76a;")
         self.contentLayout = QVBoxLayout(self.content)
         self.contentLayout.setContentsMargins(0, 0, 0, 0)
         self.contentLayout.setSpacing(7)
-        layout.addWidget(self.content)
-        layout.addStretch()
+
+        # Validation can contain dozens of extraction issues. Keep those
+        # diagnostics inside this panel so they cannot enlarge the complete
+        # tactic page and push its maintenance actions below the window.
+        self.issueScroll = QScrollArea()
+        self.issueScroll.setObjectName("validationIssueScroll")
+        self.issueScroll.setWidgetResizable(True)
+        self.issueScroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.issueScroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.issueScroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        self.issueScroll.setSizeAdjustPolicy(
+            QAbstractScrollArea.SizeAdjustPolicy.AdjustIgnored
+        )
+        self.issueScroll.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Ignored,
+        )
+        self.issueScroll.setMinimumHeight(260)
+        self.issueScroll.setStyleSheet(
+            "QScrollArea { background-color: #0c1926; border: 1px solid #203548; "
+            "border-radius: 6px; } "
+            "QScrollBar:vertical { background: #0c1926; width: 12px; margin: 0; } "
+            "QScrollBar::handle:vertical { background: #30465a; min-height: 28px; "
+            "border-radius: 5px; } "
+            "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }"
+        )
+        self.issueScroll.viewport().setStyleSheet("background-color: #0c1926;")
+        self.issueScroll.setWidget(self.content)
+        layout.addWidget(self.issueScroll, 1)
 
     ## content
 
@@ -114,7 +165,32 @@ class TacticValidationWidget(QFrame):
         label = QLabel(f"●  {message}")
         label.setObjectName("validationIssue" if issue else "validationPassed")
         label.setWordWrap(True)
+        label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.contentLayout.addWidget(label)
+
+    def _detailsCopy(self) -> None:
+        """Copy the complete validation summary and issue list as plain text."""
+
+        lines = [self.statusLabel.text(), self.detailLabel.text()]
+        lines.extend(
+            label.text()
+            for label in self.content.findChildren(QLabel)
+            if label.text().strip()
+        )
+        QApplication.clipboard().setText("\n".join(lines))
+        self.copyButton.setText("Copied")
+        self.copyButton.setProperty("copyState", "copied")
+        self.copyButton.style().unpolish(self.copyButton)
+        self.copyButton.style().polish(self.copyButton)
+        self.copyResetTimer.start(2500)
+
+    def _copyStatusReset(self) -> None:
+        """Restore the validation-copy action after its confirmation period."""
+
+        self.copyButton.setText("Copy details")
+        self.copyButton.setProperty("copyState", "ready")
+        self.copyButton.style().unpolish(self.copyButton)
+        self.copyButton.style().polish(self.copyButton)
 
     def _phaseAdd(self, title: str, count: int | None) -> None:
         row = QFrame()

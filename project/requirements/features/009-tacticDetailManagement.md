@@ -2,18 +2,40 @@
 
 ## Status
 
-Backlog
+InProgress
+
+The model-backed tactic viewer, regeneration, freshness, validation and
+diagnostic baseline is delivered and accepted for current use. Immutable
+revision history, historical selection and structured comparison remain open
+and do not block requirement 007.
 
 ## Objective
 
-Provide a dedicated tactic screen that presents a stored tactic as structured,
-usable data rather than as a collection of screenshots. The screen must let the
-user inspect the tactic's overview, phase-specific shape, team instructions and
-future generated analysis while preserving the screenshots as evidence of the
-import rather than the tactic's primary representation.
+Provide a dedicated tactic screen that presents the persisted football object
+model rather than a collection of screenshots. The screen must let the user
+inspect the tactic's overview, phase-specific shape, team instructions and
+future generated analysis while preserving screenshots as source evidence and
+the screenshot-derived definition as the intermediate extraction layer.
 
 This requirement consumes the structured extraction defined by requirement 006
 and complements the tactic-list workflow delivered by requirement 003.
+
+## Data flow and authority
+
+The tactic workflow has four distinct layers:
+
+1. screenshot imports are immutable source evidence;
+2. `ScreenshotDerivedTacticDefinition` records the current extracted values,
+   confidence, review state, issues and source provenance;
+3. the football object model is generated from the screenshot-derived
+   definition and is the primary representation used by the tactic screen; and
+4. UI models adapt the football object model for display without becoming a
+   source of tactical data.
+
+Re-importing a screenshot must not silently alter the existing football object
+model. It makes the screenshot-derived data and object model older than the
+latest evidence until the user regenerates the model. The existing model remains
+viewable, but the UI must identify it as requiring regeneration.
 
 ## Navigation and layout
 
@@ -36,7 +58,8 @@ stored explicitly, display:
 
 - name;
 - created date;
-- last-updated date;
+- evidence-updated date;
+- model-generated date;
 - formation;
 - mentality;
 - status;
@@ -45,10 +68,15 @@ stored explicitly, display:
 - current version; and
 - the number and names of assigned squads.
 
-Display a clean vector-style pitch reconstructed from the current structured
-formation. Do not display a Formation screenshot as the main diagram. The pitch
-must use stored slot coordinates, positions, roles and duties and remain useful
-when no player is assigned.
+Display a clean vector-style pitch reconstructed from the current football
+object model. Do not display a Formation screenshot as the main diagram. The
+pitch must use the model's slot coordinates, positions, roles, duties and
+instructions and remain useful when no player is assigned.
+
+Show whether the model is current relative to its screenshot evidence. At
+minimum distinguish **Current**, **Regeneration required**, **Processing
+required**, **Incomplete evidence** and **Review required**. When regeneration
+is required, show both the latest evidence date and the model generation date.
 
 Provide a compact summary derived only from explicit tactic data, such as
 mentality and enabled or selected instructions. Do not present inferred tactical
@@ -57,22 +85,30 @@ labels as imported facts.
 ## Shape tab
 
 1. Present separate **In Possession** and **Out of Possession** formations.
-2. Draw both formations on clean vector-style pitches from structured data.
+2. Draw both formations on clean vector-style pitches from the football object
+   model.
 3. For every visible slot, retain and display as appropriate:
    - stable slot identity;
    - normalized pitch coordinates;
    - canonical position;
    - role;
-   - duty; and
-   - optional assigned player.
+   - duty.
 4. A position may differ between phases; do not force the In Possession and Out
    of Possession codes or coordinates to match.
 5. Use the canonical roles, duties and position vocabulary established by
    requirement 006.
 6. Do not infer a missing role, duty, position, coordinate or player assignment.
-7. Keep the stored representation suitable for redrawing formations, comparing
+   A duty which is not exposed by the FM26 Tactics Planner must display as
+   **Not shown**, remain `null` in evidence and persistence, and must not prevent
+   an otherwise observed position and role from entering the object model.
+7. Keep the football object model suitable for redrawing formations, comparing
    revisions, analysing spacing and later calculating role suitability without
    reopening screenshots.
+8. Preserve each slot's canonical position and role together with its duty,
+   stable slot ID, coordinates, confidence, source import and validation state
+   when generating, persisting and loading the football object model. A player
+   visible in the source screenshot remains evidence only and must not populate
+   the tactic model's assignment field.
 
 An illustrative slot representation is:
 
@@ -184,76 +220,120 @@ instructions:
 ## Screenshot provenance
 
 1. Retain screenshots and their import records as evidence for extracted values.
-2. The structured tactic model is the primary representation used by the tactic
+2. Retain `ScreenshotDerivedTacticDefinition` as the evidence-linked extraction
+   layer between screenshots and the football object model.
+3. The football object model is the primary representation used by the tactic
    screen.
-3. Every extracted formation slot and instruction must remain traceable to its
+4. Every extracted formation slot and instruction must remain traceable to its
    source import where requirement 006 provides that provenance.
-4. Replacing or superseding a structured phase must not silently delete its
-   historical screenshot evidence.
-5. Do not require image OCR merely to open or redraw an already structured
-   tactic.
+5. Replacing or superseding a screenshot-derived phase must not silently delete
+   its historical screenshot evidence.
+6. Store when screenshot-derived extraction last ran and which screenshot
+   imports it used.
+7. Store when the football object model was generated and the exact
+   screenshot-derived generation or source identity used to build it.
+8. Do not require image OCR merely to open or redraw an existing football object
+   model.
 
 ## Version history
 
 1. Give every tactic an immutable sequence of revisions.
-2. The first structured import creates the initial revision.
-3. Importing a modified version of an existing tactic must create a new revision
-   rather than overwrite an earlier revision.
-4. Unchanged re-imports must not create duplicate revisions.
-5. Each revision must retain its creation time, optional note, source imports,
-   structured formations, instructions, metadata and squad assignments as
-   applicable at that revision.
-6. Identify one revision as current without deleting prior revisions.
-7. Allow the user to inspect the revision list and select an earlier revision in
+2. The first generated football object model creates the initial revision.
+3. Importing a modified screenshot preserves the existing model revision and
+   marks it as requiring regeneration.
+4. Regenerating from changed screenshot-derived data creates a new model
+   revision rather than overwriting the earlier revision.
+5. Regenerating from unchanged screenshot-derived data must not create a
+   duplicate revision.
+6. Each revision must retain its creation time, optional note, source screenshot
+   imports, screenshot-derived source identity, object-model formations,
+   instructions, metadata and squad assignments as applicable at that revision.
+7. Identify one revision as current without deleting prior revisions.
+8. Allow the user to inspect the revision list and select an earlier revision in
    read-only form.
-8. Produce a structured comparison between any two revisions that can identify
+9. Produce a structured comparison between any two revisions that can identify
    metadata, slot, role, duty, coordinate and instruction changes.
-9. Use factual change descriptions such as “AML changed from IF (Attack) to W
+10. Use factual change descriptions such as “AML changed from IF (Attack) to W
    (Support)” rather than generated tactical conclusions.
-10. Do not claim that one revision performed better until match-result evidence
+11. Do not claim that one revision performed better until match-result evidence
     and a separate analysis requirement support that conclusion.
 
 ## Persistence and compatibility
 
-1. Extend the existing tactic and structured-tactic persistence model rather
-   than creating a parallel source of truth.
-2. Store typed metadata, phase formations, instructions, revision identity and
-   source links.
-3. Preserve existing tactics that have screenshots but no confirmed structured
-   extraction; show an incomplete-data state and a route to review or extract
-   where supported.
+1. Preserve the separation between screenshot evidence,
+   `ScreenshotDerivedTacticDefinition` and the generated football object model.
+2. Store typed object-model metadata, phase formations, instructions, revision
+   identity, generation date and screenshot-derived source identity.
+3. Preserve existing tactics that have screenshots but no confirmed
+   screenshot-derived extraction or generated object model; show an
+   incomplete-data state and a route to process or regenerate where supported.
 4. Upgrade existing databases without deleting or recreating user data.
 5. Keep historical revisions and screenshot imports intact when the current
    revision changes.
 6. Preserve all existing tactic list, welcome screen, import, squad and CLI
    workflows.
+7. Do not replace the current football object model when regeneration produces
+   incomplete or unresolved evidence. Retain the attempted extraction and its
+   issues for review while continuing to display the existing saved model.
 
 ## Acceptance criteria
 
 1. Opening a stored tactic displays Overview, Shape, Instructions and Analysis
    tabs for that tactic.
 2. Overview displays stored metadata, assigned-squad information and a vector
-   formation reconstructed without showing the source screenshot as the tactic.
+   formation reconstructed from the football object model without showing the
+   source screenshot as the tactic.
 3. Shape displays distinct In Possession and Out of Possession pitches using
-   stored coordinates, positions, roles, duties and optional players.
+   stored coordinates, positions, roles and duties. It does not show the players
+   who happened to occupy those positions in the source screenshot.
 4. Instructions displays every captured instruction under a meaningful canonical
    name and the correct Build Up, Attack, Transition or Defence group.
 5. Missing and unresolved values remain explicit and are never filled by
    inference or sample defaults.
-6. Opening or switching tabs performs no OCR.
-7. The Analysis tab has a useful empty state and does not misrepresent generated
+6. The generated football object model round-trips canonical position, role,
+   duty, slot ID, coordinates, confidence, source import and validation state.
+   Observed player text remains in screenshot-derived evidence without becoming
+   a model assignment.
+7. Opening or switching tabs performs no OCR.
+8. The Analysis tab has a useful empty state and does not misrepresent generated
    conclusions as imported data.
-8. Assigned squads and player mappings are persisted independently of OCR.
-9. A changed import creates a new immutable revision, while an unchanged import
-   does not create a duplicate revision.
-10. Earlier revisions remain inspectable and two revisions can be compared using
+9. Assigned squads and player mappings are persisted independently of OCR.
+10. A changed screenshot import marks the current model as requiring
+   regeneration; regeneration creates a new immutable revision only when the
+   screenshot-derived data changed.
+11. Earlier revisions remain inspectable and two revisions can be compared using
     structured factual changes.
-11. Existing tactics without structured data remain accessible with a safe
-    incomplete-data state.
-12. Automated tests cover populated, partial and missing data; both formation
+12. Existing tactics without a football object model remain accessible with a
+    safe incomplete-data or processing-required state.
+13. The UI displays evidence-updated and model-generated dates and identifies
+    whether the current model was built from the latest screenshot-derived data.
+14. Automated tests cover populated, partial and missing data; both formation
     phases; instruction grouping; squad assignment; revision creation and
-    deduplication; revision comparison; and database migration.
-13. Ruff, Black and the complete applicable automated test suite pass.
+    deduplication; freshness detection; revision comparison; and database
+    migration.
+15. Ruff, Black and the complete applicable automated test suite pass.
+16. Validation issues scroll within their panel so model maintenance actions,
+    including regeneration, remain visible at supported window sizes.
+17. Mutually exclusive instruction categories persist exactly one value only
+    when selected-row evidence clearly distinguishes it from every alternative;
+    decorative colour and unselected controls do not constitute selection.
+18. Tactic processing presents a readable, repainting progress dialog and logs
+    each extraction, build, integrity-gate and persistence stage with sufficient
+    candidate counts, scores and issue details to diagnose failed regeneration.
+19. The validation panel gives issue diagnostics most of the available side
+    height, supports mouse text selection and copies the complete summary and
+    issue list as plain text.
+20. Validation scroll viewports and tactic progress dialogs use explicit opaque
+    application colours, including readable labels, progress tracks and chunks;
+    they do not inherit a white platform base or reveal underlying page content.
+21. Screenshot extraction runs outside the Qt UI thread while regeneration is
+    active, allowing repaint, progress-dialog and window-manager heartbeat events
+    to continue without changing the sequential integrity and persistence flow.
+22. Copying validation details changes the action label to `Copied` for a short
+    confirmation period before restoring `Copy details`.
+23. While OCR is running and its duration cannot be predicted, the progress bar
+    uses an animated indeterminate state rather than appearing stalled at a fixed
+    percentage; determinate stage progress resumes when extraction returns.
 
 ## Out of scope
 
@@ -268,7 +348,8 @@ instructions:
 
 ## Delivery notes
 
-- Implement after or alongside the structured data supplied by requirement 006.
+- Implement after or alongside the screenshot-derived data supplied by
+  requirement 006.
 - Reuse the formation visual components from requirement 005 where suitable.
 - Keep pitch rendering independent of screenshots and OCR.
 - Treat version comparison as a comparison of typed domain objects, not images.

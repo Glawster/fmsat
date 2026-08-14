@@ -29,8 +29,11 @@ QPushButton:hover { background: #56d6b0; }
 QPushButton:disabled { background: #243545; color: #738496; }
 QPushButton#quietButton, QPushButton#secondaryButton { background: transparent; color: #b9c8d6; border: 1px solid #30465a; }
 QPushButton#quietButton:hover, QPushButton#secondaryButton:hover { background: #132536; color: white; }
+QPushButton#secondaryButton[copyState="copied"] { background: #163b38; color: #75e0bf; border-color: #28675e; }
 QComboBox { background: #101f2e; color: #d9e5ef; border: 1px solid #30465a; border-radius: 7px; padding: 8px 12px; }
 QTabWidget::pane { border: 0; background: transparent; }
 QTabBar::tab { color: #8095a9; padding: 11px 22px; border-bottom: 2px solid transparent; font-weight: 600; }
 QTabBar::tab:selected { color: #6ee7c1; border-bottom-color: #31b98f; }
 QScrollArea { background: transparent; }
+QScrollArea#validationIssueScroll { background: #0c1926; border: 1px solid #203548; }
+QWidget#validationIssueContent { background: #0c1926; }

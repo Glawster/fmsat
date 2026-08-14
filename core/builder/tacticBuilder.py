@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from fmsat.core.logUtils import getLogger
 from fmsat.database.models import (
     StructuredFormationSlot,
-    StructuredTacticDefinition,
+    ScreenshotDerivedTacticDefinition,
     StructuredTeamInstruction,
     Tactic as DatabaseTactic,
 )
@@ -22,6 +23,8 @@ from fmsat.tactics.tactic import Tactic
 from fmsat.tactics.transition import Transition
 from sqlalchemy import Engine, Select, select
 from sqlalchemy.orm import Session, selectinload
+
+logger = getLogger()
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,6 +67,7 @@ class TacticBuilder:
 
         issues: list[TacticBuildIssue] = []
         cleanName = tacticName.strip()
+        logger.doing(f"building tactic object model for {cleanName or '<empty>'}")
         if not cleanName:
             issues.append(TacticBuildIssue("invalidTacticName", "Tactic name is empty"))
             return TacticBuildResult(None, tuple(issues), False, False)
@@ -72,10 +76,11 @@ class TacticBuilder:
             definition = self._definitionLoad(session, cleanName)
 
         if definition is None:
+            logger.info(f"no screenshot-derived definition exists for {cleanName}")
             issues.append(
                 TacticBuildIssue(
                     "missingStructuredDefinition",
-                    f"No structured tactic definition exists for {cleanName!r}",
+                    f"No screenshot-derived tactic definition exists for {cleanName!r}",
                 )
             )
             return TacticBuildResult(None, tuple(issues), False, False)
@@ -86,29 +91,12 @@ class TacticBuilder:
         # alongside mapping issues discovered by this builder.
         issues.extend(TacticBuildIssue(issue.code, issue.message) for issue in definition.issues)
 
-        formationSlots = self._slotsForPhase(definition, "formation")
         inPossessionSlots = self._slotsForPhase(definition, "inPossession")
         outOfPossessionSlots = self._slotsForPhase(definition, "outOfPossession")
+        logger.value("in-possession structured slots", len(inPossessionSlots))
+        logger.value("out-of-possession structured slots", len(outOfPossessionSlots))
+        logger.value("structured instructions", len(definition.instructions))
         instructionCatalog = self._instructionCatalogBuild(definition)
-
-        # Formation slots are the canonical fallback when phase-specific slots
-        # are not yet extracted or reviewed.
-        if not inPossessionSlots and formationSlots:
-            inPossessionSlots = formationSlots
-            issues.append(
-                TacticBuildIssue(
-                    "inPossessionFallbackToFormation",
-                    "In-possession slots are missing; using formation slots as fallback",
-                )
-            )
-        if not outOfPossessionSlots and formationSlots:
-            outOfPossessionSlots = formationSlots
-            issues.append(
-                TacticBuildIssue(
-                    "outOfPossessionFallbackToFormation",
-                    "Out-of-possession slots are missing; using formation slots as fallback",
-                )
-            )
 
         inPossessionModel = self._formationBuild(
             formationName=definition.tacticMetadata.get("inPossessionName", "inPossession"),
@@ -130,6 +118,7 @@ class TacticBuilder:
 
         # A tactic cannot be built if either required phase has no valid slots.
         if inPossessionModel is None or outOfPossessionModel is None:
+            logger.info(f"tactic object-model build failed with {len(issues)} issues")
             return TacticBuildResult(
                 None,
                 tuple(issues),
@@ -142,6 +131,10 @@ class TacticBuilder:
             inPossession=inPossessionModel,
             outOfPossession=outOfPossessionModel,
             transition=transitionModel,
+        )
+        logger.info(
+            f"tactic object-model build finished: complete={definition.complete}, "
+            f"confirmed={definition.confirmed}, issues={len(issues)}"
         )
         return TacticBuildResult(
             tactic=tacticModel,
@@ -156,21 +149,21 @@ class TacticBuilder:
         self,
         session: Session,
         tacticName: str,
-    ) -> StructuredTacticDefinition | None:
-        """Return the eager-loaded structured definition for one tactic."""
+    ) -> ScreenshotDerivedTacticDefinition | None:
+        """Return the eager-loaded screenshot-derived definition for one tactic."""
 
         query: Select[tuple[DatabaseTactic]] = (
             select(DatabaseTactic)
             .where(DatabaseTactic.normalizedName == tacticName.casefold())
             .options(
                 selectinload(DatabaseTactic.structuredDefinition).selectinload(
-                    StructuredTacticDefinition.slots
+                    ScreenshotDerivedTacticDefinition.slots
                 ),
                 selectinload(DatabaseTactic.structuredDefinition).selectinload(
-                    StructuredTacticDefinition.instructions
+                    ScreenshotDerivedTacticDefinition.instructions
                 ),
                 selectinload(DatabaseTactic.structuredDefinition).selectinload(
-                    StructuredTacticDefinition.issues
+                    ScreenshotDerivedTacticDefinition.issues
                 ),
             )
         )
@@ -185,7 +178,7 @@ class TacticBuilder:
         self,
         formationName: str,
         slots: list[StructuredFormationSlot],
-        definition: StructuredTacticDefinition,
+        definition: ScreenshotDerivedTacticDefinition,
         instructionCatalog: dict[str, Instruction],
         phaseName: str,
         issues: list[TacticBuildIssue],
@@ -252,26 +245,49 @@ class TacticBuilder:
 
         roleIdentity = self._roleIdentityParse(slot.role, slot.observedRole)
         if roleIdentity is None:
-            issues.append(
-                TacticBuildIssue(
+            if slot.observedRole:
+                roleIdentity = RoleIdentity.UNRESOLVED
+                issues.append(TacticBuildIssue(
+                    "roleDefinitionRequired",
+                    f"{phaseName} slot {slot.slotId!r} retains observed role "
+                    f"{slot.observedRole!r}; a user definition is required",
+                ))
+            else:
+                issues.append(TacticBuildIssue(
                     "unknownRoleIdentity",
-                    f"{phaseName} slot {slot.slotId!r} has unknown role {slot.role!r}",
-                )
-            )
-            return None
+                    f"{phaseName} slot {slot.slotId!r} has no recognizable role evidence",
+                ))
+                return None
 
         role = roleCache.get(roleIdentity)
         if role is None:
             role = Role(identity=roleIdentity)
             roleCache[roleIdentity] = role
 
-        profileKey = (roleIdentity, slot.duty or "default")
+        profileKey = (
+            roleIdentity,
+            slot.observedRole
+            if roleIdentity is RoleIdentity.UNRESOLVED
+            else slot.duty or "__not_shown__",
+        )
         roleProfile = profileCache.get(profileKey)
         if roleProfile is None:
-            profileName = slot.duty.capitalize() if slot.duty else "Default"
+            profileName = (
+                slot.observedRole
+                if roleIdentity is RoleIdentity.UNRESOLVED
+                or (slot.role or "").startswith("capturedRole")
+                else slot.duty.capitalize() if slot.duty else "Observed role"
+            )
             roleProfile = RoleProfile(
                 name=profileName,
-                description=f"{slot.role or roleIdentity.value} ({profileName})",
+                description=(
+                    f"{slot.role or roleIdentity.value} ({profileName})"
+                    if slot.duty
+                    else (
+                        f"{slot.observedRole or slot.role or roleIdentity.value} "
+                        "(duty not shown)"
+                    )
+                ),
             )
             profileCache[profileKey] = roleProfile
 
@@ -279,6 +295,16 @@ class TacticBuilder:
             identity=identity,
             role=role,
             roleProfile=roleProfile,
+            slotId=slot.slotId,
+            duty=slot.duty,
+            x=slot.x,
+            y=slot.y,
+            # The formation screenshot records who happened to be selected in
+            # FM, not an assignment for this reusable tactical definition.
+            player=None,
+            confidence=slot.confidence,
+            sourceImportSessionId=slot.sourceImportSessionId,
+            validationState=slot.validationState,
         )
 
     def _slotSortKey(self, slot: StructuredFormationSlot) -> tuple[int, str]:
@@ -291,7 +317,7 @@ class TacticBuilder:
 
     def _slotsForPhase(
         self,
-        definition: StructuredTacticDefinition,
+        definition: ScreenshotDerivedTacticDefinition,
         phase: str,
     ) -> list[StructuredFormationSlot]:
         """Collect and return slots for one exact stored phase name."""
@@ -302,7 +328,7 @@ class TacticBuilder:
 
     def _instructionCatalogBuild(
         self,
-        definition: StructuredTacticDefinition,
+        definition: ScreenshotDerivedTacticDefinition,
     ) -> dict[str, Instruction]:
         """Build one instruction object per category with all observed values.
 
@@ -330,7 +356,7 @@ class TacticBuilder:
 
     def _instructionsBuild(
         self,
-        definition: StructuredTacticDefinition,
+        definition: ScreenshotDerivedTacticDefinition,
         instructionCatalog: dict[str, Instruction],
         phase: str,
     ) -> InstructionSet:
@@ -376,7 +402,7 @@ class TacticBuilder:
 
     def _transitionBuild(
         self,
-        definition: StructuredTacticDefinition,
+        definition: ScreenshotDerivedTacticDefinition,
         instructionCatalog: dict[str, Instruction],
         issues: list[TacticBuildIssue],
     ) -> Transition:
@@ -422,6 +448,20 @@ class TacticBuilder:
         normalized = value.strip().upper()
         if not normalized:
             return None
+        canonicalToDomain = {
+            "DCL": "DC",
+            "DCR": "DC",
+            "DMCL": "DM",
+            "DMCR": "DM",
+            "MCL": "MC",
+            "MCR": "MC",
+            "AMCL": "AMC",
+            "AMCR": "AMC",
+            "STCL": "ST",
+            "STC": "ST",
+            "STCR": "ST",
+        }
+        normalized = canonicalToDomain.get(normalized, normalized)
         try:
             return PositionIdentity[normalized]
         except KeyError:

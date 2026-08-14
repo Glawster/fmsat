@@ -108,10 +108,10 @@ class OverviewTab(QWidget):
         side = QVBoxLayout()
         if model.status.casefold().startswith("incomplete"):
             side.addWidget(self._incompleteBanner())
-        side.addWidget(self._summaryPanel(model), 1)
+        side.addWidget(self._summaryPanel(model), 2)
         side.addWidget(self._notesPanel(model.notes), 1)
         self.validationWidget = TacticValidationWidget(validation)
-        side.addWidget(self.validationWidget, 1)
+        side.addWidget(self.validationWidget, 4)
         layout.addLayout(side, 3)
 
     @staticmethod

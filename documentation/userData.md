@@ -73,6 +73,11 @@ User definitions override bundled definitions when validated.
 
 Application logging is stored alongside other application state.
 
+The desktop log records startup paths, tactic-processing stages, screenshot
+coverage, OCR candidate counts, selected-instruction scores, unresolved issues,
+integrity-gate decisions and object-model persistence. Daily files use the name
+`fmsat-YYYY-MM-DD.log` under `~/.local/state/fmsat/` on Linux.
+
 Logs are rotated automatically.
 
 Image data is never written to the logs.

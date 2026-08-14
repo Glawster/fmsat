@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -60,12 +61,47 @@ def testVocabularyNormalizesAliasesAndPreservesObservedText() -> None:
     assert vocabulary.roleIndicatorNormalize("Moves Inside").value == "movesInside"
 
 
+def testInstructionVocabularyNormalizesFm26DisplayedAliases() -> None:
+    vocabulary = TacticVocabulary()
+
+    assert vocabulary.instructionNormalize(
+        "inPossession", "attackingTransition", "Counter-Attack"
+    ).value == "counter"
+    assert vocabulary.instructionNormalize(
+        "outOfPossession", "tackling", "Standard"
+    ).value == "balanced"
+    assert vocabulary.instructionNormalize(
+        "outOfPossession", "shortGoalkeeperDistribution", "No"
+    ).value == "false"
+
+
+def testInstructionVocabularyNormalizesUniqueDisplayedEllipsis() -> None:
+    vocabulary = TacticVocabulary()
+
+    assert vocabulary.instructionNormalize(
+        "inPossession", "playForSetPieces", "Keep Ball in Pl..."
+    ).value == "true"
+    assert vocabulary.instructionNormalize(
+        "inPossession", "passReception", "Pass Into Spa…"
+    ).value == "into space"
+    assert vocabulary.instructionNormalize(
+        "inPossession", "goalkeeperDistributionSpeed", "Distribute Qui..."
+    ).value == "distribute quickly"
+    assert vocabulary.instructionNormalize(
+        "inPossession", "crossingStyle", "Whipped Cro"
+    ).value == "whipped"
+    assert vocabulary.instructionNormalize(
+        "inPossession", "goalkeeperDistributionSpeed", "Distribute Qui"
+    ).value == "distribute quickly"
+
+
 def testRoleAbbreviationNormalizesToStableNamedIdentity() -> None:
     vocabulary = TacticVocabulary()
 
     assert vocabulary.roleNormalize("AP").value == "advancedPlaymaker"
     assert vocabulary.roleNormalize("Advanced Playmaker").value == "advancedPlaymaker"
     assert vocabulary.roles["channelForward"].abbreviations == ("CHF",)
+    assert vocabulary.roleNormalize("BGK").value == "ballPlayingGoalkeeper"
     assert vocabulary.roleNormalize("BCB").value == "ballPlayingCentreBack"
     assert vocabulary.roleNormalize("Ball-Playing Defender").value is None
     assert vocabulary.roleNormalize("CFD").value == "centreForward"
@@ -79,6 +115,24 @@ def testUnknownVocabularyDoesNotInventMeaning() -> None:
     assert value.value is None
     assert value.observedText == "Raumdeuter-ish"
     assert value.resolved is False
+
+
+def testCapturedRoleDefinitionExtendsLiveOcrVocabulary() -> None:
+    vocabulary = TacticVocabulary()
+    vocabulary.capturedRolesAdd((
+        SimpleNamespace(
+            roleID=20,
+            roleCode=None,
+            displayName="Advanced Wing-Back",
+            abbreviations=("AWB",),
+            positions=("WBL", "WBR"),
+        ),
+    ))
+
+    value = vocabulary.roleNormalize("AWB")
+
+    assert value.value == "capturedRole20"
+    assert value.observedText == "AWB"
 
 
 def testRoleProfileEvidenceSeparatesKeyAttributesFromPlayerValues() -> None:

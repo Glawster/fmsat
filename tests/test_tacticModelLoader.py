@@ -13,7 +13,7 @@ from fmsat.database import (
     Database,
     ImportSession,
     StructuredFormationSlot,
-    StructuredTacticDefinition,
+    ScreenshotDerivedTacticDefinition,
     StructuredTacticIssue,
     Tactic,
 )
@@ -37,7 +37,19 @@ def _objectModelSample(name: str, inPossessionName: str) -> ModelTactic:
     inPossession = Formation(
         name=inPossessionName,
         positions=[
-            Position(PositionIdentity.GK, goalkeeper, defendProfile),
+            Position(
+                PositionIdentity.GK,
+                goalkeeper,
+                defendProfile,
+                slotId="in-gk",
+                duty="defend",
+                x=0.5,
+                y=0.9,
+                player="Example Keeper",
+                confidence=0.96,
+                sourceImportSessionId=1,
+                validationState="confirmed",
+            ),
             Position(PositionIdentity.DC, centreBack, defendProfile),
             Position(PositionIdentity.ST, centreForward, attackProfile),
         ],
@@ -63,15 +75,12 @@ def testLoaderPrefersSavedObjectModelOverStructuredDefinition(tmp_path) -> None:
         ScreenType.TACTIC_FORMATION,
         "High Press",
     )
-    from sqlalchemy.orm import Session
-    from sqlalchemy import select
-
     with Session(database.engine) as session, session.begin():
         tactic = session.scalar(select(Tactic).where(Tactic.normalizedName == "high press"))
         sourceImport = session.get(ImportSession, imported.id)
         assert tactic is not None
         assert sourceImport is not None
-        tactic.structuredDefinition = StructuredTacticDefinition(
+        tactic.structuredDefinition = ScreenshotDerivedTacticDefinition(
             confirmed=True,
             complete=True,
             tacticMetadata={"inPossessionName": "Structured Shape"},
@@ -127,7 +136,42 @@ def testLoaderPrefersSavedObjectModelOverStructuredDefinition(tmp_path) -> None:
 
     assert loaded.tactic is not None
     assert loaded.source == "objectModel"
+    assert loaded.phaseSlots == {}
     assert loaded.tactic.inPossession.name == "Saved Shape"
+    loadedKeeper = loaded.tactic.inPossession.positions[0]
+    assert loadedKeeper.slotId == "in-gk"
+    assert loadedKeeper.duty == "defend"
+    assert loadedKeeper.x == 0.5
+    assert loadedKeeper.y == 0.9
+    assert loadedKeeper.player is None
+    assert loadedKeeper.confidence == 0.96
+    assert loadedKeeper.sourceImportSessionId == 1
+    assert loadedKeeper.validationState == "confirmed"
+    assert loaded.stale is False
+
+
+def testLoaderMarksSavedModelStaleAfterNewScreenshotImport(tmp_path) -> None:
+    database = Database(tmp_path / "test.sqlite3")
+    database.initialize()
+    database.tacticImportSave(
+        "/captures/formation.png",
+        ScreenType.TACTIC_FORMATION,
+        "High Press",
+    )
+    TacticStore(database.engine).tacticSave(
+        _objectModelSample("High Press", "Saved Shape")
+    )
+
+    database.tacticImportSave(
+        "/captures/new-in-possession.png",
+        ScreenType.TACTIC_IN_POSSESSION,
+        "High Press",
+    )
+
+    loaded = TacticModelLoader(database.engine).tacticLoad("High Press")
+
+    assert loaded.source == "objectModel"
+    assert loaded.stale is True
 
 
 def testSavedObjectModelPreservesStructuredExtractionIssues(tmp_path) -> None:
@@ -145,7 +189,7 @@ def testSavedObjectModelPreservesStructuredExtractionIssues(tmp_path) -> None:
             select(Tactic).where(Tactic.normalizedName == "metadata gap")
         )
         assert tactic is not None
-        tactic.structuredDefinition = StructuredTacticDefinition(
+        tactic.structuredDefinition = ScreenshotDerivedTacticDefinition(
             confirmed=False,
             complete=True,
             tacticMetadata={},
@@ -168,8 +212,8 @@ def testSavedObjectModelPreservesStructuredExtractionIssues(tmp_path) -> None:
     assert "formation name and mentality" in loaded.issues[0].message
 
 
-def testLoaderFallsBackToStructuredBuilderWhenNoSavedObjectModel(tmp_path) -> None:
-    """If no object-model tactic exists, the structured tactic builder should be used."""
+def testLoaderDoesNotInferPhaseSlotsFromFormationEvidence(tmp_path) -> None:
+    """Formation evidence must not be copied into unobserved phase formations."""
 
     database = Database(tmp_path / "test.sqlite3")
     database.initialize()
@@ -183,7 +227,7 @@ def testLoaderFallsBackToStructuredBuilderWhenNoSavedObjectModel(tmp_path) -> No
         sourceImport = session.get(ImportSession, imported.id)
         assert tactic is not None
         assert sourceImport is not None
-        tactic.structuredDefinition = StructuredTacticDefinition(
+        tactic.structuredDefinition = ScreenshotDerivedTacticDefinition(
             confirmed=False,
             complete=False,
             tacticMetadata={"inPossessionName": "Structured Fallback"},
@@ -235,7 +279,7 @@ def testLoaderFallsBackToStructuredBuilderWhenNoSavedObjectModel(tmp_path) -> No
     built = loader.tacticLoad("Fallback Press")
     direct = TacticBuilder(database.engine).tacticBuild("Fallback Press")
 
-    assert built.tactic is not None
+    assert built.tactic is None
     assert built.source == "structured"
-    assert direct.tactic is not None
-    assert built.tactic.inPossession.name == direct.tactic.inPossession.name
+    assert direct.tactic is None
+    assert sum(issue.code == "emptyFormation" for issue in built.issues) == 2

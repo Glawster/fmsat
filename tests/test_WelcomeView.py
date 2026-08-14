@@ -3,13 +3,15 @@
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtTest import QSignalSpy
 from PySide6.QtWidgets import (
     QDialog,
     QLabel,
     QInputDialog,
+    QProgressDialog,
     QPushButton,
+    QPlainTextEdit,
     QTableWidget,
     QToolButton,
 )
@@ -102,6 +104,9 @@ def testViewMenuIncludesRolesAndShowsWelcomeRolesPanel(qtbot) -> None:  # type: 
         "Roles",
         "Players",
         "Settings",
+        "",
+        "Show Status Log",
+        "Show OCR Zones",
     ]
 
     window.rolesAction.trigger()
@@ -328,11 +333,16 @@ def testPositionSummaryExpandsItsCapturedRoles(qtbot) -> None:  # type: ignore[n
     qtbot.mouseClick(group.summaryButton, Qt.MouseButton.LeftButton)
 
     assert group.rolesContainer.isVisible()
-    assert group.summaryButton.arrowType() == Qt.ArrowType.DownArrow
+    assert group.summaryButton.arrowType() == Qt.ArrowType.NoArrow
     assert any(
         card.property("summaryName") == "Inside Forward"
         for card in group.findChildren(SummaryCard)
     )
+
+    qtbot.mouseClick(group.summaryButton, Qt.MouseButton.LeftButton)
+
+    assert not group.rolesContainer.isVisible()
+    assert group.summaryButton.arrowType() == Qt.ArrowType.NoArrow
 
 
 def testCapturedRoleCardShowsBehavioursAndOpensEditor(qtbot) -> None:  # type: ignore[no-untyped-def]
@@ -558,7 +568,9 @@ def testExpectedRoleChoicesHideStateAndOrderMissingBeforeKnown(
     assert not any("Missing" in choice or "Known" in choice for choice in choices)
 
 
-def testNewRoleChoiceOffersPositionsInTacticalOrder(qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+def testNewRoleChoiceUsesPositionDetectedFromScreenshot(
+    qtbot, monkeypatch, tmp_path
+) -> None:  # type: ignore[no-untyped-def]
 
     database = Mock()
     database.tacticRecords.return_value = []
@@ -575,25 +587,35 @@ def testNewRoleChoiceOffersPositionsInTacticalOrder(qtbot, monkeypatch) -> None:
         vocabulary,
     )
     qtbot.addWidget(window)
-    positionChoices = []
-    calls = 0
+    selection = Mock(return_value=("New role…", True))
+    monkeypatch.setattr(QInputDialog, "getItem", selection)
+    evidence = RoleProfileEvidence(
+        position="AM (C)",
+        roleName="New Role",
+        phase=TacticalPhase.IN_POSSESSION,
+        abbreviation="NR",
+    )
+    monkeypatch.setattr(
+        window,
+        "_screenshotAcquire",
+        lambda *args: SimpleNamespace(roleProfile=evidence),
+    )
+    monkeypatch.setattr(window, "_screenshotPersist", lambda *args: tmp_path / "role.png")
+    observed = {}
 
-    def selectionChooseNew(*args):  # type: ignore[no-untyped-def]
-        nonlocal calls
-        calls += 1
-        if calls == 1:
-            return "New role…", True
-        positionChoices.extend(args[3])
-        return "", False
+    def dialogCreate(*args, **kwargs):  # type: ignore[no-untyped-def]
+        observed["expectedPosition"] = args[1]
+        dialog = Mock()
+        dialog.exec.return_value = QDialog.DialogCode.Accepted
+        dialog.savedPath = tmp_path / "newRole.yaml"
+        return dialog
 
-    monkeypatch.setattr(QInputDialog, "getItem", selectionChooseNew)
+    monkeypatch.setattr("fmsat.app.window.RoleProfileReviewDialog", dialogCreate)
 
     window.roleProfileImport()
 
-    ranks = [WelcomeService.positionSortKey(position)[0] for position in positionChoices]
-    assert ranks == sorted(ranks)
-    assert ranks[0] == 0
-    assert ranks[-1] == 5
+    assert selection.call_count == 1
+    assert observed["expectedPosition"] == "AMC"
 
 
 def testTacticShowOpensIncompleteViewWhenNoModelData(qtbot) -> None:  # type: ignore[no-untyped-def]
@@ -611,7 +633,7 @@ def testTacticShowOpensIncompleteViewWhenNoModelData(qtbot) -> None:  # type: ig
             issues=(
                 TacticBuildIssue(
                     "missingStructuredDefinition",
-                    "No structured tactic definition exists",
+                    "No screenshot-derived tactic definition exists",
                 ),
             ),
             complete=False,
@@ -645,7 +667,98 @@ def testTacticModelImportUsesProcessingFlow(qtbot) -> None:  # type: ignore[no-u
     window._tacticImportRun.assert_not_called()
 
 
-def testTacticProcessBuildsModelFromScreenshotOnlyTactic(qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+def testIncompleteRegenerationRetainsExistingObjectModel(qtbot) -> None:  # type: ignore[no-untyped-def]
+    """Incomplete screenshot evidence must not reach the object-model store."""
+
+    window = _mainWindowCreate()
+    qtbot.addWidget(window)
+    window.tacticModelLoader.tacticLoad = Mock(
+        return_value=SimpleNamespace(source="objectModel")
+    )
+    window.tacticScreenshotExtractor.tacticExtract = Mock(
+        return_value=SimpleNamespace(
+            structuredCreated=True,
+            complete=False,
+            message="Observed tactic data extracted with unresolved coverage",
+        )
+    )
+    changed = QSignalSpy(window.dataChanged)
+
+    window.tacticProcess("High Press", openDetail=False, forceRebuild=True)
+
+    window.tacticModelLoader.tacticLoad.assert_called_once_with("High Press")
+    assert changed.count() == 0
+    assert "existing model retained" in window.statusBar().currentMessage()
+    assert window.tacticProcessStatuses["high press"] == "Regeneration failed"
+
+
+def testStatusLogShowsHistoricalMessagesMostRecentFirst(qtbot) -> None:  # type: ignore[no-untyped-def]
+    window = _mainWindowCreate()
+    qtbot.addWidget(window)
+
+    window.statusBar().showMessage("First operation", 10000)
+    window.statusBar().showMessage("Latest operation", 10000)
+    window.statusLogShow()
+
+    assert window.statusLogDialog is not None
+    qtbot.addWidget(window.statusLogDialog)
+    content = window.statusLogDialog.findChild(QPlainTextEdit, "statusLogContent")
+    assert content is not None
+    lines = content.toPlainText().splitlines()
+    assert "Latest operation" in lines[0]
+    assert "First operation" in lines[1]
+
+
+def testTacticProgressDialogRemainsReadable(qtbot) -> None:  # type: ignore[no-untyped-def]
+    window = _mainWindowCreate()
+    qtbot.addWidget(window)
+    progress = window._tacticProgressCreate()
+    qtbot.addWidget(progress)
+
+    MainWindow._progressUpdate(progress, "Reading screenshot evidence...", 2)
+
+    assert progress.width() >= 560
+    assert progress.height() >= 140
+    assert progress.labelText() == "Reading screenshot evidence..."
+    assert progress.value() == 2
+    assert progress.objectName() == "tacticProgressDialog"
+    assert "background-color: #101f2e" in progress.styleSheet()
+    assert "QProgressBar::chunk" in progress.styleSheet()
+
+
+def testBackgroundRunKeepsQtEventLoopResponsive(qtbot) -> None:  # type: ignore[no-untyped-def]
+    window = _mainWindowCreate()
+    qtbot.addWidget(window)
+    eventObserved = []
+    QTimer.singleShot(10, lambda: eventObserved.append(True))
+
+    result = window._backgroundRun(lambda: "finished")
+
+    assert result == "finished"
+    assert eventObserved == [True]
+
+
+def testTacticProgressUsesBusyStateDuringOcr(qtbot) -> None:  # type: ignore[no-untyped-def]
+    window = _mainWindowCreate()
+    qtbot.addWidget(window)
+    progress = window._tacticProgressCreate()
+    qtbot.addWidget(progress)
+
+    MainWindow._progressBusy(progress, "Reading screenshot evidence with OCR...")
+
+    assert progress.minimum() == 0
+    assert progress.maximum() == 0
+    assert progress.labelText() == "Reading screenshot evidence with OCR..."
+
+    MainWindow._progressRestore(progress, "Screenshot extraction finished.", 3)
+
+    assert progress.minimum() == 0
+    assert progress.maximum() == 6
+    assert progress.value() == 3
+
+
+def testTacticProcessRejectsUnavailableScreenshotEvidence(qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """Missing capture files must not recreate the removed template fallback model."""
 
     from fmsat.core.detection import ScreenType
     from fmsat.database import Database, ObjectModelTactic
@@ -670,4 +783,6 @@ def testTacticProcessBuildsModelFromScreenshotOnlyTactic(qtbot, tmp_path) -> Non
         stored = session.scalar(
             select(ObjectModelTactic).where(ObjectModelTactic.normalizedName == "high press")
         )
-        assert stored is not None
+        assert stored is None
+
+    assert "no model was saved" in window.statusBar().currentMessage().casefold()

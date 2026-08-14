@@ -1,68 +1,80 @@
-## Roadmap
+# Roadmap
 
-FMSAT is being developed incrementally to ensure every stage produces
-reviewable, explainable and testable data before moving to the next layer.
+FMSAT is developed incrementally so that each stage produces reviewable,
+explainable and testable data before the next layer consumes it.
 
-### Phase 1 — Squad Extraction ✅
+## Phase 1 — Squad extraction
 
-Completed
+Completed:
 
-- Squad Attributes OCR
-- Player extraction
-- Validation
-- Review and correction
-- SQLite persistence
-- Historical screenshot storage
+- squad-attribute OCR;
+- player extraction;
+- validation and review;
+- SQLite persistence; and
+- historical screenshot storage.
 
-### Phase 2 — Workspace & Workflow ✅
+## Phase 2 — Workspace and workflow
 
-Completed
+Completed baseline:
 
-- Welcome workspace
-- Tactic management
-- Squad management
-- Screenshot provenance
-- Clipboard workflow
-- Persistent user data
+- welcome workspace;
+- tactic and squad management;
+- screenshot provenance;
+- clipboard workflow; and
+- persistent user data.
 
-### Phase 3 — Structured Tactical Knowledge 🚧
+Requirements 003 and 004 still require a final acceptance and traceability
+review before their records can be marked completed.
 
-Current development phase
+## Phase 3 — Structured tactical knowledge
 
-Implemented
+Operational baseline delivered:
 
-- Tactical vocabulary
-- Role vocabulary
-- Role-profile extraction
-- Role knowledge review
-- User-confirmed role definitions
-- Persistent knowledge base
-- Tactical workflow foundations
+- anchored tactic screenshot extraction;
+- formation-slot and selected-instruction extraction;
+- canonical tactical vocabulary;
+- evidence-preserving screenshot-derived definitions;
+- integrity-gated football object-model generation;
+- model freshness and regeneration;
+- missing-role detection;
+- user-reviewed factual role definitions; and
+- a model-backed tactic viewer.
 
-In Progress
+Remaining Phase 3 work is non-blocking for the squad-viewer start:
 
-- Structured tactic extraction
-- Formation slot detection
-- Team instruction extraction
-- Tactical review workflow
-- Knowledge gap detection
-- Structured tactic persistence
+- structured-tactic correction and diagnostic CLI completion under requirement
+  006;
+- immutable revision history and comparison under requirement 009; and
+- the assessment-policy portion of requirement 010, which will be delivered as
+  the squad assessment consumes it.
 
-### Phase 4 — Squad Assessment
+## Phase 4 — Squad assessment
 
-Planned
+Current development phase.
 
-- Role suitability
-- Tactical suitability
-- Squad depth
-- Role health
-- Best XI
-- Recruitment analysis
+First increment:
 
-### Future
+- a squad viewer using the tactic viewer's visual language;
+- explicit squad, tactic revision and knowledge-version context;
+- Overview, Players and Roles views;
+- configuration-driven Generic Role Fit;
+- reproducible score explanations and unavailable states; and
+- initial starter, backup and uncovered-role assessment.
 
-- Match analysis
-- Training recommendations
-- Reporting
-- Recruitment planning
-- Tactical comparison
+Later increments:
+
+- Tactical Fit and Position Familiarity;
+- Overall Suitability;
+- candidate comparison;
+- alternative-role ranking;
+- Role Health;
+- squad depth and Best XI; and
+- recruitment analysis built on confirmed assessment results.
+
+## Future
+
+- match analysis;
+- training recommendations;
+- reporting;
+- recruitment planning; and
+- tactical comparison beyond factual revision differences.

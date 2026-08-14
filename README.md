@@ -40,7 +40,18 @@ application.
 When a tactic is saved through the football object-model workflow, FMSAT writes it to a
 dedicated object-model schema (`object_model_*` tables). These rows are intentionally kept
 separate from structured extraction evidence tables (`structured_*`) so object-model edits
-do not overwrite OCR review provenance.
+do not overwrite OCR review provenance. Position rows preserve canonical position and role,
+duty, slot identity, coordinates, optional player, confidence, source import and validation
+state. Missing slot and instruction extraction remains unresolved; it is not filled from
+templates or neutral defaults.
+
+Formation extraction detects role tiles before applying focused OCR, normalizes their pitch
+centres through configurable zones, and links phase slots only where player, shirt-number,
+relative-order or spatial evidence supports the link. Instruction extraction retains only a
+single visibly selected canonical value from each configured card. Missing and ambiguous
+evidence is recorded for review and never converted into a default fact. The normalized FM26
+regions and selection thresholds live in `config/tacticExtraction.yaml` so layout calibration
+does not require parser changes.
 
 On first launch after upgrading from the repository-local data layout, FMSAT copies an
 existing `data/fmsat.sqlite3` and its retained screenshots into the persistent user-data
