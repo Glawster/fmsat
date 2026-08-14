@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
+from datetime import datetime
 from pathlib import Path
 from typing import TypeVar
 
@@ -22,6 +23,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QProgressDialog,
+    QPlainTextEdit,
     QPushButton,
     QStackedWidget,
     QTableWidget,
@@ -93,6 +95,9 @@ class MainWindow(QMainWindow):
         self.screenshotStore = screenshotStore
         self.roleKnowledgeService = roleKnowledgeService
         self.tacticVocabulary = tacticVocabulary
+        self.statusHistory: list[str] = []
+        self.tacticProcessStatuses: dict[str, str] = {}
+        self.statusLogDialog: QDialog | None = None
         self.tacticModelLoader = TacticModelLoader(database.engine)
         self.tacticScreenshotExtractor = TacticScreenshotExtractor(database.engine)
         self.currentResult: ImportResult | None = None
@@ -110,6 +115,7 @@ class MainWindow(QMainWindow):
         self._toolbarCreate()
         self._contentCreate()
         self.dataChanged.connect(self.welcomeView.refresh)
+        self.statusBar().messageChanged.connect(self._statusRecord)
         self.statusBar().showMessage(
             "Ready — choose to Import a Tactic or Squad, or view Tactics or Squads "
             "from the Database."
@@ -362,9 +368,9 @@ class MainWindow(QMainWindow):
                 )
                 if not extraction.structuredCreated:
                     logger.info(f"regeneration stopped: {extraction.message}")
-                    self.statusBar().showMessage(
+                    self._regenerationFailed(
+                        tacticName,
                         f"Unable to regenerate {tacticName}: {extraction.message}",
-                        12000,
                     )
                     if openDetail:
                         self.tacticShow(tacticName)
@@ -374,9 +380,9 @@ class MainWindow(QMainWindow):
                 # evidence, but it must never replace the current saved model.
                 if not extraction.complete:
                     logger.info("regeneration stopped by incomplete extraction integrity gate")
-                    self.statusBar().showMessage(
+                    self._regenerationFailed(
+                        tacticName,
                         f"Regeneration incomplete for {tacticName}; existing model retained.",
-                        15000,
                     )
                     if openDetail:
                         self.tacticShow(tacticName)
@@ -391,18 +397,18 @@ class MainWindow(QMainWindow):
                 self._progressUpdate(progress, "Built regenerated tactic model.", 4)
                 if loadResult.tactic is None:
                     logger.info("regeneration stopped because model build returned no tactic")
-                    self.statusBar().showMessage(
+                    self._regenerationFailed(
+                        tacticName,
                         f"Regeneration finished for {tacticName}, but model build still failed.",
-                        12000,
                     )
                     if openDetail:
                         self.tacticShow(tacticName)
                     return
                 if not self._generatedModelValid(loadResult.tactic):
                     logger.info("regeneration stopped by generated-model integrity gate")
-                    self.statusBar().showMessage(
+                    self._regenerationFailed(
+                        tacticName,
                         f"Regeneration invalid for {tacticName}; existing model retained.",
-                        15000,
                     )
                     if openDetail:
                         self.tacticShow(tacticName)
@@ -468,6 +474,7 @@ class MainWindow(QMainWindow):
 
             self._progressUpdate(progress, "Saving tactic model...", 5)
             TacticStore(self.database.engine).tacticSave(loadResult.tactic)
+            self.tacticProcessStatuses.pop(tacticName.casefold(), None)
             self._progressUpdate(progress, "Tactic model saved.", 6)
             logger.done(f"tactic model saved for {tacticName}")
 
@@ -484,6 +491,8 @@ class MainWindow(QMainWindow):
                 self.tacticShow(tacticName)
         except Exception as exc:
             logger.exception(f"tactic processing failed for {tacticName}")
+            if forceRebuild:
+                self.tacticProcessStatuses[tacticName.casefold()] = "Regeneration failed"
             self._errorShow("Tactic processing error", str(exc))
         finally:
             progress.close()
@@ -680,6 +689,7 @@ class MainWindow(QMainWindow):
                 self._errorShow("Database error", str(exc))
                 return
             captured.add(result.screenType)
+            self.tacticProcessStatuses.pop(tacticName.casefold(), None)
             remaining = requirementsToImport[index + 1 :]
             outstanding = [item for item in tacticRequirements if item.screenType not in captured]
             if remaining:
@@ -912,6 +922,7 @@ class MainWindow(QMainWindow):
             assignedSquads=detailRecord.assignedSquads if detailRecord is not None else (),
             updatedAt=detailRecord.updatedAt if detailRecord is not None else None,
             regenerationRequired=loadResult.stale,
+            statusOverride=self.tacticProcessStatuses.get(tacticName.casefold()),
         )
         sourceLabel = (
             "Regeneration Required"
@@ -1157,6 +1168,8 @@ class MainWindow(QMainWindow):
         self.rolesAction.triggered.connect(self.rolesShow)
         self.settingsAction = QAction("Settings", self)
         self.settingsAction.triggered.connect(self.settingsShow)
+        self.statusLogAction = QAction("Show Status Log", self)
+        self.statusLogAction.triggered.connect(self.statusLogShow)
         self.saveAction = QAction("Save Confirmed Data", self)
         self.saveAction.setShortcut("Ctrl+S")
         self.saveAction.setEnabled(False)
@@ -1396,6 +1409,54 @@ class MainWindow(QMainWindow):
         viewMenu.addAction(self.rolesAction)
         viewMenu.addAction(self.playersAction)
         viewMenu.addAction(self.settingsAction)
+        viewMenu.addSeparator()
+        viewMenu.addAction(self.statusLogAction)
+
+    def _regenerationFailed(self, tacticName: str, message: str) -> None:
+        """Retain a failed regeneration state after its status message expires."""
+
+        self.tacticProcessStatuses[tacticName.casefold()] = "Regeneration failed"
+        self.statusBar().showMessage(message, 15000)
+
+    def _statusRecord(self, message: str) -> None:
+        """Record non-empty status messages newest-first for the current session."""
+
+        cleanMessage = message.strip()
+        if not cleanMessage:
+            return
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        entry = f"{timestamp}  {cleanMessage}"
+        if self.statusHistory and self.statusHistory[0] == entry:
+            return
+        self.statusHistory.insert(0, entry)
+        logger.info("status: %s", cleanMessage)
+
+    def statusLogShow(self) -> None:
+        """Show the session's status-bar history with the newest item first."""
+
+        if self.statusLogDialog is None:
+            dialog = QDialog(self)
+            dialog.setObjectName("statusLogDialog")
+            dialog.setWindowTitle("FMSAT Status Log")
+            dialog.resize(820, 480)
+            layout = QVBoxLayout(dialog)
+            heading = QLabel("Status messages — most recent first")
+            heading.setObjectName("pageTitle")
+            layout.addWidget(heading)
+            content = QPlainTextEdit(dialog)
+            content.setObjectName("statusLogContent")
+            content.setReadOnly(True)
+            layout.addWidget(content, 1)
+            closeButton = QPushButton("Close", dialog)
+            closeButton.clicked.connect(dialog.close)
+            layout.addWidget(closeButton, 0, Qt.AlignmentFlag.AlignRight)
+            self.statusLogDialog = dialog
+        content = self.statusLogDialog.findChild(QPlainTextEdit, "statusLogContent")
+        if content is not None:
+            content.setPlainText("\n".join(self.statusHistory) or "No status messages recorded.")
+        self.statusLogDialog.show()
+        self.statusLogDialog.raise_()
+        self.statusLogDialog.activateWindow()
 
     def _managementForget(self) -> None:
         self.dataChanged.emit()
