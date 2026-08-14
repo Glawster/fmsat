@@ -196,6 +196,7 @@ def testBuilderPreservesPositionWhenDutyIsNotShown() -> None:
         x=0.5,
         y=0.1,
         observedRole="CFD",
+        displayedPlayer="Example Forward",
         confidence=0.9,
         validationState="extracted",
     )
@@ -206,6 +207,7 @@ def testBuilderPreservesPositionWhenDutyIsNotShown() -> None:
     assert position.duty is None
     assert position.roleProfile.name == "Observed role"
     assert position.validationState == "extracted"
+    assert position.player is None
     assert issues == []
 
 
@@ -249,44 +251,24 @@ def testBuilderOrdersPositionsBySemanticPositionIdentity(tmp_path) -> None:
             tacticMetadata={},
             slots=[
                 StructuredFormationSlot(
-                    slotId="slot-z",
-                    phase="formation",
-                    position="ST",
-                    role="centreForward",
-                    duty="attack",
+                    slotId=f"{phase}-{slotId}",
+                    phase=phase,
+                    position=position,
+                    role=role,
+                    duty=duty,
                     x=0.5,
-                    y=0.1,
+                    y=y,
                     observedRole="",
                     confidence=0.9,
                     sourceImportSession=sourceImport,
                     validationState="confirmed",
-                ),
-                StructuredFormationSlot(
-                    slotId="slot-a",
-                    phase="formation",
-                    position="GK",
-                    role="goalkeeper",
-                    duty="defend",
-                    x=0.5,
-                    y=0.9,
-                    observedRole="",
-                    confidence=0.9,
-                    sourceImportSession=sourceImport,
-                    validationState="confirmed",
-                ),
-                StructuredFormationSlot(
-                    slotId="slot-m",
-                    phase="formation",
-                    position="DC",
-                    role="centreBack",
-                    duty="defend",
-                    x=0.5,
-                    y=0.7,
-                    observedRole="",
-                    confidence=0.9,
-                    sourceImportSession=sourceImport,
-                    validationState="confirmed",
-                ),
+                )
+                for phase in ("inPossession", "outOfPossession")
+                for slotId, position, role, duty, y in (
+                    ("slot-z", "ST", "centreForward", "attack", 0.1),
+                    ("slot-a", "GK", "goalkeeper", "defend", 0.9),
+                    ("slot-m", "DC", "centreBack", "defend", 0.7),
+                )
             ],
             instructions=[],
         )

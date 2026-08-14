@@ -379,7 +379,7 @@ class MainWindow(QMainWindow):
                 extraction = self._backgroundRun(
                     lambda: self.tacticScreenshotExtractor.tacticExtract(tacticName)
                 )
-                unresolvedRoles = extraction.unresolvedRoles
+                unresolvedRoles = tuple(getattr(extraction, "unresolvedRoles", ()))
                 self._ocrDiagnosticsCapture(extraction)
                 self._progressRestore(progress, "Screenshot extraction finished.", 3)
                 logger.info(
@@ -470,7 +470,7 @@ class MainWindow(QMainWindow):
                 extraction = self._backgroundRun(
                     lambda: self.tacticScreenshotExtractor.tacticExtract(tacticName)
                 )
-                unresolvedRoles = extraction.unresolvedRoles
+                unresolvedRoles = tuple(getattr(extraction, "unresolvedRoles", ()))
                 self._ocrDiagnosticsCapture(extraction)
                 self._progressRestore(progress, "Screenshot extraction finished.", 4)
                 logger.info(

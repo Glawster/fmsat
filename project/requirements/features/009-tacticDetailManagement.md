@@ -87,8 +87,7 @@ labels as imported facts.
    - normalized pitch coordinates;
    - canonical position;
    - role;
-   - duty; and
-   - optional assigned player.
+   - duty.
 4. A position may differ between phases; do not force the In Possession and Out
    of Possession codes or coordinates to match.
 5. Use the canonical roles, duties and position vocabulary established by
@@ -101,9 +100,10 @@ labels as imported facts.
    revisions, analysing spacing and later calculating role suitability without
    reopening screenshots.
 8. Preserve each slot's canonical position and role together with its duty,
-   stable slot ID, coordinates, optional player, confidence, source import and
-   validation state when generating, persisting and loading the football object
-   model.
+   stable slot ID, coordinates, confidence, source import and validation state
+   when generating, persisting and loading the football object model. A player
+   visible in the source screenshot remains evidence only and must not populate
+   the tactic model's assignment field.
 
 An illustrative slot representation is:
 
@@ -279,14 +279,16 @@ instructions:
    formation reconstructed from the football object model without showing the
    source screenshot as the tactic.
 3. Shape displays distinct In Possession and Out of Possession pitches using
-   stored coordinates, positions, roles, duties and optional players.
+   stored coordinates, positions, roles and duties. It does not show the players
+   who happened to occupy those positions in the source screenshot.
 4. Instructions displays every captured instruction under a meaningful canonical
    name and the correct Build Up, Attack, Transition or Defence group.
 5. Missing and unresolved values remain explicit and are never filled by
    inference or sample defaults.
 6. The generated football object model round-trips canonical position, role,
-   duty, slot ID, coordinates, optional player, confidence, source import and
-   validation state without evidence loss.
+   duty, slot ID, coordinates, confidence, source import and validation state.
+   Observed player text remains in screenshot-derived evidence without becoming
+   a model assignment.
 7. Opening or switching tabs performs no OCR.
 8. The Analysis tab has a useful empty state and does not misrepresent generated
    conclusions as imported data.

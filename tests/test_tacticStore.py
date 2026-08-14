@@ -148,7 +148,7 @@ def testStorePersistsTacticIntoObjectModelSchema(tmp_path) -> None:
         assert goalkeeperPosition.duty == "defend"
         assert goalkeeperPosition.x == 0.5
         assert goalkeeperPosition.y == 0.9
-        assert goalkeeperPosition.displayedPlayer == "Example Keeper"
+        assert goalkeeperPosition.displayedPlayer is None
         assert goalkeeperPosition.confidence == 0.96
         assert goalkeeperPosition.sourceImportSessionId == 1
         assert goalkeeperPosition.validationState == "confirmed"

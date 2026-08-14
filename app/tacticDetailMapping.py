@@ -13,7 +13,7 @@ from fmsat.tactics.position import Position
 from fmsat.tactics.positionIdentity import PositionIdentity
 from fmsat.tactics.tactic import Tactic
 
-tacticVocabulary = TacticVocabulary()
+_TACTIC_VOCABULARY = TacticVocabulary()
 
 
 def tacticDetailModelBuild(
@@ -24,7 +24,7 @@ def tacticDetailModelBuild(
     confirmed: bool,
     metadata: dict[str, str] | None = None,
     phaseSlots: (
-        dict[str, tuple[tuple[str, str, str, str, float, float, str | None], ...]] | None
+        dict[str, tuple[tuple[str, str, str, str, float, float], ...]] | None
     ) = None,
     assignedSquads: tuple[str, ...] = (),
     updatedAt: datetime | None = None,
@@ -193,7 +193,7 @@ def _mentalityResolve(metadata: dict[str, str]) -> str:
 
 
 def _phaseSlotsResolve(
-    phaseSlots: dict[str, tuple[tuple[str, str, str, str, float, float, str | None], ...]] | None,
+    phaseSlots: dict[str, tuple[tuple[str, str, str, str, float, float], ...]] | None,
     phase: str,
     *,
     fallback: Formation,
@@ -207,7 +207,7 @@ def _phaseSlotsResolve(
         return _slotsBuild(fallback)
 
     slots: list[DisplaySlot] = []
-    for slotId, position, role, duty, x, y, player in values:
+    for slotId, position, role, duty, x, y in values:
         roleLabel = _roleAbbreviation(role)
         slots.append(
             DisplaySlot(
@@ -218,7 +218,7 @@ def _phaseSlotsResolve(
                 x=max(0.0, min(1.0, float(x))),
                 y=max(0.0, min(1.0, float(y))),
                 row=_rowFromPosition(position),
-                player=player,
+                player=None,
             )
         )
     return tuple(slots)
@@ -239,9 +239,9 @@ def _shapeNameResolve(metadata: dict[str, str], key: str, fallback: str) -> str:
 def _roleAbbreviation(role: str) -> str:
     """Return short role code for pitch labels from configured role vocabulary."""
 
-    normalized = tacticVocabulary.roleNormalize(role)
+    normalized = _TACTIC_VOCABULARY.roleNormalize(role)
     if normalized.resolved:
-        definition = tacticVocabulary.roles.get(normalized.value)
+        definition = _TACTIC_VOCABULARY.roles.get(normalized.value)
         if definition is not None and definition.abbreviations:
             return definition.abbreviations[0]
 
@@ -335,7 +335,7 @@ def _slotsBuild(formation: Formation) -> tuple[DisplaySlot, ...]:
                     x=max(0.0, min(1.0, x)),
                     y=max(0.0, min(1.0, y)),
                     row=row,
-                    player=position.player,
+                    player=None,
                 )
             )
             slotIndex += 1

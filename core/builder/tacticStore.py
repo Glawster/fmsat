@@ -147,7 +147,9 @@ class TacticStore:
             duty=position.duty,
             x=position.x,
             y=position.y,
-            displayedPlayer=position.player,
+            # Player mappings belong to explicit squad assignments, not the
+            # reusable tactic definition persisted here.
+            displayedPlayer=None,
             confidence=position.confidence,
             sourceImportSessionId=position.sourceImportSessionId,
             validationState=position.validationState,

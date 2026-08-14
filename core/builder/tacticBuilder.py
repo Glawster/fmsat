@@ -299,7 +299,9 @@ class TacticBuilder:
             duty=slot.duty,
             x=slot.x,
             y=slot.y,
-            player=slot.displayedPlayer,
+            # The formation screenshot records who happened to be selected in
+            # FM, not an assignment for this reusable tactical definition.
+            player=None,
             confidence=slot.confidence,
             sourceImportSessionId=slot.sourceImportSessionId,
             validationState=slot.validationState,

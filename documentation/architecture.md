@@ -46,8 +46,11 @@ records what was observed, while the football object model is the usable model g
 from that evidence. Re-imported screenshot evidence requires the object model to be
 regenerated before it represents the latest capture.
 Object-model positions retain the evidence-bearing slot ID, duty, normalized coordinates,
-optional displayed player, confidence, source import and validation state alongside their
-canonical position and role. Extractors never manufacture missing slots or instructions:
+confidence, source import and validation state alongside their canonical position and role.
+The player visible in a Formation screenshot remains in the screenshot-derived evidence and
+may support transient cross-phase linking, but is deliberately omitted from the reusable
+tactic model; player mappings come only from explicit squad assignment. Extractors never
+manufacture missing slots or instructions:
 unsupported coverage is stored as unresolved issues until an observed extractor or user
 review supplies it.
 

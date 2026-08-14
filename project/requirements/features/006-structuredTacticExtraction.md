@@ -32,6 +32,11 @@ requirement.
    and confirmed by the user. Missing slot or instruction extraction must create
    unresolved issues; templates, neutral defaults and formation-to-phase copying
    must not be persisted as extracted facts.
+8. A player displayed in a Formation screenshot is extraction evidence only.
+   It may be retained in `ScreenshotDerivedTacticDefinition` and used transiently
+   to link the same slot across phases, but it must not become a player assignment
+   in the reusable football object model. Player assignments require a separate,
+   explicit squad-assignment action.
 
 ## Canonical vocabulary
 

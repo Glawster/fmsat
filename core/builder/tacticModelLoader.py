@@ -38,7 +38,7 @@ class TacticModelLoadResult:
     complete: bool
     confirmed: bool
     metadata: dict[str, str] = field(default_factory=dict)
-    phaseSlots: dict[str, tuple[tuple[str, str, str, str, float, float, str | None], ...]] = field(
+    phaseSlots: dict[str, tuple[tuple[str, str, str, str, float, float], ...]] = field(
         default_factory=dict
     )
     stale: bool = False
@@ -225,7 +225,9 @@ class TacticModelLoader:
             duty=model.duty,
             x=model.x,
             y=model.y,
-            player=model.displayedPlayer,
+            # Legacy rows may contain the player visible during screenshot
+            # capture. It is evidence, not a tactic-slot assignment.
+            player=None,
             confidence=model.confidence,
             sourceImportSessionId=model.sourceImportSessionId,
             validationState=model.validationState,
@@ -258,7 +260,7 @@ class TacticModelLoader:
         tactic: DatabaseTactic | None,
     ) -> tuple[
         dict[str, str],
-        dict[str, tuple[tuple[str, str, str, str, float, float, str | None], ...]],
+        dict[str, tuple[tuple[str, str, str, str, float, float], ...]],
     ]:
         """Return structured metadata and slots when persisted for this tactic."""
 
@@ -271,7 +273,7 @@ class TacticModelLoader:
             for key, value in definition.tacticMetadata.items()
             if isinstance(key, str) and isinstance(value, str)
         }
-        phaseSlots: dict[str, list[tuple[str, str, str, str, float, float, str | None]]] = {}
+        phaseSlots: dict[str, list[tuple[str, str, str, str, float, float]]] = {}
         for slot in sorted(
             definition.slots,
             key=lambda item: (item.phase.casefold(), item.slotId.casefold()),
@@ -286,7 +288,6 @@ class TacticModelLoader:
                     slot.duty or "",
                     slot.x,
                     slot.y,
-                    slot.displayedPlayer,
                 )
             )
 

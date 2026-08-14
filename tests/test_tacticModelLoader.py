@@ -75,9 +75,6 @@ def testLoaderPrefersSavedObjectModelOverStructuredDefinition(tmp_path) -> None:
         ScreenType.TACTIC_FORMATION,
         "High Press",
     )
-    from sqlalchemy.orm import Session
-    from sqlalchemy import select
-
     with Session(database.engine) as session, session.begin():
         tactic = session.scalar(select(Tactic).where(Tactic.normalizedName == "high press"))
         sourceImport = session.get(ImportSession, imported.id)
@@ -146,7 +143,7 @@ def testLoaderPrefersSavedObjectModelOverStructuredDefinition(tmp_path) -> None:
     assert loadedKeeper.duty == "defend"
     assert loadedKeeper.x == 0.5
     assert loadedKeeper.y == 0.9
-    assert loadedKeeper.player == "Example Keeper"
+    assert loadedKeeper.player is None
     assert loadedKeeper.confidence == 0.96
     assert loadedKeeper.sourceImportSessionId == 1
     assert loadedKeeper.validationState == "confirmed"
