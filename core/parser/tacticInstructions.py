@@ -90,19 +90,28 @@ class TacticInstructionExtractor:
             canonicalResults = [
                 result for result, normalized in normalizedResults if normalized.resolved
             ]
-            selected = self._selectedResults(crop, canonicalResults)
+            selectionMode = str(
+                self.configuration.get("selection", {}).get("mode", "visualRow")
+            )
+            selected = (
+                [(result, result.confidence) for result in canonicalResults]
+                if selectionMode == "displayedValue"
+                else self._selectedResults(crop, canonicalResults)
+            )
             logger.info(
                 f"{phase.value}.{category} canonical candidates: "
                 f"{', '.join(result.text for result in canonicalResults) or 'none'}"
             )
             if len(selected) != 1:
-                unknownSelected = self._selectedResults(
-                    crop,
-                    [
-                        result
-                        for result, normalized in normalizedResults
-                        if not normalized.resolved
-                    ],
+                unknownResults = [
+                    result
+                    for result, normalized in normalizedResults
+                    if not normalized.resolved
+                ]
+                unknownSelected = (
+                    [(result, result.confidence) for result in unknownResults]
+                    if selectionMode == "displayedValue"
+                    else self._selectedResults(crop, unknownResults)
                 )
                 if not selected and len(unknownSelected) == 1:
                     issues.append(TacticIssue(

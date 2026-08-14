@@ -60,6 +60,20 @@ def testVocabularyNormalizesAliasesAndPreservesObservedText() -> None:
     assert vocabulary.roleIndicatorNormalize("Moves Inside").value == "movesInside"
 
 
+def testInstructionVocabularyNormalizesFm26DisplayedAliases() -> None:
+    vocabulary = TacticVocabulary()
+
+    assert vocabulary.instructionNormalize(
+        "inPossession", "attackingTransition", "Counter-Attack"
+    ).value == "counter"
+    assert vocabulary.instructionNormalize(
+        "outOfPossession", "tackling", "Standard"
+    ).value == "balanced"
+    assert vocabulary.instructionNormalize(
+        "outOfPossession", "shortGoalkeeperDistribution", "No"
+    ).value == "false"
+
+
 def testRoleAbbreviationNormalizesToStableNamedIdentity() -> None:
     vocabulary = TacticVocabulary()
 

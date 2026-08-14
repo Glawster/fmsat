@@ -321,6 +321,9 @@ instructions:
     to continue without changing the sequential integrity and persistence flow.
 22. Copying validation details changes the action label to `Copied` for a short
     confirmation period before restoring `Copy details`.
+23. While OCR is running and its duration cannot be predicted, the progress bar
+    uses an animated indeterminate state rather than appearing stalled at a fixed
+    percentage; determinate stage progress resumes when extraction returns.
 
 ## Out of scope
 

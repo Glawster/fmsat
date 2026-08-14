@@ -131,9 +131,20 @@ class TacticVocabulary:
             for category, rawValues in rawCategories.items():
                 if not isinstance(rawValues, list):
                     raise ConfigurationError(f"instructions.{phase}.{category} must be a list")
+                values: dict[str, list[str]] = {}
+                for item in rawValues:
+                    if isinstance(item, dict):
+                        for canonical, aliases in item.items():
+                            if not isinstance(aliases, list):
+                                raise ConfigurationError(
+                                    f"instructions.{phase}.{category}.{canonical} aliases "
+                                    "must be a list"
+                                )
+                            values[str(canonical)] = [str(alias) for alias in aliases]
+                    else:
+                        values[str(item)] = []
                 categories[str(category)] = self._aliasMap(
-                    {str(value): [] for value in rawValues},
-                    f"instructions.{phase}.{category}",
+                    values, f"instructions.{phase}.{category}"
                 )
             instructions[str(phase)] = categories
         return instructions

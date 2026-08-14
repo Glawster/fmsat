@@ -4,8 +4,10 @@ version: 1
 # Formation capture. These values are data rather than parser constants so a
 # skin or resolution-specific profile can replace them after fixture calibration.
 phaseRegions:
-  inPossession: {x: 0.015, y: 0.165, width: 0.31, height: 0.78}
-  outOfPossession: {x: 0.335, y: 0.165, width: 0.31, height: 0.78}
+  # FM26 Planner "Both" view, normalized to the tactic-window capture. These
+  # are deliberately independent of the window's position on the desktop.
+  inPossession: {x: 0.024, y: 0.218, width: 0.271, height: 0.550}
+  outOfPossession: {x: 0.317, y: 0.218, width: 0.271, height: 0.550}
 
 tileDetection:
   cannyLow: 35
@@ -67,6 +69,10 @@ pitchZones:
         - {xMin: 0.00, xMax: 1.01, code: GK}
 
 selection:
+  # The FM26 Team Instructions overview modal displays exactly one current
+  # value per card.  The displayed value is therefore the selection evidence;
+  # card colour is not a reliable selected/unselected discriminator.
+  mode: displayedValue
   minimumSaturation: 45
   minimumScore: 0.25
   minimumMargin: 0.12
@@ -76,31 +82,31 @@ selection:
 # selection evidence determines which displayed value, if any, is persisted.
 instructionRegions:
   inPossession:
-    passingDirectness: {x: 0.35, y: 0.15, width: 0.20, height: 0.12}
-    tempo: {x: 0.56, y: 0.15, width: 0.20, height: 0.12}
-    timeWasting: {x: 0.77, y: 0.15, width: 0.20, height: 0.12}
-    attackingTransition: {x: 0.35, y: 0.28, width: 0.20, height: 0.12}
-    attackingWidth: {x: 0.56, y: 0.28, width: 0.20, height: 0.12}
-    playForSetPieces: {x: 0.77, y: 0.28, width: 0.20, height: 0.12}
-    creativeFreedom: {x: 0.35, y: 0.41, width: 0.20, height: 0.12}
-    buildUpStrategy: {x: 0.56, y: 0.41, width: 0.20, height: 0.12}
-    goalKicks: {x: 0.77, y: 0.41, width: 0.20, height: 0.12}
-    goalkeeperDistribution: {x: 0.35, y: 0.54, width: 0.20, height: 0.12}
-    supportingRuns: {x: 0.56, y: 0.54, width: 0.20, height: 0.12}
-    dribbling: {x: 0.77, y: 0.54, width: 0.20, height: 0.12}
-    progressThrough: {x: 0.35, y: 0.67, width: 0.20, height: 0.12}
-    passReception: {x: 0.56, y: 0.67, width: 0.20, height: 0.12}
-    patience: {x: 0.77, y: 0.67, width: 0.20, height: 0.12}
-    shotsFromDistance: {x: 0.35, y: 0.80, width: 0.20, height: 0.12}
-    crossingStyle: {x: 0.56, y: 0.80, width: 0.20, height: 0.12}
-    goalkeeperDistributionSpeed: {x: 0.77, y: 0.80, width: 0.20, height: 0.12}
+    passingDirectness: {x: 0.212, y: 0.275, width: 0.088, height: 0.171}
+    tempo: {x: 0.309, y: 0.275, width: 0.088, height: 0.171}
+    timeWasting: {x: 0.407, y: 0.275, width: 0.088, height: 0.171}
+    attackingTransition: {x: 0.505, y: 0.275, width: 0.088, height: 0.171}
+    attackingWidth: {x: 0.602, y: 0.275, width: 0.088, height: 0.171}
+    playForSetPieces: {x: 0.700, y: 0.275, width: 0.088, height: 0.171}
+    creativeFreedom: {x: 0.212, y: 0.465, width: 0.088, height: 0.171}
+    buildUpStrategy: {x: 0.309, y: 0.465, width: 0.088, height: 0.171}
+    goalKicks: {x: 0.407, y: 0.465, width: 0.088, height: 0.171}
+    goalkeeperDistribution: {x: 0.505, y: 0.465, width: 0.088, height: 0.171}
+    supportingRuns: {x: 0.602, y: 0.465, width: 0.088, height: 0.171}
+    dribbling: {x: 0.700, y: 0.465, width: 0.088, height: 0.171}
+    progressThrough: {x: 0.212, y: 0.656, width: 0.088, height: 0.171}
+    passReception: {x: 0.309, y: 0.656, width: 0.088, height: 0.171}
+    patience: {x: 0.407, y: 0.656, width: 0.088, height: 0.171}
+    shotsFromDistance: {x: 0.505, y: 0.656, width: 0.088, height: 0.171}
+    crossingStyle: {x: 0.602, y: 0.656, width: 0.088, height: 0.171}
+    goalkeeperDistributionSpeed: {x: 0.700, y: 0.656, width: 0.088, height: 0.171}
   outOfPossession:
-    lineOfEngagement: {x: 0.35, y: 0.17, width: 0.20, height: 0.15}
-    defensiveLine: {x: 0.56, y: 0.17, width: 0.20, height: 0.15}
-    triggerPress: {x: 0.77, y: 0.17, width: 0.20, height: 0.15}
-    defensiveTransition: {x: 0.35, y: 0.34, width: 0.20, height: 0.15}
-    tackling: {x: 0.56, y: 0.34, width: 0.20, height: 0.15}
-    crossEngagement: {x: 0.77, y: 0.34, width: 0.20, height: 0.15}
-    pressingTrap: {x: 0.35, y: 0.51, width: 0.20, height: 0.15}
-    shortGoalkeeperDistribution: {x: 0.56, y: 0.51, width: 0.20, height: 0.15}
-    defensiveLineBehaviour: {x: 0.77, y: 0.51, width: 0.20, height: 0.15}
+    lineOfEngagement: {x: 0.212, y: 0.370, width: 0.088, height: 0.171}
+    defensiveLine: {x: 0.309, y: 0.370, width: 0.088, height: 0.171}
+    triggerPress: {x: 0.407, y: 0.370, width: 0.088, height: 0.171}
+    defensiveTransition: {x: 0.505, y: 0.370, width: 0.088, height: 0.171}
+    tackling: {x: 0.602, y: 0.370, width: 0.088, height: 0.171}
+    crossEngagement: {x: 0.700, y: 0.370, width: 0.088, height: 0.171}
+    pressingTrap: {x: 0.212, y: 0.561, width: 0.088, height: 0.171}
+    shortGoalkeeperDistribution: {x: 0.309, y: 0.561, width: 0.088, height: 0.171}
+    defensiveLineBehaviour: {x: 0.407, y: 0.561, width: 0.088, height: 0.171}
