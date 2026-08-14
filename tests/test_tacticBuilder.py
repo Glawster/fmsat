@@ -180,8 +180,8 @@ def testBuilderReportsMissingStructuredDefinition(tmp_path) -> None:
     assert any(issue.code == "missingStructuredDefinition" for issue in result.issues)
 
 
-def testBuilderRejectsPositionWithoutDuty() -> None:
-    """An unresolved duty must not become an inferred Default role profile."""
+def testBuilderPreservesPositionWithUnresolvedDuty() -> None:
+    """A missing duty remains None and must not become an inferred Default."""
 
     builder = TacticBuilder(Mock())
     issues = []
@@ -200,7 +200,10 @@ def testBuilderRejectsPositionWithoutDuty() -> None:
 
     position = builder._positionBuild(slot, "inPossession", issues, {}, {})
 
-    assert position is None
+    assert position is not None
+    assert position.duty is None
+    assert position.roleProfile.name == "Unresolved"
+    assert position.validationState == "unresolved"
     assert [issue.code for issue in issues] == ["missingDuty"]
 
 

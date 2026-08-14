@@ -299,13 +299,24 @@ class TacticFormationExtractor:
         confidenceValues = [result.confidence for result in results if result.text.strip()]
         confidence = sum(confidenceValues) / len(confidenceValues) if confidenceValues else 0.0
         used = {value.casefold() for value in (observedRole, duty[1] if duty else "") if value}
-        player = next(
+        number = next((value for value in fragments if value.strip().isdigit()), None)
+        playerName = next(
             (
                 value
                 for value in fragments
-                if value.casefold() not in used and not self._positionLike(value)
+                if value.casefold() not in used
+                and any(character.isalpha() for character in value)
+                and not self._positionLike(value)
+                and not self.vocabulary.roleNormalize(value).resolved
+                and not self.vocabulary.dutyNormalize(value).resolved
             ),
             None,
+        )
+        player = (
+            f"{number.strip()} {playerName.strip()}"
+            if number and playerName
+            else playerName
+            or number
         )
         issues: list[TacticIssue] = []
         if position is None:
@@ -396,8 +407,11 @@ class TacticFormationExtractor:
         """Collapse multiple edge contours belonging to the same role label."""
 
         retained: list[tuple[int, int, int, int]] = []
-        xTolerance = max(4, int(width * 0.025))
-        yTolerance = max(3, int(height * 0.018))
+        # A single FM player card can expose separate contours for the shirt,
+        # role label and selection decoration. Their centres are close relative
+        # to the much larger gap between two tactical slots.
+        xTolerance = max(8, int(width * 0.065))
+        yTolerance = max(8, int(height * 0.075))
         for box in sorted(
             boxes,
             key=lambda item: (-(item[2] - item[0]) * (item[3] - item[1])),

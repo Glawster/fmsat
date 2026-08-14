@@ -305,7 +305,6 @@ class TacticScreenshotExtractor:
             "formationTileOcrFailed",
             "unresolvedPosition",
             "unresolvedRole",
-            "unresolvedDuty",
             "ambiguousPhaseLink",
             "uncertainPhaseLink",
             "unmatchedPhaseSlot",
