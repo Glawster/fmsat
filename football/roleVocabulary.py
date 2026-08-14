@@ -62,7 +62,7 @@ class RoleVocabulary:
         # "BPGK"). Map these to the most specific known enum token by prefix
         # or suffix without maintaining a static alias table.
         candidates = sorted(
-            (identity for identity in RoleIdentity),
+            (identity for identity in RoleIdentity if identity is not RoleIdentity.UNRESOLVED),
             key=lambda item: len(cls.normalize(item.value)),
             reverse=True,
         )

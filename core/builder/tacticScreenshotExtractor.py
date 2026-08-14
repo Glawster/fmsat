@@ -323,7 +323,6 @@ class TacticScreenshotExtractor:
             "missingFormationSlots",
             "formationTileOcrFailed",
             "unresolvedPosition",
-            "unresolvedRole",
             "ambiguousPhaseLink",
             "uncertainPhaseLink",
             "unmatchedPhaseSlot",

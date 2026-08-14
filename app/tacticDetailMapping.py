@@ -7,6 +7,7 @@ from datetime import datetime
 
 from fmsat.app.tacticDetailModel import DisplaySlot, TacticDetailModel
 from fmsat.core.parser import TacticVocabulary
+from fmsat.football.roleIdentity import RoleIdentity
 from fmsat.tactics.formation import Formation
 from fmsat.tactics.position import Position
 from fmsat.tactics.positionIdentity import PositionIdentity
@@ -321,7 +322,11 @@ def _slotsBuild(formation: Formation) -> tuple[DisplaySlot, ...]:
                 DisplaySlot(
                     slotId=position.slotId or f"{slotIndex:02d}",
                     position=position.identity.value,
-                    role=position.role.identity.value,
+                    role=(
+                        position.roleProfile.name
+                        if position.role.identity is RoleIdentity.UNRESOLVED
+                        else position.role.identity.value
+                    ),
                     duty=position.duty or "Not shown",
                     x=max(0.0, min(1.0, x)),
                     y=max(0.0, min(1.0, y)),

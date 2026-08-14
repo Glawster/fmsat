@@ -245,29 +245,47 @@ class TacticBuilder:
 
         roleIdentity = self._roleIdentityParse(slot.role, slot.observedRole)
         if roleIdentity is None:
-            issues.append(
-                TacticBuildIssue(
+            if slot.observedRole:
+                roleIdentity = RoleIdentity.UNRESOLVED
+                issues.append(TacticBuildIssue(
+                    "roleDefinitionRequired",
+                    f"{phaseName} slot {slot.slotId!r} retains observed role "
+                    f"{slot.observedRole!r}; a user definition is required",
+                ))
+            else:
+                issues.append(TacticBuildIssue(
                     "unknownRoleIdentity",
-                    f"{phaseName} slot {slot.slotId!r} has unknown role {slot.role!r}",
-                )
-            )
-            return None
+                    f"{phaseName} slot {slot.slotId!r} has no recognizable role evidence",
+                ))
+                return None
 
         role = roleCache.get(roleIdentity)
         if role is None:
             role = Role(identity=roleIdentity)
             roleCache[roleIdentity] = role
 
-        profileKey = (roleIdentity, slot.duty or "__not_shown__")
+        profileKey = (
+            roleIdentity,
+            slot.observedRole
+            if roleIdentity is RoleIdentity.UNRESOLVED
+            else slot.duty or "__not_shown__",
+        )
         roleProfile = profileCache.get(profileKey)
         if roleProfile is None:
-            profileName = slot.duty.capitalize() if slot.duty else "Observed role"
+            profileName = (
+                slot.observedRole
+                if roleIdentity is RoleIdentity.UNRESOLVED
+                else slot.duty.capitalize() if slot.duty else "Observed role"
+            )
             roleProfile = RoleProfile(
                 name=profileName,
                 description=(
                     f"{slot.role or roleIdentity.value} ({profileName})"
                     if slot.duty
-                    else f"{slot.role or roleIdentity.value} (duty not shown)"
+                    else (
+                        f"{slot.observedRole or slot.role or roleIdentity.value} "
+                        "(duty not shown)"
+                    )
                 ),
             )
             profileCache[profileKey] = roleProfile
