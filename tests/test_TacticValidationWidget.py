@@ -119,6 +119,11 @@ def testValidationDetailsCanBeCopied(qtbot) -> None:  # type: ignore[no-untyped-
     copied = QApplication.clipboard().text()
     assert "Review required" in copied
     assert "●  One unresolved position" in copied
+    assert copyButton.text() == "Copied"
+
+    qtbot.wait(2600)
+
+    assert copyButton.text() == "Copy details"
 
 
 def testTacticShowRefreshesValidationResult(qtbot) -> None:  # type: ignore[no-untyped-def]
