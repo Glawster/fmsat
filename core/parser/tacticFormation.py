@@ -14,6 +14,7 @@ from fmsat.core.logUtils import getLogger
 from fmsat.core.ocr import OcrEngine, OcrResult
 
 from .tacticModels import FormationSlot, TacticalPhase, TacticIssue, ValidationState
+from .tacticLayout import TacticLayoutAnchor
 from .tacticVocabulary import TacticVocabulary
 
 logger = getLogger()
@@ -201,6 +202,7 @@ class TacticFormationExtractor:
         self.ocr = ocr
         self.vocabulary = vocabulary
         self.configuration = configuration
+        self.layoutAnchor = TacticLayoutAnchor(ocr, configuration)
         self.classifier = PitchZoneClassifier(configuration.get("pitchZones", {}))
         linking = configuration.get("linking", {})
         self.linker = FormationPhaseLinker(
@@ -213,6 +215,11 @@ class TacticFormationExtractor:
         """Extract and cross-link both phase pitches from a Formation screenshot."""
 
         issues: list[TacticIssue] = []
+        layout = self.layoutAnchor.referenceExtract(image, TacticalPhase.FORMATION)
+        image = layout.image
+        issues.extend(layout.issues)
+        if self.configuration.get("anchors", {}).get("enabled", False) and not layout.anchored:
+            return FormationExtractResult((), tuple(issues))
         phases: dict[TacticalPhase, list[FormationSlot]] = {}
         for phase in (TacticalPhase.IN_POSSESSION, TacticalPhase.OUT_OF_POSSESSION):
             region = self.configuration.get("phaseRegions", {}).get(phase.value)

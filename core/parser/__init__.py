@@ -15,6 +15,7 @@ from .tacticFormation import (
     PitchZoneClassifier,
     TacticFormationExtractor,
 )
+from .tacticLayout import TacticLayoutAnchor, TacticLayoutResult
 from .tacticInstructions import InstructionExtractResult, TacticInstructionExtractor
 from .tacticModels import (
     FormationSlot,
@@ -46,6 +47,8 @@ __all__ = [
     "TacticIssue",
     "TacticParser",
     "TacticFormationExtractor",
+    "TacticLayoutAnchor",
+    "TacticLayoutResult",
     "TacticInstructionExtractor",
     "TacticVocabulary",
     "TeamInstruction",

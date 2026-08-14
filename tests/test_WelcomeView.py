@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QInputDialog,
     QProgressDialog,
     QPushButton,
+    QPlainTextEdit,
     QTableWidget,
     QToolButton,
 )
@@ -103,6 +104,8 @@ def testViewMenuIncludesRolesAndShowsWelcomeRolesPanel(qtbot) -> None:  # type: 
         "Roles",
         "Players",
         "Settings",
+        "",
+        "Show Status Log",
     ]
 
     window.rolesAction.trigger()
@@ -673,6 +676,24 @@ def testIncompleteRegenerationRetainsExistingObjectModel(qtbot) -> None:  # type
     window.tacticModelLoader.tacticLoad.assert_called_once_with("High Press")
     assert changed.count() == 0
     assert "existing model retained" in window.statusBar().currentMessage()
+    assert window.tacticProcessStatuses["high press"] == "Regeneration failed"
+
+
+def testStatusLogShowsHistoricalMessagesMostRecentFirst(qtbot) -> None:  # type: ignore[no-untyped-def]
+    window = _mainWindowCreate()
+    qtbot.addWidget(window)
+
+    window.statusBar().showMessage("First operation", 10000)
+    window.statusBar().showMessage("Latest operation", 10000)
+    window.statusLogShow()
+
+    assert window.statusLogDialog is not None
+    qtbot.addWidget(window.statusLogDialog)
+    content = window.statusLogDialog.findChild(QPlainTextEdit, "statusLogContent")
+    assert content is not None
+    lines = content.toPlainText().splitlines()
+    assert "Latest operation" in lines[0]
+    assert "First operation" in lines[1]
 
 
 def testTacticProgressDialogRemainsReadable(qtbot) -> None:  # type: ignore[no-untyped-def]
