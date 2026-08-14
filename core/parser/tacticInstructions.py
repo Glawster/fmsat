@@ -12,6 +12,7 @@ from fmsat.core.logUtils import getLogger
 from fmsat.core.ocr import OcrEngine, OcrResult
 
 from .tacticModels import TacticalPhase, TacticIssue, TeamInstruction, ValidationState
+from .tacticLayout import TacticLayoutAnchor
 from .tacticVocabulary import TacticVocabulary
 
 logger = getLogger()
@@ -37,6 +38,7 @@ class TacticInstructionExtractor:
         self.ocr = ocr
         self.vocabulary = vocabulary
         self.configuration = configuration
+        self.layoutAnchor = TacticLayoutAnchor(ocr, configuration)
 
     def instructionsExtract(
         self,
@@ -46,9 +48,19 @@ class TacticInstructionExtractor:
     ) -> InstructionExtractResult:
         """Persist only one visually selected, canonical value per category."""
 
-        categories = self.configuration.get("instructionRegions", {}).get(phase.value, {})
+        layout = self.layoutAnchor.referenceExtract(image, phase)
+        image = layout.image
+        if self.configuration.get("anchors", {}).get("enabled", False) and not layout.anchored:
+            return InstructionExtractResult((), layout.issues)
+        referenceName = (
+            "instructionPanelRegions"
+            if self.configuration.get("anchors", {}).get("enabled", False)
+            and layout.anchored
+            else "instructionRegions"
+        )
+        categories = self.configuration.get(referenceName, {}).get(phase.value, {})
         instructions: list[TeamInstruction] = []
-        issues: list[TacticIssue] = []
+        issues: list[TacticIssue] = list(layout.issues)
         if not categories:
             return InstructionExtractResult((), (
                 TacticIssue(

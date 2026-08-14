@@ -1,5 +1,13 @@
 version: 1
 
+anchors:
+  enabled: true
+  minimumTextMatch: 0.68
+  tabBandYMin: 0.08
+  tabBandYMax: 0.24
+  instructionTabSplit: 0.18
+  underlineBrightness: 170
+
 # Normalized regions for the two pitches visible in the FM26 Planner "Both"
 # Formation capture. These values are data rather than parser constants so a
 # skin or resolution-specific profile can replace them after fixture calibration.
@@ -113,3 +121,37 @@ instructionRegions:
     pressingTrap: {x: 0.212, y: 0.561, width: 0.088, height: 0.171}
     shortGoalkeeperDistribution: {x: 0.309, y: 0.561, width: 0.088, height: 0.171}
     defensiveLineBehaviour: {x: 0.407, y: 0.561, width: 0.088, height: 0.171}
+
+# Regions normalized to the detected Team Instructions modal. The six-column
+# grid remains stable when the desktop resolution, Steam position or outer
+# tactic-window crop changes.
+instructionPanelRegions:
+  inPossession:
+    passingDirectness: {x: 0.012, y: 0.172, width: 0.149, height: 0.252}
+    tempo: {x: 0.177, y: 0.172, width: 0.149, height: 0.252}
+    timeWasting: {x: 0.342, y: 0.172, width: 0.149, height: 0.252}
+    attackingTransition: {x: 0.507, y: 0.172, width: 0.149, height: 0.252}
+    attackingWidth: {x: 0.672, y: 0.172, width: 0.149, height: 0.252}
+    playForSetPieces: {x: 0.838, y: 0.172, width: 0.149, height: 0.252}
+    creativeFreedom: {x: 0.012, y: 0.450, width: 0.149, height: 0.252}
+    buildUpStrategy: {x: 0.177, y: 0.450, width: 0.149, height: 0.252}
+    goalKicks: {x: 0.342, y: 0.450, width: 0.149, height: 0.252}
+    goalkeeperDistribution: {x: 0.507, y: 0.450, width: 0.149, height: 0.252}
+    supportingRuns: {x: 0.672, y: 0.450, width: 0.149, height: 0.252}
+    dribbling: {x: 0.838, y: 0.450, width: 0.149, height: 0.252}
+    progressThrough: {x: 0.012, y: 0.729, width: 0.149, height: 0.252}
+    passReception: {x: 0.177, y: 0.729, width: 0.149, height: 0.252}
+    patience: {x: 0.342, y: 0.729, width: 0.149, height: 0.252}
+    shotsFromDistance: {x: 0.507, y: 0.729, width: 0.149, height: 0.252}
+    crossingStyle: {x: 0.672, y: 0.729, width: 0.149, height: 0.252}
+    goalkeeperDistributionSpeed: {x: 0.838, y: 0.729, width: 0.149, height: 0.252}
+  outOfPossession:
+    lineOfEngagement: {x: 0.012, y: 0.234, width: 0.149, height: 0.349}
+    defensiveLine: {x: 0.177, y: 0.234, width: 0.149, height: 0.349}
+    triggerPress: {x: 0.342, y: 0.234, width: 0.149, height: 0.349}
+    defensiveTransition: {x: 0.507, y: 0.234, width: 0.149, height: 0.349}
+    tackling: {x: 0.672, y: 0.234, width: 0.149, height: 0.349}
+    crossEngagement: {x: 0.838, y: 0.234, width: 0.149, height: 0.349}
+    pressingTrap: {x: 0.012, y: 0.622, width: 0.149, height: 0.349}
+    shortGoalkeeperDistribution: {x: 0.177, y: 0.622, width: 0.149, height: 0.349}
+    defensiveLineBehaviour: {x: 0.342, y: 0.622, width: 0.149, height: 0.349}

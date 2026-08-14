@@ -74,7 +74,7 @@ def testExtractorPersistsOnlyObservedValuesFromSavedScreenshots(tmp_path) -> Non
         assert tactic.structuredDefinition.slots == []
         assert tactic.structuredDefinition.instructions == []
         issueCodes = {issue.code for issue in tactic.structuredDefinition.issues}
-        assert "missingFormationSlots" in issueCodes
+        assert "layoutAnchorUnavailable" in issueCodes
         assert "instructionImageUnavailable" in issueCodes
         assert "templateExtraction" not in issueCodes
         assert tactic.structuredDefinition.tacticMetadata["formationName"] == (

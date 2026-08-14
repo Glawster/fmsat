@@ -76,7 +76,10 @@ from those fixtures.
    screenshot and retain them as tactic-level metadata; missing values must
    produce explicit review issues rather than placeholders presented as data.
 3. Use screen-specific parsers with shared reusable components where useful.
-4. Locate the pitch through normalized, configurable regions.
+4. Locate the tactic window from the stable `Squad > Tactics Planner`
+   breadcrumb, then apply normalized configurable pitch regions inside that
+   detected reference frame. Desktop resolution, Steam window position and
+   outer screenshot cropping must not change the resulting pitch coordinates.
 5. Detect player or role tiles using computer vision before applying focused
    OCR where practical; do not infer the formation from unrestricted whole-pitch
    text order.
@@ -112,20 +115,29 @@ from those fixtures.
 ## Team-instruction extraction
 
 1. Parse the labelled cards in the In Possession and Out of Possession screens.
-2. For each configured category, detect its region, extract the selected value,
+2. Locate the modal using the `Squad > Tactics Planner > Team Instructions`
+   breadcrumb. Determine the active phase from the horizontal position of the
+   underline beneath In Possession or Out of Possession, and report a mismatch
+   when it disagrees with the requested capture type.
+3. For each configured category, detect its region relative to the modal,
+   extract the selected value,
    normalize it through aliases, retain original OCR text and confidence, and
    report missing or ambiguous values.
-3. Support at least the supplied In Possession categories: passing directness,
+4. Support at least the supplied In Possession categories: passing directness,
    tempo, time wasting, attacking transition, attacking width, play for set
    pieces, creative freedom, build-up strategy, goal kicks, goalkeeper
    distribution, supporting runs, dribbling, progress through, pass reception,
    patience, shots from distance, crossing style and goalkeeper distribution
    speed.
-4. Support at least the supplied Out of Possession categories: line of
+5. Support at least the supplied Out of Possession categories: line of
    engagement, defensive line, trigger press, defensive transition, tackling,
    cross engagement, pressing trap, short goalkeeper distribution and defensive
    line behaviour.
-5. Do not use values from sample tactics as defaults.
+6. Do not use values from sample tactics as defaults.
+7. If automatic anchor or panel detection fails, retain an explicit unresolved
+   layout issue so a later review workflow can ask the user to mark or adjust
+   the reference region; never silently revert to treating a whole desktop
+   screenshot as the instruction panel.
 
 ## Review and correction
 
@@ -245,3 +257,6 @@ warning or information. At minimum validate:
 - 2026-08-13: implemented configurable Formation tile detection, focused OCR,
   pitch-zone normalization, evidence-ranked phase linking and selected-only
   instruction extraction.
+- 2026-08-14: added breadcrumb-relative tactic-window and Team Instructions
+  modal detection, including active-tab underline validation and modal-local
+  instruction grids.
