@@ -105,3 +105,25 @@ def testInstructionExtractorPreservesUnknownSelectedTextAsIssue() -> None:
     assert result.instructions == ()
     assert result.issues[0].code == "unknownInstructionValue"
     assert result.issues[0].observedText == "Unrecognized Tempo"
+
+
+def testOverviewCardTreatsItsSingleDisplayedValueAsSelectedEvidence() -> None:
+    """FM26 overview cards show the current value without a selected-row fill."""
+
+    image = np.full((100, 200, 3), 35, dtype=np.uint8)
+    ocr = FakeOcr([[
+        OcrResult("Standard", 0.97, (70, 70, 135, 90)),
+    ]], suppliesGeometry=True)
+    configuration = _configuration()
+    configuration["selection"]["mode"] = "displayedValue"
+    configuration["instructionRegions"]["outOfPossession"] = {
+        "tackling": {"x": 0.0, "y": 0.0, "width": 1.0, "height": 1.0},
+    }
+
+    result = TacticInstructionExtractor(
+        ocr, TacticVocabulary(), configuration
+    ).instructionsExtract(image, TacticalPhase.OUT_OF_POSSESSION, "oop.png")
+
+    assert len(result.instructions) == 1
+    assert result.instructions[0].value == "balanced"
+    assert not result.issues
