@@ -59,12 +59,18 @@ class TacticLayoutAnchor:
             }
             else "tactics planner"
         )
+        # Instruction captures contain both the background Team Instructions
+        # tab and the modal breadcrumb. Always add the focused modal pass so a
+        # valid but incorrect background match cannot suppress better evidence.
+        focusedResults: list[OcrResult] = []
+        if expectedPhase is not TacticalPhase.FORMATION:
+            focusedResults = self._focusedRecognize(image, expectedPhase)
+            results.extend(focusedResults)
+
         anchor = self._anchorFind(results, phrase)
         if anchor is None and phrase == "tactics planner":
             anchor = self._anchorFind(results, "tactic planner")
         if anchor is None:
-            focusedResults = self._focusedRecognize(image, expectedPhase)
-            results.extend(focusedResults)
             anchor = self._anchorFind(focusedResults, phrase)
             if anchor is None and phrase == "tactics planner":
                 anchor = self._anchorFind(focusedResults, "tactic planner")
@@ -181,7 +187,7 @@ class TacticLayoutAnchor:
 
     def _anchorFind(self, results: list[OcrResult], phrase: str) -> OcrResult | None:
         minimum = float(self.configuration.get("anchors", {}).get("minimumTextMatch", 0.68))
-        candidates: list[tuple[float, OcrResult]] = []
+        candidates: list[tuple[int, float, float, OcrResult]] = []
         for result in results:
             text = self._textNormalize(result.text)
             score = SequenceMatcher(None, phrase, text).ratio()
@@ -190,10 +196,17 @@ class TacticLayoutAnchor:
             elif all(word in text for word in phrase.split()):
                 score = max(score, 0.92)
             if score >= minimum:
-                candidates.append((score, result))
+                context = int("tactics planner" in text or "tactic planner" in text)
+                vertical = result.center[1] if result.center is not None else 0.0
+                candidates.append((context, vertical, score, result))
         if not candidates:
             return None
-        return max(candidates, key=lambda item: (item[0], item[1].confidence))[1]
+        # The modal occurrence is lower than the background navigation tab.
+        # Breadcrumb context then breaks ties between fragments on the same row.
+        return max(
+            candidates,
+            key=lambda item: (item[1], item[0], item[2], item[3].confidence),
+        )[3]
 
     def _containingPanel(
         self,

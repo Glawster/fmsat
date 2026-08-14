@@ -139,3 +139,34 @@ def testInstructionPanelUsesAnchoredFallbackWhenBorderIsNotContinuous() -> None:
     assert result.anchored is True
     assert result.image.shape[:2] == (408, 540)
     assert result.detectedPhase is TacticalPhase.IN_POSSESSION
+
+
+def testInstructionAnchorPrefersModalOverBackgroundTab() -> None:
+    image = np.full((800, 1200, 3), 15, dtype=np.uint8)
+    cv2.line(image, (270, 235), (410, 235), (240, 240, 240), 3)
+    configuration = _configuration()
+    configuration["anchors"]["instructionPanelFallback"] = {
+        "inPossession": {
+            "x": 0.20,
+            "topOffset": 0.025,
+            "width": 0.60,
+            "height": 0.68,
+        }
+    }
+    ocr = FakeOcr([
+        [
+            OcrResult("Team Instructions", 0.99, (120, 80, 300, 105)),
+            OcrResult("Team Instructions", 0.94, (280, 175, 460, 200)),
+        ],
+        [OcrResult("Team Instructions", 0.95, (390, 285, 930, 360))],
+    ], suppliesGeometry=True)
+
+    result = TacticLayoutAnchor(ocr, configuration).referenceExtract(
+        image, TacticalPhase.IN_POSSESSION
+    )
+
+    assert result.anchored is True
+    # The focused result maps back to y=191, below the background tab at y=92.
+    # Its fallback panel therefore begins around y=171 rather than y=60.
+    assert result.image.shape[0] == 544
+    assert result.detectedPhase is TacticalPhase.IN_POSSESSION
