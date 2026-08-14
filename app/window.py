@@ -334,6 +334,7 @@ class MainWindow(QMainWindow):
             f"{'regenerating' if forceRebuild else 'processing'} tactic model {tacticName}"
         )
         progress = self._tacticProgressCreate()
+        unresolvedRoles: tuple[str, ...] = ()
         progress.show()
         self._progressUpdate(progress, "Loading saved tactic data...", 0)
         try:
@@ -363,6 +364,7 @@ class MainWindow(QMainWindow):
                 extraction = self._backgroundRun(
                     lambda: self.tacticScreenshotExtractor.tacticExtract(tacticName)
                 )
+                unresolvedRoles = extraction.unresolvedRoles
                 self._ocrDiagnosticsCapture(extraction)
                 self._progressRestore(progress, "Screenshot extraction finished.", 3)
                 logger.info(
@@ -435,6 +437,7 @@ class MainWindow(QMainWindow):
                 extraction = self._backgroundRun(
                     lambda: self.tacticScreenshotExtractor.tacticExtract(tacticName)
                 )
+                unresolvedRoles = extraction.unresolvedRoles
                 self._ocrDiagnosticsCapture(extraction)
                 self._progressRestore(progress, "Screenshot extraction finished.", 4)
                 logger.info(
@@ -501,6 +504,28 @@ class MainWindow(QMainWindow):
             self._errorShow("Tactic processing error", str(exc))
         finally:
             progress.close()
+            if openDetail and unresolvedRoles:
+                self._unresolvedRolesOffer(unresolvedRoles)
+
+    def _unresolvedRolesOffer(self, roles: tuple[str, ...]) -> None:
+        """Ask whether the user wants to define observed, unknown role labels."""
+
+        labels = ", ".join(roles)
+        logger.info(f"role definitions required for observed labels: {labels}")
+        message = QMessageBox(self)
+        message.setWindowTitle("Role definition required")
+        message.setIcon(QMessageBox.Icon.Question)
+        message.setText("The tactic contains role labels that FMSAT does not recognise.")
+        message.setInformativeText(
+            f"Observed: {labels}\n\n"
+            "They have been retained provisionally in the tactic model. "
+            "Would you like to import a role definition now?"
+        )
+        defineButton = message.addButton("Define role", QMessageBox.ButtonRole.AcceptRole)
+        message.addButton("Later", QMessageBox.ButtonRole.RejectRole)
+        message.exec()
+        if message.clickedButton() is defineButton:
+            QTimer.singleShot(0, self.roleProfileImport)
 
     def _tacticProgressCreate(self) -> QProgressDialog:
         """Create an opaque, readable progress dialog owned by the main window."""

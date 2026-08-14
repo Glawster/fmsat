@@ -43,6 +43,7 @@ class TacticScreenshotExtractResult:
     complete: bool
     message: str
     diagnosticPaths: tuple[str, ...] = ()
+    unresolvedRoles: tuple[str, ...] = ()
 
 
 class TacticScreenshotExtractor:
@@ -173,6 +174,11 @@ class TacticScreenshotExtractor:
             logger.value("extracted team instructions", len(definition.instructions))
             complete = self._completeCalculate(definition)
             definition.complete = complete
+            unresolvedRoles = tuple(sorted({
+                slot.observedRole
+                for slot in definition.slots
+                if slot.observedRole and not slot.role
+            }))
             logger.value("tactic extraction issues", len(definition.issues))
             logger.value("tactic extraction complete", complete)
 
@@ -184,6 +190,7 @@ class TacticScreenshotExtractor:
             complete=complete,
             message="Observed tactic data extracted with unresolved coverage",
             diagnosticPaths=tuple(diagnosticPaths),
+            unresolvedRoles=unresolvedRoles,
         )
 
     ## metadata
