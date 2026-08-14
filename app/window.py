@@ -350,9 +350,11 @@ class MainWindow(QMainWindow):
                     "Regenerating structured data from saved captures...",
                     2,
                 )
+                self._progressBusy(progress, "Reading screenshot evidence with OCR...")
                 extraction = self._backgroundRun(
                     lambda: self.tacticScreenshotExtractor.tacticExtract(tacticName)
                 )
+                self._progressRestore(progress, "Screenshot extraction finished.", 3)
                 logger.info(
                     f"regeneration extraction result: created={extraction.structuredCreated}, "
                     f"complete={extraction.complete}, "
@@ -419,9 +421,11 @@ class MainWindow(QMainWindow):
                     "Extracting structured data from saved captures...",
                     3,
                 )
+                self._progressBusy(progress, "Reading screenshot evidence with OCR...")
                 extraction = self._backgroundRun(
                     lambda: self.tacticScreenshotExtractor.tacticExtract(tacticName)
                 )
+                self._progressRestore(progress, "Screenshot extraction finished.", 4)
                 logger.info(
                     f"processing extraction result: created={extraction.structuredCreated}, "
                     f"complete={extraction.complete}, "
@@ -533,6 +537,27 @@ class MainWindow(QMainWindow):
             result = future.result()
         logger.done("tactic extraction worker finished")
         return result
+
+    @staticmethod
+    def _progressBusy(progress: QProgressDialog, message: str) -> None:
+        """Show animated indeterminate progress during variable-duration OCR work."""
+
+        logger.info(f"tactic progress busy: {message}")
+        progress.setLabelText(message)
+        progress.setRange(0, 0)
+        progress.repaint()
+        QApplication.processEvents()
+
+    @staticmethod
+    def _progressRestore(
+        progress: QProgressDialog,
+        message: str,
+        value: int,
+    ) -> None:
+        """Restore the six-stage progress range after indeterminate OCR work."""
+
+        progress.setRange(0, 6)
+        MainWindow._progressUpdate(progress, message, value)
 
     @staticmethod
     def _progressUpdate(

@@ -704,6 +704,25 @@ def testBackgroundRunKeepsQtEventLoopResponsive(qtbot) -> None:  # type: ignore[
     assert eventObserved == [True]
 
 
+def testTacticProgressUsesBusyStateDuringOcr(qtbot) -> None:  # type: ignore[no-untyped-def]
+    window = _mainWindowCreate()
+    qtbot.addWidget(window)
+    progress = window._tacticProgressCreate()
+    qtbot.addWidget(progress)
+
+    MainWindow._progressBusy(progress, "Reading screenshot evidence with OCR...")
+
+    assert progress.minimum() == 0
+    assert progress.maximum() == 0
+    assert progress.labelText() == "Reading screenshot evidence with OCR..."
+
+    MainWindow._progressRestore(progress, "Screenshot extraction finished.", 3)
+
+    assert progress.minimum() == 0
+    assert progress.maximum() == 6
+    assert progress.value() == 3
+
+
 def testTacticProcessBuildsModelFromScreenshotOnlyTactic(qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
 
     from fmsat.core.detection import ScreenType
