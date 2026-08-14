@@ -349,7 +349,10 @@ class TacticFormationExtractor:
         position = self.classifier.positionClassify(x, y)
         role = self._normalizedFind(fragments, self.vocabulary.roleNormalize)
         duty = self._normalizedFind(fragments, self.vocabulary.dutyNormalize)
-        observedRole = role[1] if role else ""
+        # Preserve an abbreviation even when it is not yet in our vocabulary.
+        # This lets the model retain observed evidence while the user supplies
+        # the missing role definition later.
+        observedRole = role[1] if role else self._observedRoleFind(fragments)
         confidenceValues = [result.confidence for result in results if result.text.strip()]
         confidence = sum(confidenceValues) / len(confidenceValues) if confidenceValues else 0.0
         used = {value.casefold() for value in (observedRole, duty[1] if duty else "") if value}
@@ -398,6 +401,22 @@ class TacticFormationExtractor:
             x=x, y=y, observedRole=observedRole, displayedPlayer=player,
             confidence=confidence, sourceImport=sourceImport, validationState=state,
         ), issues
+
+    def _observedRoleFind(self, fragments: list[str]) -> str:
+        """Return a plausible displayed role token without claiming it is canonical."""
+
+        candidates = []
+        for fragment in fragments:
+            token = fragment.strip().strip("()[]{}.,:;")
+            compact = "".join(character for character in token if character.isalnum())
+            if (
+                1 <= len(compact) <= 8
+                and any(character.isalpha() for character in compact)
+                and token == token.upper()
+                and not self._positionLike(token)
+            ):
+                candidates.append(token)
+        return min(candidates, key=len) if candidates else ""
 
     def _tilesDetect(self, pitch: np.ndarray) -> list[tuple[int, int, int, int]]:
         """Detect the bordered role-label rectangles nested inside player cards."""
