@@ -53,6 +53,10 @@ review supplies it.
 
 Formation processing now crops the configured In Possession and Out of Possession pitches,
 detects coloured role tiles with computer vision, and applies OCR only to each detected tile.
+The complete cropped Tactics Planner capture remains the Formation reference frame. A
+geometry-selected profile handles both the compact two-pitch layout and the wider layout
+with its squad table, avoiding accidental selection of an interior contour that truncates
+the pitches.
 Tile centres are normalized against their pitch crop and classified through configurable
 pitch zones. Cross-phase identity uses displayed player, shirt number where retained,
 relative ordering and spatial proximity; ambiguous and unmatched links remain explicit

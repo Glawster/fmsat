@@ -223,9 +223,10 @@ class TacticFormationExtractor:
         issues.extend(layout.issues)
         if self.configuration.get("anchors", {}).get("enabled", False) and not layout.anchored:
             return FormationExtractResult((), tuple(issues), diagnostic)
+        phaseRegions = self._phaseRegionsResolve(image)
         phases: dict[TacticalPhase, list[FormationSlot]] = {}
         for phase in (TacticalPhase.IN_POSSESSION, TacticalPhase.OUT_OF_POSSESSION):
-            region = self.configuration.get("phaseRegions", {}).get(phase.value)
+            region = phaseRegions.get(phase.value)
             if not isinstance(region, dict):
                 issues.append(TacticIssue(
                     "missingPitchRegion",
@@ -256,6 +257,26 @@ class TacticFormationExtractor:
         return FormationExtractResult(
             tuple(linkedIn + linkedOut), tuple(issues), diagnostic
         )
+
+    def _phaseRegionsResolve(self, image: np.ndarray) -> dict[str, Any]:
+        """Select the calibrated Formation layout matching the capture geometry."""
+
+        height, width = image.shape[:2]
+        aspectRatio = width / max(1, height)
+        for profile in self.configuration.get("phaseRegionProfiles", []):
+            minimum = float(profile.get("minimumAspectRatio", 0.0))
+            maximum = float(profile.get("maximumAspectRatio", float("inf")))
+            regions = profile.get("regions", {})
+            if minimum <= aspectRatio < maximum and isinstance(regions, dict):
+                logger.info(
+                    "formation phase-region profile="
+                    f"{profile.get('name', 'unnamed')} aspect={aspectRatio:.3f}"
+                )
+                return regions
+        logger.info(
+            f"formation phase-region profile=fallback aspect={aspectRatio:.3f}"
+        )
+        return self.configuration.get("phaseRegions", {})
 
     def _phaseExtract(
         self,

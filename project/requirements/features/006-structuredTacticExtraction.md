@@ -80,6 +80,9 @@ from those fixtures.
    breadcrumb, then apply normalized configurable pitch regions inside that
    detected reference frame. Desktop resolution, Steam window position and
    outer screenshot cropping must not change the resulting pitch coordinates.
+   Retain the complete Formation capture as its reference frame and select a
+   calibrated pitch-region profile for FM's compact two-pitch layout or wide
+   planner-with-squad layout; an interior contour must not truncate a pitch.
 5. Detect player or role tiles using computer vision before applying focused
    OCR where practical; do not infer the formation from unrestricted whole-pitch
    text order.

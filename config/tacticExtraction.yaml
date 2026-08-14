@@ -27,6 +27,21 @@ phaseRegions:
   inPossession: {x: 0.024, y: 0.218, width: 0.271, height: 0.550}
   outOfPossession: {x: 0.317, y: 0.218, width: 0.271, height: 0.550}
 
+# FM switches between a wide planner with the squad table on the right and a
+# compact planner where the two pitches fill the window. Both are observed
+# capture layouts and retain their own normalized pitch rectangles.
+phaseRegionProfiles:
+  - name: compactTwoPitch
+    maximumAspectRatio: 1.80
+    regions:
+      inPossession: {x: 0.026, y: 0.227, width: 0.484, height: 0.700}
+      outOfPossession: {x: 0.522, y: 0.227, width: 0.474, height: 0.700}
+  - name: widePlannerWithSquad
+    minimumAspectRatio: 1.80
+    regions:
+      inPossession: {x: 0.024, y: 0.218, width: 0.271, height: 0.550}
+      outOfPossession: {x: 0.317, y: 0.218, width: 0.271, height: 0.550}
+
 tileDetection:
   cannyLow: 35
   cannyHigh: 110
