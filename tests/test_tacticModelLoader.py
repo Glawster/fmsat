@@ -147,6 +147,31 @@ def testLoaderPrefersSavedObjectModelOverStructuredDefinition(tmp_path) -> None:
     assert loadedKeeper.confidence == 0.96
     assert loadedKeeper.sourceImportSessionId == 1
     assert loadedKeeper.validationState == "confirmed"
+    assert loaded.stale is False
+
+
+def testLoaderMarksSavedModelStaleAfterNewScreenshotImport(tmp_path) -> None:
+    database = Database(tmp_path / "test.sqlite3")
+    database.initialize()
+    database.tacticImportSave(
+        "/captures/formation.png",
+        ScreenType.TACTIC_FORMATION,
+        "High Press",
+    )
+    TacticStore(database.engine).tacticSave(
+        _objectModelSample("High Press", "Saved Shape")
+    )
+
+    database.tacticImportSave(
+        "/captures/new-in-possession.png",
+        ScreenType.TACTIC_IN_POSSESSION,
+        "High Press",
+    )
+
+    loaded = TacticModelLoader(database.engine).tacticLoad("High Press")
+
+    assert loaded.source == "objectModel"
+    assert loaded.stale is True
 
 
 def testSavedObjectModelPreservesStructuredExtractionIssues(tmp_path) -> None:

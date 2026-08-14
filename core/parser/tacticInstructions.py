@@ -75,6 +75,7 @@ class TacticInstructionExtractor:
                 ))
                 logger.exception(f"{phase.value}.{category} instruction OCR failed")
                 continue
+            results = self._valueRetry(crop, phase, category, results)
             logger.value(f"{phase.value}.{category} OCR values", len(results))
             normalizedResults = [
                 (
@@ -173,6 +174,39 @@ class TacticInstructionExtractor:
                 f"(confidence {confidence:.3f})"
             )
         return InstructionExtractResult(tuple(instructions), tuple(issues))
+
+    def _valueRetry(
+        self,
+        crop: np.ndarray,
+        phase: TacticalPhase,
+        category: str,
+        results: list[OcrResult],
+    ) -> list[OcrResult]:
+        """Retry the lower card value at higher resolution when it was missed."""
+
+        if any(
+            self.vocabulary.instructionNormalize(phase.value, category, result.text).resolved
+            for result in results
+        ):
+            return results
+        height = crop.shape[0]
+        valueCrop = crop[int(height * 0.55):, :]
+        if valueCrop.size == 0:
+            return results
+        enlarged = cv2.resize(
+            valueCrop,
+            None,
+            fx=3.0,
+            fy=3.0,
+            interpolation=cv2.INTER_CUBIC,
+        )
+        try:
+            retry = self.ocr.recognize(enlarged)
+        except Exception:
+            logger.exception(f"{phase.value}.{category} focused value OCR retry failed")
+            return results
+        logger.value(f"{phase.value}.{category} focused OCR values", len(retry))
+        return retry or results
 
     def _selectedResults(
         self,

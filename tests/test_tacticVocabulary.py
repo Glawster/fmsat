@@ -74,6 +74,20 @@ def testInstructionVocabularyNormalizesFm26DisplayedAliases() -> None:
     ).value == "false"
 
 
+def testInstructionVocabularyNormalizesUniqueDisplayedEllipsis() -> None:
+    vocabulary = TacticVocabulary()
+
+    assert vocabulary.instructionNormalize(
+        "inPossession", "playForSetPieces", "Keep Ball in Pl..."
+    ).value == "true"
+    assert vocabulary.instructionNormalize(
+        "inPossession", "passReception", "Pass Into Spa…"
+    ).value == "into space"
+    assert vocabulary.instructionNormalize(
+        "inPossession", "goalkeeperDistributionSpeed", "Distribute Qui..."
+    ).value == "distribute quickly"
+
+
 def testRoleAbbreviationNormalizesToStableNamedIdentity() -> None:
     vocabulary = TacticVocabulary()
 

@@ -41,6 +41,7 @@ class TacticModelLoadResult:
     phaseSlots: dict[str, tuple[tuple[str, str, str, str, float, float, str | None], ...]] = field(
         default_factory=dict
     )
+    stale: bool = False
 
 
 class TacticModelLoader:
@@ -83,6 +84,7 @@ class TacticModelLoader:
                     selectinload(DatabaseTactic.structuredDefinition).selectinload(
                         ScreenshotDerivedTacticDefinition.issues
                     ),
+                    selectinload(DatabaseTactic.screenshots),
                 )
             )
             structuredMetadata, structuredSlots = self._structuredSnapshot(sourceTactic)
@@ -96,6 +98,9 @@ class TacticModelLoader:
                     selectinload(ObjectModelTactic.sourceTactic)
                     .selectinload(DatabaseTactic.structuredDefinition)
                     .selectinload(ScreenshotDerivedTacticDefinition.issues),
+                    selectinload(ObjectModelTactic.sourceTactic).selectinload(
+                        DatabaseTactic.screenshots
+                    ),
                     selectinload(ObjectModelTactic.formations).selectinload(
                         ObjectModelFormation.positions
                     ),
@@ -127,6 +132,7 @@ class TacticModelLoader:
                 # Latest extraction issues may be newer, but partial structured
                 # slots must not visually replace a retained model.
                 phaseSlots={},
+                stale=self._objectModelStale(objectModel),
             )
 
         built = self.structuredBuilder.tacticBuild(cleanName)
@@ -138,6 +144,20 @@ class TacticModelLoader:
             confirmed=built.confirmed,
             metadata=structuredMetadata,
             phaseSlots=structuredSlots,
+            stale=False,
+        )
+
+    @staticmethod
+    def _objectModelStale(model: ObjectModelTactic) -> bool:
+        """Return whether newer screenshot evidence exists than the saved model used."""
+
+        source = model.sourceTactic
+        if source is None or not source.screenshots:
+            return False
+        latestImportId = max(capture.importSessionId for capture in source.screenshots)
+        return (
+            model.sourceImportSessionId is None
+            or latestImportId > model.sourceImportSessionId
         )
 
     @staticmethod

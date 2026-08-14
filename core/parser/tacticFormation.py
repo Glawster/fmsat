@@ -10,10 +10,13 @@ from typing import Any
 import cv2
 import numpy as np
 
+from fmsat.core.logUtils import getLogger
 from fmsat.core.ocr import OcrEngine, OcrResult
 
 from .tacticModels import FormationSlot, TacticalPhase, TacticIssue, ValidationState
 from .tacticVocabulary import TacticVocabulary
+
+logger = getLogger()
 
 
 @dataclass(frozen=True, slots=True)
@@ -244,6 +247,7 @@ class TacticFormationExtractor:
                 f"Configured {phase.value} pitch region is empty",
             )]
         boxes = self._tilesDetect(pitch)
+        logger.value(f"{phase.value} formation tile candidates", len(boxes))
         issues: list[TacticIssue] = []
         if not boxes:
             return [], [TacticIssue(
@@ -252,8 +256,13 @@ class TacticFormationExtractor:
             )]
         height, width = pitch.shape[:2]
         slots: list[FormationSlot] = []
-        for index, (left, top, right, bottom) in enumerate(boxes, start=1):
-            crop = pitch[top:bottom, left:right]
+        for index, box in enumerate(boxes, start=1):
+            left, top, right, bottom = box
+            crop = self._tileCrop(pitch, box)
+            logger.info(
+                f"{phase.value} tile {index} label box="
+                f"({left},{top})-({right},{bottom}) crop={crop.shape[1]}x{crop.shape[0]}"
+            )
             try:
                 results = self.ocr.recognize(crop)
             except Exception as exc:
@@ -262,6 +271,10 @@ class TacticFormationExtractor:
                     f"{phase.value} tile {index} OCR failed: {exc}",
                 ))
                 results = []
+            logger.info(
+                f"{phase.value} tile {index} OCR: "
+                f"{', '.join(result.text for result in results) or 'none'}"
+            )
             x = ((left + right) / 2) / width
             y = ((top + bottom) / 2) / height
             slot, slotIssues = self._slotBuild(results, phase, x, y, sourceImport, index)
@@ -325,6 +338,8 @@ class TacticFormationExtractor:
         ), issues
 
     def _tilesDetect(self, pitch: np.ndarray) -> list[tuple[int, int, int, int]]:
+        """Detect the bordered role-label rectangles nested inside player cards."""
+
         settings = self.configuration.get("tileDetection", {})
         gray = cv2.cvtColor(pitch, cv2.COLOR_BGR2GRAY)
         gray = cv2.GaussianBlur(gray, (3, 3), 0)
@@ -335,9 +350,13 @@ class TacticFormationExtractor:
         )
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 3))
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+        hsv = cv2.cvtColor(pitch, cv2.COLOR_BGR2HSV)
         height, width = pitch.shape[:2]
         boxes = []
-        for contour in cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]:
+        # Role labels are nested inside a larger shirt/name card. RETR_EXTERNAL
+        # discarded those useful inner rectangles and returned unrelated outer
+        # UI fragments instead.
+        for contour in cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)[0]:
             left, top, boxWidth, boxHeight = cv2.boundingRect(contour)
             widthRatio, heightRatio = boxWidth / width, boxHeight / height
             if not float(settings.get("minimumWidth", 0.06)) <= widthRatio <= float(
@@ -348,8 +367,68 @@ class TacticFormationExtractor:
                 settings.get("maximumHeight", 0.16)
             ):
                 continue
+            if boxWidth / max(1, boxHeight) < float(settings.get("minimumAspectRatio", 1.45)):
+                continue
+            inset = hsv[
+                top + max(1, boxHeight // 4):top + max(2, boxHeight * 3 // 4),
+                left + max(1, boxWidth // 8):left + max(2, boxWidth * 7 // 8),
+            ]
+            if inset.size == 0:
+                continue
+            if float(np.mean(inset[:, :, 1])) < float(
+                settings.get("minimumInteriorSaturation", 70)
+            ):
+                continue
+            if float(np.mean(inset[:, :, 2])) < float(
+                settings.get("minimumInteriorValue", 82)
+            ):
+                continue
             boxes.append((left, top, left + boxWidth, top + boxHeight))
+        boxes = self._duplicatesRemove(boxes, width, height)
         return sorted(boxes, key=lambda box: ((box[1] + box[3]) / 2, (box[0] + box[2]) / 2))
+
+    @staticmethod
+    def _duplicatesRemove(
+        boxes: list[tuple[int, int, int, int]],
+        width: int,
+        height: int,
+    ) -> list[tuple[int, int, int, int]]:
+        """Collapse multiple edge contours belonging to the same role label."""
+
+        retained: list[tuple[int, int, int, int]] = []
+        xTolerance = max(4, int(width * 0.025))
+        yTolerance = max(3, int(height * 0.018))
+        for box in sorted(
+            boxes,
+            key=lambda item: (-(item[2] - item[0]) * (item[3] - item[1])),
+        ):
+            center = ((box[0] + box[2]) / 2, (box[1] + box[3]) / 2)
+            if any(
+                abs(center[0] - (other[0] + other[2]) / 2) <= xTolerance
+                and abs(center[1] - (other[1] + other[3]) / 2) <= yTolerance
+                for other in retained
+            ):
+                continue
+            retained.append(box)
+        return retained
+
+    @staticmethod
+    def _tileCrop(
+        pitch: np.ndarray,
+        box: tuple[int, int, int, int],
+    ) -> np.ndarray:
+        """Expand a role-label box to include shirt number, role and player name."""
+
+        left, top, right, bottom = box
+        boxWidth, boxHeight = right - left, bottom - top
+        height, width = pitch.shape[:2]
+        horizontal = max(4, int(boxWidth * 0.35))
+        cropLeft = max(0, left - horizontal)
+        cropRight = min(width, right + horizontal)
+        cropTop = max(0, top - int(boxHeight * 1.6))
+        cropBottom = min(height, bottom + int(boxHeight * 2.0))
+        crop = pitch[cropTop:cropBottom, cropLeft:cropRight]
+        return cv2.resize(crop, None, fx=3.0, fy=3.0, interpolation=cv2.INTER_CUBIC)
 
     def _positionLike(self, value: str) -> bool:
         return self.vocabulary.positionNormalize(value).resolved

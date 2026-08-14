@@ -156,7 +156,25 @@ class TacticVocabulary:
 
     @classmethod
     def _normalize(cls, observedText: str, values: dict[str, str]) -> NormalizedValue:
-        return NormalizedValue(values.get(cls._key(observedText)), observedText)
+        key = cls._key(observedText)
+        exact = values.get(key)
+        if exact is not None:
+            return NormalizedValue(exact, observedText)
+
+        # Narrow FM26 overview cards visibly abbreviate long selected values
+        # with an ellipsis. Accept that observed prefix only when it identifies
+        # one canonical value, so truncated evidence cannot guess between two
+        # valid settings.
+        if key.endswith("...") or key.endswith("…"):
+            prefix = key.rstrip(".…").rstrip()
+            matches = {
+                canonical
+                for alias, canonical in values.items()
+                if len(prefix) >= 5 and alias.startswith(prefix)
+            }
+            if len(matches) == 1:
+                return NormalizedValue(matches.pop(), observedText)
+        return NormalizedValue(None, observedText)
 
     def _rolesLoad(self, rawRoles: Any) -> dict[str, RoleDefinition]:
         if not isinstance(rawRoles, dict) or not rawRoles:

@@ -27,6 +27,7 @@ def tacticDetailModelBuild(
     ) = None,
     assignedSquads: tuple[str, ...] = (),
     updatedAt: datetime | None = None,
+    regenerationRequired: bool = False,
 ) -> TacticDetailModel:
     """Build one UI detail model from one tactic object-model tactic."""
 
@@ -63,7 +64,11 @@ def tacticDetailModelBuild(
     return TacticDetailModel(
         formation=formationLabel,
         mentality=mentalityLabel,
-        status=_statusText(source, complete, confirmed),
+        status=(
+            "Regeneration required"
+            if regenerationRequired
+            else _statusText(source, complete, confirmed)
+        ),
         assignedSquads=" · ".join(assignedSquads) if assignedSquads else "None",
         updated=updatedAt.strftime("%d %b %Y") if updatedAt is not None else "Unknown",
         revisions=("Current",),

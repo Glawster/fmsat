@@ -124,6 +124,7 @@ def testStorePersistsTacticIntoObjectModelSchema(tmp_path) -> None:
         assert stored.name == "High Press"
         assert stored.sourceTactic is not None
         assert stored.sourceTactic.normalizedName == "high press"
+        assert stored.sourceImportSessionId == 1
         assert len(stored.formations) == 2
 
         inPossession = next(
