@@ -94,7 +94,7 @@ def testRoleAbbreviationNormalizesToStableNamedIdentity() -> None:
     assert vocabulary.roleNormalize("AP").value == "advancedPlaymaker"
     assert vocabulary.roleNormalize("Advanced Playmaker").value == "advancedPlaymaker"
     assert vocabulary.roles["channelForward"].abbreviations == ("CHF",)
-    assert vocabulary.roleNormalize("B(G)K").value == "ballPlayingGoalkeeper"
+    assert vocabulary.roleNormalize("BGK").value == "ballPlayingGoalkeeper"
     assert vocabulary.roleNormalize("BCB").value == "ballPlayingCentreBack"
     assert vocabulary.roleNormalize("Ball-Playing Defender").value is None
     assert vocabulary.roleNormalize("CFD").value == "centreForward"
