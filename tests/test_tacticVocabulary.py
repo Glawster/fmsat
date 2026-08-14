@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -108,6 +109,24 @@ def testUnknownVocabularyDoesNotInventMeaning() -> None:
     assert value.value is None
     assert value.observedText == "Raumdeuter-ish"
     assert value.resolved is False
+
+
+def testCapturedRoleDefinitionExtendsLiveOcrVocabulary() -> None:
+    vocabulary = TacticVocabulary()
+    vocabulary.capturedRolesAdd((
+        SimpleNamespace(
+            roleID=20,
+            roleCode=None,
+            displayName="Advanced Wing-Back",
+            abbreviations=("AWB",),
+            positions=("WBL", "WBR"),
+        ),
+    ))
+
+    value = vocabulary.roleNormalize("AWB")
+
+    assert value.value == "capturedRole20"
+    assert value.observedText == "AWB"
 
 
 def testRoleProfileEvidenceSeparatesKeyAttributesFromPlayerValues() -> None:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -54,17 +55,23 @@ class TacticScreenshotExtractor:
     rather than being filled with formation templates or neutral defaults.
     """
 
-    def __init__(self, engine: Engine, ocr: OcrEngine | None = None) -> None:
+    def __init__(
+        self,
+        engine: Engine,
+        ocr: OcrEngine | None = None,
+        roleDefinitionsProvider: Callable[[], Iterable[object]] | None = None,
+    ) -> None:
         self.engine = engine
         self.ocr = ocr or PaddleOcrEngine()
+        self.roleDefinitionsProvider = roleDefinitionsProvider
         configuration = Configuration().tacticExtraction
-        vocabulary = TacticVocabulary()
+        self.vocabulary = TacticVocabulary()
         self.metadataExtractor = TacticMetadataExtractor(self.ocr)
         self.formationExtractor = TacticFormationExtractor(
-            self.ocr, vocabulary, configuration
+            self.ocr, self.vocabulary, configuration
         )
         self.instructionExtractor = TacticInstructionExtractor(
-            self.ocr, vocabulary, configuration
+            self.ocr, self.vocabulary, configuration
         )
 
     ## tactic
@@ -74,6 +81,7 @@ class TacticScreenshotExtractor:
 
         cleanName = tacticName.strip()
         logger.doing(f"extracting tactic screenshots for {cleanName or '<empty>'}")
+        self._capturedRolesRefresh()
         if not cleanName:
             logger.info("tactic extraction stopped because the name is empty")
             return TacticScreenshotExtractResult(
@@ -192,6 +200,19 @@ class TacticScreenshotExtractor:
             diagnosticPaths=tuple(diagnosticPaths),
             unresolvedRoles=unresolvedRoles,
         )
+
+    def _capturedRolesRefresh(self) -> None:
+        """Refresh OCR aliases from confirmed user role definitions."""
+
+        if self.roleDefinitionsProvider is None:
+            return
+        try:
+            definitions = tuple(self.roleDefinitionsProvider())
+        except TypeError:
+            logger.warning("captured role provider did not return an iterable")
+            return
+        self.vocabulary.capturedRolesAdd(definitions)
+        logger.value("captured role definitions available to OCR", len(definitions))
 
     ## metadata
 
