@@ -2,7 +2,11 @@
 
 ## Status
 
-In Progress
+InProgress
+
+The end-to-end extraction, role-gap and model-generation workflow is
+operational. Completion remains open for the general correction workflow,
+diagnostic CLI, final acceptance verification and documentation reconciliation.
 
 ## Objective
 

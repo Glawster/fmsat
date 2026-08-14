@@ -2,7 +2,12 @@
 
 ## Status
 
-In Progress
+InProgress
+
+The model-backed tactic viewer, regeneration, freshness, validation and
+diagnostic baseline is delivered and accepted for current use. Immutable
+revision history, historical selection and structured comparison remain open
+and do not block requirement 007.
 
 ## Objective
 

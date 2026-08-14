@@ -2,18 +2,21 @@
 
 ## Status
 
-Backlog
+InProgress
 
 ## Objective
 
-Present a confirmed structured tactic primarily as a collection of tactical
-roles rather than a list of players. Make each role a long-lived planning object
-against which players are ranked, compared and explained, and on which later
-squad-depth and recruitment workflows can be built.
+Provide a model-backed squad viewer in the same visual family as the tactic
+viewer. Combine a selected stored squad with a selected tactic revision and
+known assessment configuration so every required tactical role can rank,
+compare and explain the available players. Keep each role as a long-lived
+planning object on which squad depth and later recruitment workflows can be
+built.
 
 ## Dependencies
 
-1. Consume the validated structured tactic produced by requirement 006.
+1. Consume the validated football object-model tactic produced by requirement
+   006 and displayed by requirement 009.
 2. Use requirement 005's six tactical colour families and role icons.
 3. Keep each player's imported natural positions separate from their
    tactic-specific role suitability and assignments.
@@ -21,18 +24,45 @@ squad-depth and recruitment workflows can be built.
    required player attributes are incomplete without clearly reporting that
    limitation.
 
-## Tactic workspace
+## Squad workspace
 
-1. Organize the tactic workspace as **Overview**, **Roles**, **Pitch**,
-   **Instructions** and **Sources**.
-2. Make **Roles** the default view.
-3. Retain **Pitch** as a tactical visualization rather than the primary planning
-   interface.
-4. Present every role required by the tactic as an individual selectable Role
-   Card grouped into goalkeeper, defence, defensive midfield, midfield,
-   attacking midfield and striker units.
-5. Use the shared palette subtly through headers, borders, role icons or badges
+1. Open a stored squad in a dedicated squad viewer rather than extending the
+   welcome screen or tactic viewer into a second responsibility.
+2. Use the tactic viewer's visual language and reusable widgets where they have
+   the same responsibility, while keeping squad-specific views and view models
+   separate.
+3. Organize the initial workspace as **Overview**, **Players**, **Roles** and
+   **Analysis**. Additional **Depth** or **Comparison** views may be introduced
+   when their calculations are delivered.
+4. Display the selected squad, selected tactic revision, squad-data date and
+   knowledge/scoring identity. Changing tactic context must not mutate the
+   imported squad or tactic.
+5. Provide an explicit empty or selection state when no tactic is assigned. The
+   Players view remains usable, but tactic-dependent role assessment must be
+   reported as unavailable.
+6. Present every role required by the selected tactic once as an individual
+   selectable Role Card grouped into goalkeeper, defence, defensive midfield,
+   midfield, attacking midfield and striker units.
+7. Use the shared palette subtly through headers, borders, role icons or badges
    while preserving readability in light and dark themes.
+
+## Initial delivery increment
+
+1. Deliver the squad viewer shell, Overview, Players and Roles views first.
+2. Load squad, tactic and role-knowledge data through UI-independent services;
+   the view must not query SQLAlchemy or calculate scores.
+3. Implement configuration-driven **Generic Role Fit** before adding tactical
+   modifiers or a composite score.
+4. Rank all players for a role, including explicit unavailable results when
+   attributes or an assessment requirement are missing.
+5. Show the best available candidate, backup candidate and uncovered state for
+   each role without automatically assigning a lineup.
+6. Retain the complete calculation trace required to explain and test each
+   available Generic Role Fit result.
+
+Tactical Fit, Position Familiarity, Overall Suitability, candidate comparison,
+alternative roles and Role Health remain part of this requirement but follow
+the initial increment.
 
 ## Role Cards
 
@@ -143,23 +173,30 @@ invent a modifier when the structured tactic provides no supporting evidence.
 
 ## Acceptance criteria
 
-1. Every role in a confirmed tactic appears once as an individual Role Card.
-2. Cards are grouped and styled using the shared tactical colour families.
-3. Selecting a card opens its Role Workspace.
-4. The Candidates view ranks every squad player for the selected role.
-5. Each ranking exposes Generic Role Fit, Tactical Fit and Overall Suitability.
-6. Every score provides a human-readable, reproducible explanation.
-7. Two or more candidates can be compared against the same role.
-8. Each player exposes their best alternative roles.
-9. Role Health remains visibly and computationally separate from player
+1. Opening a stored squad displays the squad viewer and identifies its selected
+   tactic revision and assessment context.
+2. Overview, Players, Roles and Analysis views are available, with useful empty
+   states for analysis not yet generated or tactic context not yet selected.
+3. Every role in a confirmed selected tactic appears once as an individual Role
+   Card.
+4. Cards are grouped and styled using the shared tactical colour families.
+5. Selecting a card opens its Role Workspace.
+6. The Candidates view ranks every squad player for the selected role.
+7. Each ranking exposes Generic Role Fit, Tactical Fit and Overall Suitability
+   as those calculation stages become available; an unavailable stage is never
+   displayed as zero.
+8. Every score provides a human-readable, reproducible explanation.
+9. Two or more candidates can be compared against the same role.
+10. Each player exposes their best alternative roles.
+11. Role Health remains visibly and computationally separate from player
    suitability.
-10. Roles is the default tactic view and Pitch remains available.
-11. Missing or incomplete inputs are shown clearly and never silently converted
+12. Missing or incomplete inputs are shown clearly and never silently converted
     into misleading scores.
-12. Automated tests cover scoring, weighting, tactical modifiers, ranking,
+13. Automated tests cover scoring, weighting, tactical modifiers, ranking,
     explanations, comparisons, alternative roles, Role Health, invalidation and
     the main workspace behaviors.
-13. Existing tactic extraction, squad import and structured-tactic correction
+14. Existing tactic extraction, tactic viewing, squad import and
+    structured-tactic correction
     workflows remain compatible.
 
 ## Out of scope
