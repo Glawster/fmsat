@@ -224,6 +224,12 @@ class ObjectModelTactic(Base):
         unique=True,
         index=True,
     )
+    sourceImportSessionId: Mapped[int | None] = mappedColumn(
+        "source_import_session_id", ForeignKey("import_sessions.id"), index=True
+    )
+    sourceImportSession: Mapped[ImportSession | None] = relationship(
+        foreign_keys=[sourceImportSessionId]
+    )
     sourceTactic: Mapped[Tactic | None] = relationship(back_populates="objectModelTactic")
     formations: Mapped[list[ObjectModelFormation]] = relationship(
         back_populates="tactic",

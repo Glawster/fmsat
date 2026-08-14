@@ -79,6 +79,14 @@ class TacticStore:
                 session.flush()
 
             stored.sourceTactic = sourceTactic
+            stored.sourceImportSessionId = (
+                max(
+                    (capture.importSessionId for capture in sourceTactic.screenshots),
+                    default=None,
+                )
+                if sourceTactic is not None
+                else None
+            )
             self._formationStore(stored, "inPossession", tactic.inPossession)
             self._formationStore(stored, "outOfPossession", tactic.outOfPossession)
             self._transitionStore(stored, tactic)

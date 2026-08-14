@@ -16,6 +16,9 @@ tileDetection:
   maximumWidth: 0.32
   minimumHeight: 0.025
   maximumHeight: 0.16
+  minimumAspectRatio: 1.45
+  minimumInteriorSaturation: 70
+  minimumInteriorValue: 82
 
 linking:
   maximumDistance: 0.38

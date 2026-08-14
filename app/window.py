@@ -913,8 +913,15 @@ class MainWindow(QMainWindow):
             phaseSlots=loadResult.phaseSlots,
             assignedSquads=detailRecord.assignedSquads if detailRecord is not None else (),
             updatedAt=detailRecord.updatedAt if detailRecord is not None else None,
+            regenerationRequired=loadResult.stale,
         )
-        sourceLabel = "Saved Tactic Model" if loadResult.source == "objectModel" else "Built Model"
+        sourceLabel = (
+            "Regeneration Required"
+            if loadResult.stale
+            else "Saved Tactic Model"
+            if loadResult.source == "objectModel"
+            else "Built Model"
+        )
         self.tacticDetailView.tacticShow(
             loadResult.tactic.name,
             detailModel,
