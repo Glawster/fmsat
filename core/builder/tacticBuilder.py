@@ -446,6 +446,20 @@ class TacticBuilder:
         normalized = value.strip().upper()
         if not normalized:
             return None
+        canonicalToDomain = {
+            "DCL": "DC",
+            "DCR": "DC",
+            "DMCL": "DM",
+            "DMCR": "DM",
+            "MCL": "MC",
+            "MCR": "MC",
+            "AMCL": "AMC",
+            "AMCR": "AMC",
+            "STCL": "ST",
+            "STC": "ST",
+            "STCR": "ST",
+        }
+        normalized = canonicalToDomain.get(normalized, normalized)
         try:
             return PositionIdentity[normalized]
         except KeyError:
