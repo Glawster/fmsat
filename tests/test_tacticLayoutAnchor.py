@@ -77,6 +77,23 @@ def testCroppedFormationUsesImageAsReferenceWhenBreadcrumbIsVisible() -> None:
     assert not result.issues
 
 
+def testFormationDoesNotUseAnInteriorPanelContainingBreadcrumb() -> None:
+    image = np.full((700, 1200, 3), 20, dtype=np.uint8)
+    # This header/pitch contour contains the breadcrumb but deliberately ends
+    # above the bottom of the complete Formation capture.
+    cv2.rectangle(image, (10, 5), (900, 430), (120, 120, 120), 2)
+    ocr = FakeOcr([[
+        OcrResult("Match Day > Tactics Planner", 0.97, (20, 15, 260, 38)),
+    ]], suppliesGeometry=True)
+
+    result = TacticLayoutAnchor(ocr, _configuration()).referenceExtract(
+        image, TacticalPhase.FORMATION
+    )
+
+    assert result.anchored is True
+    assert result.image.shape == image.shape
+
+
 def testSmallInstructionBreadcrumbUsesFocusedEnlargedRetry() -> None:
     image = np.full((600, 900, 3), 15, dtype=np.uint8)
     cv2.rectangle(image, (100, 80), (800, 500), (120, 120, 120), 2)

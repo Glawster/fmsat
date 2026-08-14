@@ -77,6 +77,16 @@ class TacticLayoutAnchor:
                 ),
             ))
 
+        # Formation captures are deliberately retained at the Tactics Planner
+        # window boundary. Interior header and pitch contours can also contain
+        # the breadcrumb, but selecting the smallest such contour truncates the
+        # lower half of the pitches. The complete capture is the stable frame.
+        if expectedPhase is TacticalPhase.FORMATION:
+            logger.info(
+                f"layout anchor={anchor.text!r} using complete Formation capture"
+            )
+            return TacticLayoutResult(image, anchored=True)
+
         panel = self._containingPanel(image, anchor.bounds, expectedPhase)
         if panel is None:
             logger.info(f"layout panel not found around anchor {anchor.text!r}")

@@ -124,6 +124,30 @@ def testFormationSlotAcceptsObservedRoleWhenDutyIsNotDisplayed() -> None:
     assert issues == []
 
 
+def testFormationSelectsCompactAndWidePitchRegionProfiles() -> None:
+    compact = {"inPossession": {"x": 0.02}}
+    wide = {"inPossession": {"x": 0.20}}
+    extractor = TacticFormationExtractor(
+        FakeOcr([]),
+        TacticVocabulary(),
+        {"phaseRegionProfiles": [
+            {
+                "name": "compact",
+                "maximumAspectRatio": 1.8,
+                "regions": compact,
+            },
+            {
+                "name": "wide",
+                "minimumAspectRatio": 1.8,
+                "regions": wide,
+            },
+        ]},
+    )
+
+    assert extractor._phaseRegionsResolve(np.zeros((900, 1500, 3))) is compact
+    assert extractor._phaseRegionsResolve(np.zeros((900, 1800, 3))) is wide
+
+
 def testPhaseLinkerRetainsUnmatchedSlotsAndReportsIssue() -> None:
     source = FormationSlot(
         "ip", TacticalPhase.IN_POSSESSION, "STC", "centreForward", "ATTACK", 0.5, 0.1
