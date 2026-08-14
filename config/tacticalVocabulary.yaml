@@ -203,8 +203,8 @@ instructions:
     passReception: [{to feet: [pass to feet]}, {into space: [pass into space]}]
     patience: [work ball into box]
     shotsFromDistance: [shoot on sight, balanced]
-    crossingStyle: [{low: [low crosses]}, mixed, {floated: [floated crosses]}, {whipped: [whipped crosses]}]
-    goalkeeperDistributionSpeed: [slow pace down, distribute quickly]
+    crossingStyle: [{low: [low crosses]}, mixed, {floated: [floated crosses]}, {whipped: [whipped crosses, whipped cro]}]
+    goalkeeperDistributionSpeed: [slow pace down, {distribute quickly: [distribute qui]}]
   outOfPossession:
     lineOfEngagement: [low block, mid block, high press]
     defensiveLine: [much lower, lower, standard, higher, much higher]

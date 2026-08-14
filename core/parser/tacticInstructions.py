@@ -170,10 +170,12 @@ class TacticInstructionExtractor:
                     else self._selectedResults(crop, unknownResults)
                 )
                 if not selected and len(unknownSelected) == 1:
+                    observedText = unknownSelected[0][0].text
                     issues.append(TacticIssue(
                         "unknownInstructionValue",
-                        f"{phase.value}.{category} selected value is not canonical",
-                        unknownSelected[0][0].text,
+                        f"{phase.value}.{category} selected value "
+                        f"{observedText!r} is not canonical",
+                        observedText,
                     ))
                     logger.info(
                         f"{phase.value}.{category} selected unknown value: "
@@ -255,13 +257,38 @@ class TacticInstructionExtractor:
             fy=3.0,
             interpolation=cv2.INTER_CUBIC,
         )
-        try:
-            retry = self.ocr.recognize(enlarged)
-        except Exception:
-            logger.exception(f"{phase.value}.{category} focused value OCR retry failed")
-            return results
-        logger.value(f"{phase.value}.{category} focused OCR values", len(retry))
-        return retry or results
+        gray = cv2.cvtColor(enlarged, cv2.COLOR_BGR2GRAY)
+        _, highContrast = cv2.threshold(
+            gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
+        )
+        variants = (
+            enlarged,
+            cv2.cvtColor(highContrast, cv2.COLOR_GRAY2BGR),
+            cv2.cvtColor(cv2.bitwise_not(highContrast), cv2.COLOR_GRAY2BGR),
+        )
+        firstRetry: list[OcrResult] = []
+        for retryIndex, variant in enumerate(variants, start=1):
+            try:
+                retry = self.ocr.recognize(variant)
+            except Exception:
+                logger.exception(
+                    f"{phase.value}.{category} focused OCR retry {retryIndex} failed"
+                )
+                continue
+            logger.value(
+                f"{phase.value}.{category} focused OCR retry {retryIndex} values",
+                len(retry),
+            )
+            if retry and not firstRetry:
+                firstRetry = retry
+            if any(
+                self.vocabulary.instructionNormalize(
+                    phase.value, category, result.text
+                ).resolved
+                for result in retry
+            ):
+                return retry
+        return firstRetry or results
 
     def _selectedResults(
         self,

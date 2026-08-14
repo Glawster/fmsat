@@ -87,6 +87,12 @@ def testInstructionVocabularyNormalizesUniqueDisplayedEllipsis() -> None:
     assert vocabulary.instructionNormalize(
         "inPossession", "goalkeeperDistributionSpeed", "Distribute Qui..."
     ).value == "distribute quickly"
+    assert vocabulary.instructionNormalize(
+        "inPossession", "crossingStyle", "Whipped Cro"
+    ).value == "whipped"
+    assert vocabulary.instructionNormalize(
+        "inPossession", "goalkeeperDistributionSpeed", "Distribute Qui"
+    ).value == "distribute quickly"
 
 
 def testRoleAbbreviationNormalizesToStableNamedIdentity() -> None:
