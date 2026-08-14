@@ -89,6 +89,21 @@ def testFormationTileDetectionCollapsesElementsFromOnePlayerCard() -> None:
     assert len(retained) == 2
 
 
+def testFormationTileDetectionExcludesPitchControlAndPhaseBadge() -> None:
+    extractor = TacticFormationExtractor(
+        FakeOcr([]),
+        TacticVocabulary(),
+        {"tileDetection": {"excludedRegions": [
+            {"x": 0.0, "y": 0.0, "width": 0.2, "height": 0.1},
+            {"x": 0.0, "y": 0.9, "width": 0.25, "height": 0.1},
+        ]}},
+    )
+
+    assert extractor._excludedCandidate((5, 5, 45, 25), 400, 400) is True
+    assert extractor._excludedCandidate((5, 365, 90, 390), 400, 400) is True
+    assert extractor._excludedCandidate((150, 5, 250, 30), 400, 400) is False
+
+
 def testPhaseLinkerRetainsUnmatchedSlotsAndReportsIssue() -> None:
     source = FormationSlot(
         "ip", TacticalPhase.IN_POSSESSION, "STC", "centreForward", "ATTACK", 0.5, 0.1

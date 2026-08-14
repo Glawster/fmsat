@@ -429,7 +429,38 @@ class TacticFormationExtractor:
                 continue
             boxes.append((left, top, left + boxWidth, top + boxHeight))
         boxes = self._duplicatesRemove(boxes, width, height)
+        boxes = [
+            box for box in boxes if not self._excludedCandidate(box, width, height)
+        ]
         return sorted(boxes, key=lambda box: ((box[1] + box[3]) / 2, (box[0] + box[2]) / 2))
+
+    def _excludedCandidate(
+        self,
+        box: tuple[int, int, int, int],
+        width: int,
+        height: int,
+    ) -> bool:
+        """Reject stable pitch controls and phase badges outside the playing tiles."""
+
+        centerX = ((box[0] + box[2]) / 2) / width
+        centerY = ((box[1] + box[3]) / 2) / height
+        for region in self.configuration.get("tileDetection", {}).get(
+            "excludedRegions", []
+        ):
+            xMinimum = float(region["x"])
+            xMaximum = xMinimum + float(region["width"])
+            yMinimum = float(region["y"])
+            yMaximum = yMinimum + float(region["height"])
+            if (
+                xMinimum <= centerX <= xMaximum
+                and yMinimum <= centerY <= yMaximum
+            ):
+                logger.info(
+                    "formation tile candidate excluded as pitch chrome: "
+                    f"center=({centerX:.3f},{centerY:.3f})"
+                )
+                return True
+        return False
 
     @staticmethod
     def _duplicatesRemove(

@@ -63,6 +63,12 @@ class TacticLayoutAnchor:
         if anchor is None and phrase == "tactics planner":
             anchor = self._anchorFind(results, "tactic planner")
         if anchor is None:
+            focusedResults = self._focusedRecognize(image, expectedPhase)
+            results.extend(focusedResults)
+            anchor = self._anchorFind(focusedResults, phrase)
+            if anchor is None and phrase == "tactics planner":
+                anchor = self._anchorFind(focusedResults, "tactic planner")
+        if anchor is None:
             logger.info(f"layout anchor not found: {phrase}")
             return TacticLayoutResult(image, (
                 TacticIssue(
@@ -104,6 +110,64 @@ class TacticLayoutAnchor:
             f"phase={detectedPhase.value if detectedPhase else 'formation'}"
         )
         return TacticLayoutResult(reference, tuple(issues), detectedPhase, True)
+
+    def _focusedRecognize(
+        self,
+        image: np.ndarray,
+        phase: TacticalPhase,
+    ) -> list[OcrResult]:
+        """Retry small breadcrumb text in an enlarged, phase-specific upper crop."""
+
+        if phase is TacticalPhase.FORMATION:
+            return []
+        settings = self.configuration.get("anchors", {})
+        focus = settings.get("instructionBreadcrumbRegion", {})
+        height, width = image.shape[:2]
+        left = int(width * float(focus.get("x", 0.15)))
+        top = int(height * float(focus.get("y", 0.12)))
+        right = int(
+            width
+            * (float(focus.get("x", 0.15)) + float(focus.get("width", 0.70)))
+        )
+        bottom = int(
+            height
+            * (float(focus.get("y", 0.12)) + float(focus.get("height", 0.24)))
+        )
+        crop = image[max(0, top):min(height, bottom), max(0, left):min(width, right)]
+        if crop.size == 0:
+            return []
+        scale = float(settings.get("instructionBreadcrumbScale", 3.0))
+        enlarged = cv2.resize(
+            crop, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC
+        )
+        try:
+            recognized = self.ocr.recognize(enlarged)
+        except Exception:
+            logger.exception("focused instruction breadcrumb OCR failed")
+            return []
+        transformed: list[OcrResult] = []
+        for result in recognized:
+            if result.bounds is None:
+                continue
+            x1, y1, x2, y2 = result.bounds
+            transformed.append(
+                OcrResult(
+                    result.text,
+                    result.confidence,
+                    (
+                        left + x1 / scale,
+                        top + y1 / scale,
+                        left + x2 / scale,
+                        top + y2 / scale,
+                    ),
+                )
+            )
+        logger.info(
+            "focused breadcrumb OCR region="
+            f"({left},{top})-({right},{bottom}) scale={scale:.1f} "
+            f"text={', '.join(item.text for item in transformed) or 'none'}"
+        )
+        return transformed
 
     def _anchorFind(self, results: list[OcrResult], phrase: str) -> OcrResult | None:
         minimum = float(self.configuration.get("anchors", {}).get("minimumTextMatch", 0.68))

@@ -57,6 +57,25 @@ class TacticInstructionExtractor:
             diagnostic, f"{phase.value.upper()} OCR REFERENCE", layout.anchored
         )
         anchorSettings = self.configuration.get("anchors", {})
+        if (
+            self.configuration.get("anchors", {}).get("enabled", False)
+            and not layout.anchored
+        ):
+            focus = anchorSettings.get("instructionBreadcrumbRegion", {})
+            breadcrumbRegion = {
+                "x": float(focus.get("x", 0.15)),
+                "y": float(focus.get("y", 0.12)),
+                "width": float(focus.get("width", 0.70)),
+                "height": float(focus.get("height", 0.24)),
+            }
+            TacticFormationExtractor._diagnosticBox(
+                diagnostic,
+                self._regionBounds(image, breadcrumbRegion),
+                "focused breadcrumb OCR retry",
+                (0, 215, 255),
+                3,
+            )
+            return InstructionExtractResult((), layout.issues, diagnostic)
         tabBand = {
             "x": 0.0,
             "y": float(anchorSettings.get("tabBandYMin", 0.08)),
@@ -72,8 +91,6 @@ class TacticInstructionExtractor:
             (255, 255, 0),
             2,
         )
-        if self.configuration.get("anchors", {}).get("enabled", False) and not layout.anchored:
-            return InstructionExtractResult((), layout.issues, diagnostic)
         referenceName = (
             "instructionPanelRegions"
             if self.configuration.get("anchors", {}).get("enabled", False)
