@@ -275,6 +275,7 @@ class TacticBuilder:
             profileName = (
                 slot.observedRole
                 if roleIdentity is RoleIdentity.UNRESOLVED
+                or (slot.role or "").startswith("capturedRole")
                 else slot.duty.capitalize() if slot.duty else "Observed role"
             )
             roleProfile = RoleProfile(

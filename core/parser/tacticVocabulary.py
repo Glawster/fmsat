@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from collections.abc import Iterable
 from typing import Any
 
 import yaml
@@ -81,6 +82,32 @@ class TacticVocabulary:
             for alias in (code, role.displayName, *role.abbreviations, *role.aliases):
                 self._aliasAdd(values, alias, code, "roles")
         return self._normalize(observedText, values)
+
+    def capturedRolesAdd(self, definitions: Iterable[object]) -> None:
+        """Add confirmed user role definitions to the live OCR vocabulary."""
+
+        for definition in definitions:
+            roleID = getattr(definition, "roleID", None)
+            roleCode = getattr(definition, "roleCode", None)
+            if not isinstance(roleID, int) or roleID < 1:
+                continue
+            code = roleCode or f"capturedRole{roleID}"
+            if code in self.roles:
+                continue
+            abbreviations = tuple(getattr(definition, "abbreviations", ()))
+            positions = tuple(getattr(definition, "positions", ()))
+            displayName = str(getattr(definition, "displayName", code))
+            if not abbreviations:
+                continue
+            self.roles[code] = RoleDefinition(
+                code=code,
+                roleID=roleID,
+                displayName=displayName,
+                abbreviations=tuple(str(value).upper() for value in abbreviations),
+                aliases=(),
+                positions=tuple(str(value) for value in positions),
+                duties=(),
+            )
 
     def roleIndicatorNormalize(self, observedText: str) -> NormalizedValue:
         """Normalize an observed role-performance indicator."""

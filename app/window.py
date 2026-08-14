@@ -102,7 +102,14 @@ class MainWindow(QMainWindow):
         self.ocrDiagnosticPaths: tuple[str, ...] = ()
         self.ocrDiagnosticWindows: list[ScreenshotWindow] = []
         self.tacticModelLoader = TacticModelLoader(database.engine)
-        self.tacticScreenshotExtractor = TacticScreenshotExtractor(database.engine)
+        self.tacticScreenshotExtractor = TacticScreenshotExtractor(
+            database.engine,
+            roleDefinitionsProvider=(
+                roleKnowledgeService.definitionsList
+                if roleKnowledgeService is not None
+                else None
+            ),
+        )
         self.currentResult: ImportResult | None = None
         self.currentTactic: str | None = None
         self.currentSquad: str | None = None

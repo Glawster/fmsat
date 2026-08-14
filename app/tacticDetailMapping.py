@@ -325,6 +325,10 @@ def _slotsBuild(formation: Formation) -> tuple[DisplaySlot, ...]:
                     role=(
                         position.roleProfile.name
                         if position.role.identity is RoleIdentity.UNRESOLVED
+                        or (
+                            position.duty is None
+                            and position.roleProfile.name != "Observed role"
+                        )
                         else position.role.identity.value
                     ),
                     duty=position.duty or "Not shown",
