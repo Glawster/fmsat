@@ -17,6 +17,8 @@ from fmsat.database import (
     StructuredTeamInstruction,
     Tactic,
 )
+from fmsat.football.roleIdentity import RoleIdentity
+from fmsat.tactics.positionIdentity import PositionIdentity
 
 
 def testBuilderLoadsStructuredTacticIntoObjectModel(tmp_path) -> None:
@@ -205,6 +207,22 @@ def testBuilderPreservesPositionWhenDutyIsNotShown() -> None:
     assert position.roleProfile.name == "Observed role"
     assert position.validationState == "extracted"
     assert issues == []
+
+
+def testBuilderMapsCanonicalLateralPositionsToDomainIdentities() -> None:
+    builder = TacticBuilder(Mock())
+
+    assert builder._positionIdentityParse("STC") is PositionIdentity.ST
+    assert builder._positionIdentityParse("DCL") is PositionIdentity.DC
+    assert builder._positionIdentityParse("DCR") is PositionIdentity.DC
+    assert builder._positionIdentityParse("DMCL") is PositionIdentity.DM
+    assert builder._positionIdentityParse("DMCR") is PositionIdentity.DM
+
+
+def testBuilderMapsKnownFullBackRoleToSharedWideDefenderIdentity() -> None:
+    builder = TacticBuilder(Mock())
+
+    assert builder._roleIdentityParse("fullBack", "FB") is RoleIdentity.WB
 
 
 def testBuilderOrdersPositionsBySemanticPositionIdentity(tmp_path) -> None:
