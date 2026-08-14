@@ -855,24 +855,6 @@ class MainWindow(QMainWindow):
         if not accepted:
             return
         role = roleLabels[selected]
-        expectedPosition = ""
-        if role is None:
-            # New roles are not anchored to a canonical role yet, so ask for
-            # the expected tactical position to guide review defaults.
-            positions = sorted(
-                set(self.tacticVocabulary.positions.values()),
-                key=WelcomeService.positionSortKey,
-            )
-            expectedPosition, accepted = QInputDialog.getItem(
-                self,
-                "Expected position",
-                "Choose the position shown in Football Manager:",
-                positions,
-                0,
-                False,
-            )
-            if not accepted:
-                return
         replaceExisting = (
             self.roleKnowledgeService.definitionExists(role.code) if role is not None else False
         )
@@ -880,7 +862,7 @@ class MainWindow(QMainWindow):
         if result is None or result.roleProfile is None:
             return
         normalizedPosition = self.tacticVocabulary.positionNormalize(result.roleProfile.position)
-        if role is not None and not normalizedPosition.resolved:
+        if not normalizedPosition.resolved:
             self._errorShow(
                 "Role unavailable",
                 "The imported role profile does not contain a recognized position.",
@@ -896,7 +878,7 @@ class MainWindow(QMainWindow):
         evidence = replace(result.roleProfile, sourceImport=str(screenshotPath))
         dialog = RoleProfileReviewDialog(
             evidence,
-            expectedPosition or normalizedPosition.value,
+            normalizedPosition.value,
             expectedRole,
             self.roleKnowledgeService,
             self,
@@ -1507,10 +1489,6 @@ class MainWindow(QMainWindow):
         )
         self.ocrDiagnosticsAction.setEnabled(bool(self.ocrDiagnosticPaths))
         logger.value("OCR diagnostic images", len(self.ocrDiagnosticPaths))
-        if self.ocrDiagnosticPaths and not extraction.complete:
-            # Wait until the modal progress surface has closed before opening
-            # the zoomable diagnostic windows.
-            QTimer.singleShot(0, self.ocrDiagnosticsShow)
 
     def ocrDiagnosticsShow(self) -> None:
         """Open the latest annotated extraction images in zoomable viewers."""
