@@ -106,6 +106,7 @@ def testViewMenuIncludesRolesAndShowsWelcomeRolesPanel(qtbot) -> None:  # type: 
         "Settings",
         "",
         "Show Status Log",
+        "Show OCR Zones",
     ]
 
     window.rolesAction.trigger()

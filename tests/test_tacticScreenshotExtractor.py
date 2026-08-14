@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import cv2
 import numpy as np
 from sqlalchemy import select
@@ -52,6 +54,8 @@ def testExtractorPersistsOnlyObservedValuesFromSavedScreenshots(tmp_path) -> Non
     assert result.structuredCreated is True
     assert result.complete is False
     assert result.screenshotCount == 3
+    assert len(result.diagnosticPaths) == 1
+    assert Path(result.diagnosticPaths[0]).is_file()
 
     with Session(database.engine) as session:
         tactic = session.scalar(

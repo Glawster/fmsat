@@ -11,8 +11,9 @@ import numpy as np
 from fmsat.core.logUtils import getLogger
 from fmsat.core.ocr import OcrEngine, OcrResult
 
-from .tacticModels import TacticalPhase, TacticIssue, TeamInstruction, ValidationState
+from .tacticFormation import TacticFormationExtractor
 from .tacticLayout import TacticLayoutAnchor
+from .tacticModels import TacticalPhase, TacticIssue, TeamInstruction, ValidationState
 from .tacticVocabulary import TacticVocabulary
 
 logger = getLogger()
@@ -24,6 +25,7 @@ class InstructionExtractResult:
 
     instructions: tuple[TeamInstruction, ...]
     issues: tuple[TacticIssue, ...]
+    diagnosticImage: np.ndarray | None = None
 
 
 class TacticInstructionExtractor:
@@ -50,8 +52,28 @@ class TacticInstructionExtractor:
 
         layout = self.layoutAnchor.referenceExtract(image, phase)
         image = layout.image
+        diagnostic = image.copy()
+        TacticFormationExtractor._diagnosticTitle(
+            diagnostic, f"{phase.value.upper()} OCR REFERENCE", layout.anchored
+        )
+        anchorSettings = self.configuration.get("anchors", {})
+        tabBand = {
+            "x": 0.0,
+            "y": float(anchorSettings.get("tabBandYMin", 0.08)),
+            "width": 1.0,
+            "height": float(anchorSettings.get("tabBandYMax", 0.20))
+            - float(anchorSettings.get("tabBandYMin", 0.08)),
+        }
+        TacticFormationExtractor._diagnosticBox(
+            diagnostic,
+            self._regionBounds(image, tabBand),
+            "active tab search: "
+            f"{layout.detectedPhase.value if layout.detectedPhase else 'unresolved'}",
+            (255, 255, 0),
+            2,
+        )
         if self.configuration.get("anchors", {}).get("enabled", False) and not layout.anchored:
-            return InstructionExtractResult((), layout.issues)
+            return InstructionExtractResult((), layout.issues, diagnostic)
         referenceName = (
             "instructionPanelRegions"
             if self.configuration.get("anchors", {}).get("enabled", False)
@@ -67,9 +89,13 @@ class TacticInstructionExtractor:
                     "missingInstructionConfiguration",
                     f"No instruction regions are configured for {phase.value}",
                 ),
-            ))
+            ), diagnostic)
         for category, region in categories.items():
             logger.doing(f"extracting {phase.value}.{category} instruction")
+            bounds = self._regionBounds(image, region)
+            TacticFormationExtractor._diagnosticBox(
+                diagnostic, bounds, category, (0, 215, 255), 2
+            )
             crop = self._regionCrop(image, region)
             if crop.size == 0:
                 issues.append(TacticIssue(
@@ -185,7 +211,7 @@ class TacticInstructionExtractor:
                 f"{phase.value}.{category} selected value: {canonical} "
                 f"(confidence {confidence:.3f})"
             )
-        return InstructionExtractResult(tuple(instructions), tuple(issues))
+        return InstructionExtractResult(tuple(instructions), tuple(issues), diagnostic)
 
     def _valueRetry(
         self,
@@ -275,8 +301,18 @@ class TacticInstructionExtractor:
 
     @staticmethod
     def _regionCrop(image: np.ndarray, region: dict[str, float]) -> np.ndarray:
+        left, top, right, bottom = TacticInstructionExtractor._regionBounds(
+            image, region
+        )
+        height, width = image.shape[:2]
+        return image[max(0, top):min(height, bottom), max(0, left):min(width, right)]
+
+    @staticmethod
+    def _regionBounds(
+        image: np.ndarray, region: dict[str, float]
+    ) -> tuple[int, int, int, int]:
         height, width = image.shape[:2]
         left, top = int(float(region["x"]) * width), int(float(region["y"]) * height)
         right = int((float(region["x"]) + float(region["width"])) * width)
         bottom = int((float(region["y"]) + float(region["height"])) * height)
-        return image[max(0, top):min(height, bottom), max(0, left):min(width, right)]
+        return left, top, right, bottom

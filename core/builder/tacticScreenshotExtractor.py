@@ -42,6 +42,7 @@ class TacticScreenshotExtractResult:
     structuredCreated: bool
     complete: bool
     message: str
+    diagnosticPaths: tuple[str, ...] = ()
 
 
 class TacticScreenshotExtractor:
@@ -82,6 +83,7 @@ class TacticScreenshotExtractor:
                 message="Tactic name is empty",
             )
 
+        diagnosticPaths: list[str] = []
         with Session(self.engine) as session, session.begin():
             tactic = session.scalar(
                 select(Tactic)
@@ -165,9 +167,9 @@ class TacticScreenshotExtractor:
                         message=message,
                     )
                 )
-            self._formationBuild(definition, byType)
+            self._formationBuild(definition, byType, diagnosticPaths)
             logger.value("extracted formation slots", len(definition.slots))
-            self._instructionsBuild(definition, byType)
+            self._instructionsBuild(definition, byType, diagnosticPaths)
             logger.value("extracted team instructions", len(definition.instructions))
             complete = self._completeCalculate(definition)
             definition.complete = complete
@@ -181,6 +183,7 @@ class TacticScreenshotExtractor:
             structuredCreated=True,
             complete=complete,
             message="Observed tactic data extracted with unresolved coverage",
+            diagnosticPaths=tuple(diagnosticPaths),
         )
 
     ## metadata
@@ -203,6 +206,7 @@ class TacticScreenshotExtractor:
         self,
         definition: ScreenshotDerivedTacticDefinition,
         byType: dict[ScreenType, TacticScreenshot],
+        diagnosticPaths: list[str],
     ) -> None:
         """Detect both phase pitches from the Formation capture."""
 
@@ -221,6 +225,13 @@ class TacticScreenshotExtractor:
         result = self.formationExtractor.formationExtract(
             image, screenshot.importSession.imageFilename
         )
+        diagnosticPath = self._diagnosticSave(
+            result.diagnosticImage,
+            screenshot.importSession.imageFilename,
+            "formation",
+        )
+        if diagnosticPath:
+            diagnosticPaths.append(diagnosticPath)
         logger.value("formation extractor slots", len(result.slots))
         logger.value("formation extractor issues", len(result.issues))
         for slot in result.slots:
@@ -245,6 +256,7 @@ class TacticScreenshotExtractor:
         self,
         definition: ScreenshotDerivedTacticDefinition,
         byType: dict[ScreenType, TacticScreenshot],
+        diagnosticPaths: list[str],
     ) -> None:
         """Extract only visually selected values from each instruction capture."""
 
@@ -271,6 +283,13 @@ class TacticScreenshotExtractor:
             result = self.instructionExtractor.instructionsExtract(
                 image, phase, screenshot.importSession.imageFilename
             )
+            diagnosticPath = self._diagnosticSave(
+                result.diagnosticImage,
+                screenshot.importSession.imageFilename,
+                phase.value,
+            )
+            if diagnosticPath:
+                diagnosticPaths.append(diagnosticPath)
             logger.info(
                 f"{phase.value} instruction result: {len(result.instructions)} values, "
                 f"{len(result.issues)} issues"
@@ -323,6 +342,29 @@ class TacticScreenshotExtractor:
     def _imageRead(filename: str):
         path = Path(filename).expanduser()
         return cv2.imread(str(path), cv2.IMREAD_COLOR) if path.is_file() else None
+
+    @staticmethod
+    def _diagnosticSave(
+        image,
+        sourceFilename: str,
+        phase: str,
+    ) -> str | None:
+        """Persist the latest annotated OCR reference beside its retained capture."""
+
+        if image is None:
+            return None
+        source = Path(sourceFilename).expanduser()
+        directory = source.parent / "ocr-diagnostics"
+        path = directory / f"{source.stem}-{phase}-ocr-zones.png"
+        try:
+            directory.mkdir(parents=True, exist_ok=True)
+            if not cv2.imwrite(str(path), image):
+                raise OSError("OpenCV did not encode the diagnostic image")
+        except (OSError, cv2.error):
+            logger.exception(f"unable to save OCR diagnostic image {path}")
+            return None
+        logger.info(f"saved OCR diagnostic image: {path}")
+        return str(path)
 
     @staticmethod
     def _issueAdd(definition, code: str, message: str, observedText: str | None = None) -> None:

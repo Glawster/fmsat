@@ -73,6 +73,8 @@ def testFormationExtractorDetectsTilesBeforeFocusedOcr() -> None:
     assert result.slots[0].role == "centreForward"
     assert result.slots[0].displayedPlayer == "Alex Forward"
     assert not result.issues
+    assert result.diagnosticImage is not None
+    assert result.diagnosticImage.shape == image.shape
 
 
 def testFormationTileDetectionCollapsesElementsFromOnePlayerCard() -> None:
