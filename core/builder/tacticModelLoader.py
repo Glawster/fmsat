@@ -276,14 +276,14 @@ class TacticModelLoader:
             definition.slots,
             key=lambda item: (item.phase.casefold(), item.slotId.casefold()),
         ):
-            if slot.position is None or slot.role is None or slot.duty is None:
+            if slot.position is None or slot.role is None:
                 continue
             phaseSlots.setdefault(slot.phase, []).append(
                 (
                     slot.slotId,
                     slot.position,
                     slot.role,
-                    slot.duty,
+                    slot.duty or "",
                     slot.x,
                     slot.y,
                     slot.displayedPlayer,
