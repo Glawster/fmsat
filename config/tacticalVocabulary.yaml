@@ -54,7 +54,7 @@ roles:
   ballPlayingGoalkeeper:
     roleID: 1
     displayName: Ball-Playing Goalkeeper
-    abbreviations: [BPGK]
+    abbreviations: [BPGK, BGK, B(G)K]
     aliases: [ball playing goalkeeper]
     positions: [GK]
     duties: [DEFEND, SUPPORT]

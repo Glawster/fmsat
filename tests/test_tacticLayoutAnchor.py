@@ -95,3 +95,30 @@ def testSmallInstructionBreadcrumbUsesFocusedEnlargedRetry() -> None:
     assert result.anchored is True
     assert result.detectedPhase is TacticalPhase.IN_POSSESSION
     assert not result.issues
+
+
+def testInstructionPanelUsesAnchoredFallbackWhenBorderIsNotContinuous() -> None:
+    image = np.full((600, 900, 3), 15, dtype=np.uint8)
+    # No enclosing rectangle is drawn: only the breadcrumb and tab underline
+    # are available as stable evidence.
+    cv2.line(image, (205, 155), (325, 155), (240, 240, 240), 3)
+    configuration = _configuration()
+    configuration["anchors"]["instructionPanelFallback"] = {
+        "inPossession": {
+            "x": 0.20,
+            "topOffset": 0.025,
+            "width": 0.60,
+            "height": 0.68,
+        }
+    }
+    ocr = FakeOcr([[
+        OcrResult("Team Instructions", 0.98, (220, 110, 380, 130)),
+    ]], suppliesGeometry=True)
+
+    result = TacticLayoutAnchor(ocr, configuration).referenceExtract(
+        image, TacticalPhase.IN_POSSESSION
+    )
+
+    assert result.anchored is True
+    assert result.image.shape[:2] == (408, 540)
+    assert result.detectedPhase is TacticalPhase.IN_POSSESSION

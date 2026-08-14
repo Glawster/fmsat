@@ -104,6 +104,26 @@ def testFormationTileDetectionExcludesPitchControlAndPhaseBadge() -> None:
     assert extractor._excludedCandidate((150, 5, 250, 30), 400, 400) is False
 
 
+def testFormationSlotAcceptsObservedRoleWhenDutyIsNotDisplayed() -> None:
+    extractor = TacticFormationExtractor(
+        FakeOcr([]), TacticVocabulary(), {"pitchZones": _zones()}
+    )
+
+    slot, issues = extractor._slotBuild(
+        [OcrResult("CHF", 0.98), OcrResult("Mullin", 0.96)],
+        TacticalPhase.IN_POSSESSION,
+        0.5,
+        0.1,
+        "formation.png",
+        1,
+    )
+
+    assert slot.role == "channelForward"
+    assert slot.duty is None
+    assert slot.validationState.value == "extracted"
+    assert issues == []
+
+
 def testPhaseLinkerRetainsUnmatchedSlotsAndReportsIssue() -> None:
     source = FormationSlot(
         "ip", TacticalPhase.IN_POSSESSION, "STC", "centreForward", "ATTACK", 0.5, 0.1

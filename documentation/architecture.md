@@ -70,8 +70,10 @@ must be complete and the generated formations must each contain eleven evidence-
 resolved positions. An incomplete extraction retains its issues for review but cannot
 replace the saved football object model. When a saved model is displayed, its own persisted
 positions remain authoritative; newer partial extraction slots are not overlaid on its pitch.
-An absent duty remains unresolved and blocks position generation rather than creating a
-synthetic `Default` role profile.
+The FM26 Tactics Planner Both view does not expose a separate duty. An absent duty therefore
+remains `null`, is displayed as **Not shown**, and does not block an otherwise observed
+position and role from entering the generated formation. A duty is retained whenever an
+explicit source supplies it; the builder never creates a synthetic `Default` duty.
 
 Tactic maintenance diagnostics are rendered with explicit opaque palettes. The
 validation issue viewport owns its dark background and scrollbar styling, while the

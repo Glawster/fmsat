@@ -84,7 +84,10 @@ from those fixtures.
    OCR where practical; do not infer the formation from unrestricted whole-pitch
    text order.
 6. Extract the visible role abbreviation and displayed player name when
-   available, normalize role and duty, and calculate component-level confidence.
+   available and calculate component-level confidence. The FM26 Tactics Planner
+   Both view does not expose a separate duty: retain duty as `null` unless it is
+   explicitly observed from another source, and do not report its expected
+   absence on this screen as an extraction failure.
 7. Store tile centres as coordinates normalized between zero and one.
 8. Classify coordinates into canonical position codes using configurable pitch
    zones that distinguish depth, width, centre and half-space variants without

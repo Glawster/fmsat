@@ -363,15 +363,12 @@ class TacticFormationExtractor:
                 f"No role was recognized for {phase.value} tile {index}",
                 " ".join(fragments),
             ))
-        if duty is None:
-            issues.append(TacticIssue(
-                "unresolvedDuty",
-                f"No duty was recognized for {phase.value} tile {index}",
-                " ".join(fragments),
-            ))
+        # FM26's Tactics Planner Both view exposes the IP/OOP role but no
+        # separate duty. Preserve duty when explicit evidence exists, while
+        # treating its absence on this screen as expected rather than invalid.
         state = (
             ValidationState.EXTRACTED
-            if position and role and duty
+            if position and role
             else ValidationState.UNRESOLVED
         )
         return FormationSlot(
@@ -419,9 +416,23 @@ class TacticFormationExtractor:
             ]
             if inset.size == 0:
                 continue
-            if float(np.mean(inset[:, :, 1])) < float(
-                settings.get("minimumInteriorSaturation", 70)
-            ):
+            centerX = (left + boxWidth / 2) / width
+            centerY = (top + boxHeight / 2) / height
+            goalkeeperCandidate = (
+                float(settings.get("goalkeeperXMin", 0.35))
+                <= centerX
+                <= float(settings.get("goalkeeperXMax", 0.65))
+                and centerY >= float(settings.get("goalkeeperYMin", 0.86))
+            )
+            minimumSaturation = float(
+                settings.get(
+                    "goalkeeperMinimumInteriorSaturation"
+                    if goalkeeperCandidate
+                    else "minimumInteriorSaturation",
+                    15 if goalkeeperCandidate else 70,
+                )
+            )
+            if float(np.mean(inset[:, :, 1])) < minimumSaturation:
                 continue
             if float(np.mean(inset[:, :, 2])) < float(
                 settings.get("minimumInteriorValue", 82)
