@@ -42,7 +42,11 @@ from fmsat.app.tacticDetailMapping import (
 from fmsat.app.roleProfileDialog import RoleProfileReviewDialog
 from fmsat.app.tacticDetailView import TacticDetailView
 from fmsat.app.welcomeView import WelcomeService, WelcomeView
-from fmsat.core.builder.tacticModelLoader import TacticModelLoader
+from fmsat.core.builder.tacticBuilder import TacticBuildIssue
+from fmsat.core.builder.tacticModelLoader import (
+    TacticModelLoader,
+    TacticModelLoadResult,
+)
 from fmsat.core.builder.tacticScreenshotExtractor import TacticScreenshotExtractor
 from fmsat.core.builder.tacticStore import TacticStore
 from fmsat.core.config import AttributeDefinition
@@ -98,6 +102,7 @@ class MainWindow(QMainWindow):
         self.tacticVocabulary = tacticVocabulary
         self.statusHistory: list[str] = []
         self.tacticProcessStatuses: dict[str, str] = {}
+        self.tacticValidationOverrides: dict[str, TacticModelLoadResult] = {}
         self.statusLogDialog: QDialog | None = None
         self.ocrDiagnosticPaths: tuple[str, ...] = ()
         self.ocrDiagnosticWindows: list[ScreenshotWindow] = []
@@ -342,6 +347,9 @@ class MainWindow(QMainWindow):
         )
         progress = self._tacticProgressCreate()
         unresolvedRoles: tuple[str, ...] = ()
+        normalizedTacticName = tacticName.casefold()
+        if forceRebuild:
+            self.tacticValidationOverrides.pop(normalizedTacticName, None)
         progress.show()
         self._progressUpdate(progress, "Loading saved tactic data...", 0)
         try:
@@ -393,6 +401,12 @@ class MainWindow(QMainWindow):
                 # evidence, but it must never replace the current saved model.
                 if not extraction.complete:
                     logger.info("regeneration stopped by incomplete extraction integrity gate")
+                    self.tacticValidationOverrides[normalizedTacticName] = (
+                        self.tacticModelLoader.tacticLoad(
+                            tacticName,
+                            preferStructured=True,
+                        )
+                    )
                     self._regenerationFailed(
                         tacticName,
                         f"Regeneration incomplete for {tacticName}; existing model retained.",
@@ -410,6 +424,7 @@ class MainWindow(QMainWindow):
                 self._progressUpdate(progress, "Built regenerated tactic model.", 4)
                 if loadResult.tactic is None:
                     logger.info("regeneration stopped because model build returned no tactic")
+                    self.tacticValidationOverrides[normalizedTacticName] = loadResult
                     self._regenerationFailed(
                         tacticName,
                         f"Regeneration finished for {tacticName}, but model build still failed.",
@@ -419,6 +434,17 @@ class MainWindow(QMainWindow):
                     return
                 if not self._generatedModelValid(loadResult.tactic):
                     logger.info("regeneration stopped by generated-model integrity gate")
+                    integrityIssues = tuple(
+                        TacticBuildIssue("generatedModelIntegrity", message)
+                        for message in self._generatedModelIntegrityIssues(loadResult.tactic)
+                    )
+                    loadResult = replace(
+                        loadResult,
+                        issues=(*loadResult.issues, *integrityIssues),
+                        complete=False,
+                        confirmed=False,
+                    )
+                    self.tacticValidationOverrides[normalizedTacticName] = loadResult
                     self._regenerationFailed(
                         tacticName,
                         f"Regeneration invalid for {tacticName}; existing model retained.",
@@ -490,6 +516,7 @@ class MainWindow(QMainWindow):
             self._progressUpdate(progress, "Saving tactic model...", 5)
             TacticStore(self.database.engine).tacticSave(loadResult.tactic)
             self.tacticProcessStatuses.pop(tacticName.casefold(), None)
+            self.tacticValidationOverrides.pop(tacticName.casefold(), None)
             self._progressUpdate(progress, "Tactic model saved.", 6)
             logger.done(f"tactic model saved for {tacticName}")
 
@@ -631,19 +658,37 @@ class MainWindow(QMainWindow):
     def _generatedModelValid(tactic: ModelTactic) -> bool:
         """Return whether a generated tactic is safe to persist as the usable model."""
 
-        for formation in (tactic.inPossession, tactic.outOfPossession):
+        return not MainWindow._generatedModelIntegrityIssues(tactic)
+
+    @staticmethod
+    def _generatedModelIntegrityIssues(tactic: ModelTactic) -> tuple[str, ...]:
+        """Describe every reason a generated tactic cannot replace the saved model."""
+
+        issues: list[str] = []
+        for phase, formation in (
+            ("In Possession", tactic.inPossession),
+            ("Out Of Possession", tactic.outOfPossession),
+        ):
             if len(formation.positions) != 11:
-                return False
+                issues.append(
+                    f"{phase} generated {len(formation.positions)} positions; 11 are required"
+                )
             for position in formation.positions:
-                if (
-                    not position.slotId
-                    or position.x is None
-                    or position.y is None
-                    or position.confidence is None
-                    or position.sourceImportSessionId is None
-                ):
-                    return False
-        return True
+                missing = []
+                if not position.slotId:
+                    missing.append("slot ID")
+                if position.x is None or position.y is None:
+                    missing.append("coordinates")
+                if position.confidence is None:
+                    missing.append("confidence")
+                if position.sourceImportSessionId is None:
+                    missing.append("source screenshot")
+                if missing:
+                    issues.append(
+                        f"{phase} slot {position.slotId or '<unknown>'} lacks "
+                        + ", ".join(missing)
+                    )
+        return tuple(issues)
 
     def _tacticImportRun(self, tacticName: str | None = None) -> None:
         """Run tactic import flow, optionally anchored to a known tactic name."""
@@ -916,6 +961,10 @@ class MainWindow(QMainWindow):
             self._errorShow("Database error", str(exc))
             return
         loadResult = self.tacticModelLoader.tacticLoad(tacticName)
+        validationResult = self.tacticValidationOverrides.get(
+            tacticName.casefold(),
+            loadResult,
+        )
         if loadResult.tactic is None:
             reason = "; ".join(issue.message for issue in loadResult.issues) or "No model data"
             detailModel = tacticDetailIncompleteModelBuild(
@@ -928,7 +977,7 @@ class MainWindow(QMainWindow):
                 tacticName,
                 detailModel,
                 sourceLabel="Incomplete Data",
-                validation=loadResult,
+                validation=validationResult,
             )
             self.contentStack.setCurrentWidget(self.tacticDetailView)
             self.statusBar().showMessage(
@@ -959,7 +1008,7 @@ class MainWindow(QMainWindow):
             loadResult.tactic.name,
             detailModel,
             sourceLabel=sourceLabel,
-            validation=loadResult,
+            validation=validationResult,
         )
         self.contentStack.setCurrentWidget(self.tacticDetailView)
 
