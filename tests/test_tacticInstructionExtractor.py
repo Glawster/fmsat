@@ -42,6 +42,8 @@ def testInstructionExtractorPersistsOnlyVisiblySelectedValue() -> None:
     assert result.instructions[0].value == "higher"
     assert result.instructions[0].displayValue == "Higher"
     assert not result.issues
+    assert result.diagnosticImage is not None
+    assert result.diagnosticImage.shape == image.shape
 
 
 def testInstructionExtractorReportsMissingAndAmbiguousSelectedEvidence() -> None:

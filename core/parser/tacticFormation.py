@@ -26,6 +26,7 @@ class FormationExtractResult:
 
     slots: tuple[FormationSlot, ...]
     issues: tuple[TacticIssue, ...]
+    diagnosticImage: np.ndarray | None = None
 
 
 class PitchZoneClassifier:
@@ -217,9 +218,11 @@ class TacticFormationExtractor:
         issues: list[TacticIssue] = []
         layout = self.layoutAnchor.referenceExtract(image, TacticalPhase.FORMATION)
         image = layout.image
+        diagnostic = image.copy()
+        self._diagnosticTitle(diagnostic, "FORMATION OCR REFERENCE", layout.anchored)
         issues.extend(layout.issues)
         if self.configuration.get("anchors", {}).get("enabled", False) and not layout.anchored:
-            return FormationExtractResult((), tuple(issues))
+            return FormationExtractResult((), tuple(issues), diagnostic)
         phases: dict[TacticalPhase, list[FormationSlot]] = {}
         for phase in (TacticalPhase.IN_POSSESSION, TacticalPhase.OUT_OF_POSSESSION):
             region = self.configuration.get("phaseRegions", {}).get(phase.value)
@@ -230,8 +233,18 @@ class TacticFormationExtractor:
                 ))
                 phases[phase] = []
                 continue
+            regionBounds = self._regionBounds(image, region)
+            self._diagnosticBox(
+                diagnostic,
+                regionBounds,
+                phase.value,
+                (0, 200, 255) if phase is TacticalPhase.IN_POSSESSION else (255, 180, 0),
+                2,
+            )
             pitch = self._regionCrop(image, region)
-            slots, phaseIssues = self._phaseExtract(pitch, phase, sourceImport)
+            slots, phaseIssues = self._phaseExtract(
+                pitch, phase, sourceImport, diagnostic, regionBounds[:2]
+            )
             phases[phase] = slots
             issues.extend(phaseIssues)
 
@@ -240,13 +253,17 @@ class TacticFormationExtractor:
             phases[TacticalPhase.OUT_OF_POSSESSION],
         )
         issues.extend(linkIssues)
-        return FormationExtractResult(tuple(linkedIn + linkedOut), tuple(issues))
+        return FormationExtractResult(
+            tuple(linkedIn + linkedOut), tuple(issues), diagnostic
+        )
 
     def _phaseExtract(
         self,
         pitch: np.ndarray,
         phase: TacticalPhase,
         sourceImport: str,
+        diagnostic: np.ndarray | None = None,
+        diagnosticOffset: tuple[int, int] = (0, 0),
     ) -> tuple[list[FormationSlot], list[TacticIssue]]:
         if pitch.size == 0:
             return [], [TacticIssue(
@@ -265,6 +282,15 @@ class TacticFormationExtractor:
         slots: list[FormationSlot] = []
         for index, box in enumerate(boxes, start=1):
             left, top, right, bottom = box
+            if diagnostic is not None:
+                offsetX, offsetY = diagnosticOffset
+                self._diagnosticBox(
+                    diagnostic,
+                    (left + offsetX, top + offsetY, right + offsetX, bottom + offsetY),
+                    f"{phase.value} tile {index}",
+                    (255, 0, 255),
+                    2,
+                )
             crop = self._tileCrop(pitch, box)
             logger.info(
                 f"{phase.value} tile {index} label box="
@@ -468,8 +494,44 @@ class TacticFormationExtractor:
 
     @staticmethod
     def _regionCrop(image: np.ndarray, region: dict[str, float]) -> np.ndarray:
+        left, top, right, bottom = TacticFormationExtractor._regionBounds(image, region)
+        height, width = image.shape[:2]
+        return image[max(0, top):min(height, bottom), max(0, left):min(width, right)]
+
+    @staticmethod
+    def _regionBounds(
+        image: np.ndarray, region: dict[str, float]
+    ) -> tuple[int, int, int, int]:
         height, width = image.shape[:2]
         left, top = int(float(region["x"]) * width), int(float(region["y"]) * height)
         right = int((float(region["x"]) + float(region["width"])) * width)
         bottom = int((float(region["y"]) + float(region["height"])) * height)
-        return image[max(0, top):min(height, bottom), max(0, left):min(width, right)]
+        return left, top, right, bottom
+
+    @staticmethod
+    def _diagnosticTitle(image: np.ndarray, text: str, anchored: bool) -> None:
+        colour = (70, 230, 120) if anchored else (40, 40, 255)
+        height, width = image.shape[:2]
+        cv2.rectangle(image, (2, 2), (width - 3, height - 3), colour, 3)
+        top = max(4, height - 42)
+        cv2.rectangle(image, (4, top), (min(width - 4, 530), height - 5), (8, 16, 28), -1)
+        cv2.putText(
+            image, f"{text} - {'ANCHORED' if anchored else 'ANCHOR NOT FOUND'}",
+            (12, height - 16), cv2.FONT_HERSHEY_SIMPLEX, 0.58, colour, 2, cv2.LINE_AA,
+        )
+
+    @staticmethod
+    def _diagnosticBox(
+        image: np.ndarray,
+        bounds: tuple[int, int, int, int],
+        label: str,
+        colour: tuple[int, int, int],
+        thickness: int,
+    ) -> None:
+        left, top, right, bottom = bounds
+        cv2.rectangle(image, (left, top), (right, bottom), colour, thickness)
+        labelY = max(18, top - 6)
+        cv2.putText(
+            image, label, (max(2, left + 3), labelY), cv2.FONT_HERSHEY_SIMPLEX,
+            0.48, colour, 2, cv2.LINE_AA,
+        )

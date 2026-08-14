@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
 )
 
 from fmsat.app.managementWindow import ManagementWindow
+from fmsat.app.screenshotWindow import ScreenshotWindow
 from fmsat.app.tacticDetailMapping import (
     tacticDetailIncompleteModelBuild,
     tacticDetailModelBuild,
@@ -98,6 +99,8 @@ class MainWindow(QMainWindow):
         self.statusHistory: list[str] = []
         self.tacticProcessStatuses: dict[str, str] = {}
         self.statusLogDialog: QDialog | None = None
+        self.ocrDiagnosticPaths: tuple[str, ...] = ()
+        self.ocrDiagnosticWindows: list[ScreenshotWindow] = []
         self.tacticModelLoader = TacticModelLoader(database.engine)
         self.tacticScreenshotExtractor = TacticScreenshotExtractor(database.engine)
         self.currentResult: ImportResult | None = None
@@ -360,6 +363,7 @@ class MainWindow(QMainWindow):
                 extraction = self._backgroundRun(
                     lambda: self.tacticScreenshotExtractor.tacticExtract(tacticName)
                 )
+                self._ocrDiagnosticsCapture(extraction)
                 self._progressRestore(progress, "Screenshot extraction finished.", 3)
                 logger.info(
                     f"regeneration extraction result: created={extraction.structuredCreated}, "
@@ -431,6 +435,7 @@ class MainWindow(QMainWindow):
                 extraction = self._backgroundRun(
                     lambda: self.tacticScreenshotExtractor.tacticExtract(tacticName)
                 )
+                self._ocrDiagnosticsCapture(extraction)
                 self._progressRestore(progress, "Screenshot extraction finished.", 4)
                 logger.info(
                     f"processing extraction result: created={extraction.structuredCreated}, "
@@ -1170,6 +1175,9 @@ class MainWindow(QMainWindow):
         self.settingsAction.triggered.connect(self.settingsShow)
         self.statusLogAction = QAction("Show Status Log", self)
         self.statusLogAction.triggered.connect(self.statusLogShow)
+        self.ocrDiagnosticsAction = QAction("Show OCR Zones", self)
+        self.ocrDiagnosticsAction.setEnabled(False)
+        self.ocrDiagnosticsAction.triggered.connect(self.ocrDiagnosticsShow)
         self.saveAction = QAction("Save Confirmed Data", self)
         self.saveAction.setShortcut("Ctrl+S")
         self.saveAction.setEnabled(False)
@@ -1411,6 +1419,7 @@ class MainWindow(QMainWindow):
         viewMenu.addAction(self.settingsAction)
         viewMenu.addSeparator()
         viewMenu.addAction(self.statusLogAction)
+        viewMenu.addAction(self.ocrDiagnosticsAction)
 
     def _regenerationFailed(self, tacticName: str, message: str) -> None:
         """Retain a failed regeneration state after its status message expires."""
@@ -1457,6 +1466,34 @@ class MainWindow(QMainWindow):
         self.statusLogDialog.show()
         self.statusLogDialog.raise_()
         self.statusLogDialog.activateWindow()
+
+    def _ocrDiagnosticsCapture(self, extraction) -> None:  # type: ignore[no-untyped-def]
+        """Retain and expose annotated OCR references produced by extraction."""
+
+        self.ocrDiagnosticPaths = tuple(
+            path
+            for path in getattr(extraction, "diagnosticPaths", ())
+            if Path(path).is_file()
+        )
+        self.ocrDiagnosticsAction.setEnabled(bool(self.ocrDiagnosticPaths))
+        logger.value("OCR diagnostic images", len(self.ocrDiagnosticPaths))
+        if self.ocrDiagnosticPaths and not extraction.complete:
+            # Wait until the modal progress surface has closed before opening
+            # the zoomable diagnostic windows.
+            QTimer.singleShot(0, self.ocrDiagnosticsShow)
+
+    def ocrDiagnosticsShow(self) -> None:
+        """Open the latest annotated extraction images in zoomable viewers."""
+
+        self.ocrDiagnosticWindows = [
+            window for window in self.ocrDiagnosticWindows if window.isVisible()
+        ]
+        for pathValue in self.ocrDiagnosticPaths:
+            viewer = ScreenshotWindow.pathOpen(pathValue, self)
+            if viewer is None:
+                continue
+            viewer.setWindowTitle(f"FMSAT OCR zones — {Path(pathValue).name}")
+            self.ocrDiagnosticWindows.append(viewer)
 
     def _managementForget(self) -> None:
         self.dataChanged.emit()
