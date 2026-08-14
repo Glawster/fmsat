@@ -568,7 +568,9 @@ def testExpectedRoleChoicesHideStateAndOrderMissingBeforeKnown(
     assert not any("Missing" in choice or "Known" in choice for choice in choices)
 
 
-def testNewRoleChoiceOffersPositionsInTacticalOrder(qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+def testNewRoleChoiceUsesPositionDetectedFromScreenshot(
+    qtbot, monkeypatch, tmp_path
+) -> None:  # type: ignore[no-untyped-def]
 
     database = Mock()
     database.tacticRecords.return_value = []
@@ -585,25 +587,35 @@ def testNewRoleChoiceOffersPositionsInTacticalOrder(qtbot, monkeypatch) -> None:
         vocabulary,
     )
     qtbot.addWidget(window)
-    positionChoices = []
-    calls = 0
+    selection = Mock(return_value=("New role…", True))
+    monkeypatch.setattr(QInputDialog, "getItem", selection)
+    evidence = RoleProfileEvidence(
+        position="AM (C)",
+        roleName="New Role",
+        phase=TacticalPhase.IN_POSSESSION,
+        abbreviation="NR",
+    )
+    monkeypatch.setattr(
+        window,
+        "_screenshotAcquire",
+        lambda *args: SimpleNamespace(roleProfile=evidence),
+    )
+    monkeypatch.setattr(window, "_screenshotPersist", lambda *args: tmp_path / "role.png")
+    observed = {}
 
-    def selectionChooseNew(*args):  # type: ignore[no-untyped-def]
-        nonlocal calls
-        calls += 1
-        if calls == 1:
-            return "New role…", True
-        positionChoices.extend(args[3])
-        return "", False
+    def dialogCreate(*args, **kwargs):  # type: ignore[no-untyped-def]
+        observed["expectedPosition"] = args[1]
+        dialog = Mock()
+        dialog.exec.return_value = QDialog.DialogCode.Accepted
+        dialog.savedPath = tmp_path / "newRole.yaml"
+        return dialog
 
-    monkeypatch.setattr(QInputDialog, "getItem", selectionChooseNew)
+    monkeypatch.setattr("fmsat.app.window.RoleProfileReviewDialog", dialogCreate)
 
     window.roleProfileImport()
 
-    ranks = [WelcomeService.positionSortKey(position)[0] for position in positionChoices]
-    assert ranks == sorted(ranks)
-    assert ranks[0] == 0
-    assert ranks[-1] == 5
+    assert selection.call_count == 1
+    assert observed["expectedPosition"] == "AMC"
 
 
 def testTacticShowOpensIncompleteViewWhenNoModelData(qtbot) -> None:  # type: ignore[no-untyped-def]
