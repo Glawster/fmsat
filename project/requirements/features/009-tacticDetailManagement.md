@@ -94,6 +94,9 @@ labels as imported facts.
 5. Use the canonical roles, duties and position vocabulary established by
    requirement 006.
 6. Do not infer a missing role, duty, position, coordinate or player assignment.
+   A duty which is not exposed by the FM26 Tactics Planner must display as
+   **Not shown**, remain `null` in evidence and persistence, and must not prevent
+   an otherwise observed position and role from entering the object model.
 7. Keep the football object model suitable for redrawing formations, comparing
    revisions, analysing spacing and later calculating role suitability without
    reopening screenshots.

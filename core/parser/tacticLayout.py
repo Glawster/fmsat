@@ -223,7 +223,39 @@ class TacticLayoutAnchor:
         # desktop edge. It is itself a valid Formation reference frame.
         if phase is TacticalPhase.FORMATION:
             return 0, 0, width, height
-        return None
+        return self._instructionPanelFallback(image, bounds, phase)
+
+    def _instructionPanelFallback(
+        self,
+        image: np.ndarray,
+        anchorBounds: tuple[int, int, int, int],
+        phase: TacticalPhase,
+    ) -> tuple[int, int, int, int] | None:
+        """Estimate the FM modal from its anchored breadcrumb when edges are broken."""
+
+        settings = self.configuration.get("anchors", {})
+        profiles = settings.get("instructionPanelFallback", {})
+        profile = profiles.get(phase.value, {})
+        if not profile:
+            return None
+        height, width = image.shape[:2]
+        left = int(width * float(profile.get("x", 0.205)))
+        top = int(anchorBounds[1] - height * float(profile.get("topOffset", 0.025)))
+        right = left + int(width * float(profile.get("width", 0.59)))
+        bottom = top + int(height * float(profile.get("height", 0.68)))
+        panel = (
+            max(0, left),
+            max(0, top),
+            min(width, right),
+            min(height, bottom),
+        )
+        if panel[2] <= panel[0] or panel[3] <= panel[1]:
+            return None
+        logger.info(
+            "instruction panel contour unavailable; using anchored fallback "
+            f"({panel[0]},{panel[1]})-({panel[2]},{panel[3]})"
+        )
+        return panel
 
     def _activePhaseDetect(self, panel: np.ndarray) -> TacticalPhase | None:
         """Classify the active tab from the horizontal position of its underline."""

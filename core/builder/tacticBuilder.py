@@ -253,31 +253,21 @@ class TacticBuilder:
             )
             return None
 
-        # FM26's Both view does not display duties. Retain that absence as None
-        # and an unresolved validation issue; never manufacture a Default duty.
-        if not slot.duty:
-            issues.append(
-                TacticBuildIssue(
-                    "missingDuty",
-                    f"{phaseName} slot {slot.slotId!r} has no resolved duty",
-                )
-            )
-
         role = roleCache.get(roleIdentity)
         if role is None:
             role = Role(identity=roleIdentity)
             roleCache[roleIdentity] = role
 
-        profileKey = (roleIdentity, slot.duty or "__unresolved__")
+        profileKey = (roleIdentity, slot.duty or "__not_shown__")
         roleProfile = profileCache.get(profileKey)
         if roleProfile is None:
-            profileName = slot.duty.capitalize() if slot.duty else "Unresolved"
+            profileName = slot.duty.capitalize() if slot.duty else "Observed role"
             roleProfile = RoleProfile(
                 name=profileName,
                 description=(
                     f"{slot.role or roleIdentity.value} ({profileName})"
                     if slot.duty
-                    else f"{slot.role or roleIdentity.value} (duty unresolved)"
+                    else f"{slot.role or roleIdentity.value} (duty not shown)"
                 ),
             )
             profileCache[profileKey] = roleProfile

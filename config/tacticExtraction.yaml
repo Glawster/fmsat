@@ -11,6 +11,12 @@ anchors:
   # this stable upper-centre area at higher resolution.
   instructionBreadcrumbRegion: {x: 0.15, y: 0.12, width: 0.70, height: 0.24}
   instructionBreadcrumbScale: 3.0
+  # FM modal borders are sometimes visually broken by the skin. Once the
+  # breadcrumb is observed, these phase-specific proportions provide a safe
+  # fallback reference panel for the two known card grids.
+  instructionPanelFallback:
+    inPossession: {x: 0.205, topOffset: 0.025, width: 0.590, height: 0.680}
+    outOfPossession: {x: 0.205, topOffset: 0.025, width: 0.590, height: 0.490}
 
 # Normalized regions for the two pitches visible in the FM26 Planner "Both"
 # Formation capture. These values are data rather than parser constants so a
@@ -31,6 +37,10 @@ tileDetection:
   minimumAspectRatio: 1.45
   minimumInteriorSaturation: 70
   minimumInteriorValue: 82
+  goalkeeperXMin: 0.35
+  goalkeeperXMax: 0.65
+  goalkeeperYMin: 0.86
+  goalkeeperMinimumInteriorSaturation: 15
   # The eye/dropdown control and the phase-name badge share the role-tile
   # colour and geometry but occupy stable non-player areas at the left edge.
   excludedRegions:

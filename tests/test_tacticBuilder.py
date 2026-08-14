@@ -180,8 +180,8 @@ def testBuilderReportsMissingStructuredDefinition(tmp_path) -> None:
     assert any(issue.code == "missingStructuredDefinition" for issue in result.issues)
 
 
-def testBuilderPreservesPositionWithUnresolvedDuty() -> None:
-    """A missing duty remains None and must not become an inferred Default."""
+def testBuilderPreservesPositionWhenDutyIsNotShown() -> None:
+    """A missing duty remains None and is not an extraction failure or default."""
 
     builder = TacticBuilder(Mock())
     issues = []
@@ -195,16 +195,16 @@ def testBuilderPreservesPositionWithUnresolvedDuty() -> None:
         y=0.1,
         observedRole="CFD",
         confidence=0.9,
-        validationState="unresolved",
+        validationState="extracted",
     )
 
     position = builder._positionBuild(slot, "inPossession", issues, {}, {})
 
     assert position is not None
     assert position.duty is None
-    assert position.roleProfile.name == "Unresolved"
-    assert position.validationState == "unresolved"
-    assert [issue.code for issue in issues] == ["missingDuty"]
+    assert position.roleProfile.name == "Observed role"
+    assert position.validationState == "extracted"
+    assert issues == []
 
 
 def testBuilderOrdersPositionsBySemanticPositionIdentity(tmp_path) -> None:
