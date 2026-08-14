@@ -723,7 +723,8 @@ def testTacticProgressUsesBusyStateDuringOcr(qtbot) -> None:  # type: ignore[no-
     assert progress.value() == 3
 
 
-def testTacticProcessBuildsModelFromScreenshotOnlyTactic(qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+def testTacticProcessRejectsUnavailableScreenshotEvidence(qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """Missing capture files must not recreate the removed template fallback model."""
 
     from fmsat.core.detection import ScreenType
     from fmsat.database import Database, ObjectModelTactic
@@ -748,4 +749,6 @@ def testTacticProcessBuildsModelFromScreenshotOnlyTactic(qtbot, tmp_path) -> Non
         stored = session.scalar(
             select(ObjectModelTactic).where(ObjectModelTactic.normalizedName == "high press")
         )
-        assert stored is not None
+        assert stored is None
+
+    assert "no model was saved" in window.statusBar().currentMessage().casefold()
