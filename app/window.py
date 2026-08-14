@@ -512,6 +512,11 @@ class MainWindow(QMainWindow):
 
         labels = ", ".join(roles)
         logger.info(f"role definitions required for observed labels: {labels}")
+        self.statusBar().showMessage(
+            f"Role definition required for: {labels}. "
+            "Observed roles were retained provisionally.",
+            15000,
+        )
         message = QMessageBox(self)
         message.setWindowTitle("Role definition required")
         message.setIcon(QMessageBox.Icon.Question)
