@@ -6,8 +6,19 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QHeaderView
 
-from fmsat.app.squadDetailModel import CandidateDisplay, RoleDisplay
-from fmsat.app.squadDetailTabs import PlayerTraitDialog, SquadPlayersTab, SquadRolesTab
+from fmsat.app.squadDetailModel import (
+    AnalysisFindingDisplay,
+    CandidateDisplay,
+    PlayerRoleDisplay,
+    RoleDisplay,
+    SquadDetailModel,
+)
+from fmsat.app.squadDetailTabs import (
+    PlayerTraitDialog,
+    SquadAnalysisTab,
+    SquadPlayersTab,
+    SquadRolesTab,
+)
 from fmsat.core.config import AttributeDefinition
 from fmsat.core.squadModel import SquadModel, SquadModelPlayer
 
@@ -230,3 +241,59 @@ def testRolesTablesAreSortableAndFillAvailableWidth(qtbot) -> None:  # type: ign
         tab.candidateTable.viewport().palette().color(QPalette.ColorRole.Base).name()
         == "#101f2e"
     )
+    assert (
+        tab.roleTable.verticalHeader()
+        .viewport()
+        .palette()
+        .color(QPalette.ColorRole.Window)
+        .name()
+        == "#101f2e"
+    )
+    assert tab.roleTable.verticalHeader().viewport().autoFillBackground()
+
+
+def testAnalysisTabShowsDepthPlayerRolesFindingsAndScoreBreakdown(qtbot) -> None:  # type: ignore[no-untyped-def]
+    """The first Analysis view should expose every Generic Role Fit evidence layer."""
+
+    role = RoleDisplay(
+        roleCode="channelForward",
+        displayName="Channel Forward",
+        abbreviation="CHF",
+        positions="STC",
+        phases="In Possession",
+        coverage="Best: Zulu Player · Backup: Alpha Player",
+        candidates=(),
+    )
+    model = SquadDetailModel(
+        squad=_squadModel(),
+        tacticName="High Press",
+        availableTactics=("High Press",),
+        sourceStatus="Generated from screenshot evidence",
+        updated="15 Aug 2026 12:00",
+        requiredPositionCount=11,
+        roles=(role,),
+        scoringIdentity="fm26-generic-role-fit-v1",
+        playerRoles=(
+            PlayerRoleDisplay(
+                "Zulu Player",
+                "Channel Forward",
+                "72.0",
+                "pace: 15 × 5 = 75/100",
+                "Centre Forward, Winger",
+            ),
+        ),
+        findings=(
+            AnalysisFindingDisplay(
+                "Weak position",
+                "Centre-Back",
+                "Best fit is below the configured threshold.",
+            ),
+        ),
+    )
+    tab = SquadAnalysisTab(model)
+    qtbot.addWidget(tab)
+
+    assert tab.depthTable.item(0, 1).text().startswith("Best: Zulu Player")
+    assert tab.playerTable.item(0, 1).text() == "Channel Forward"
+    assert tab.playerTable.item(0, 3).text() == "pace: 15 × 5 = 75/100"
+    assert tab.findingsTable.item(0, 0).text() == "Weak position"

@@ -89,6 +89,8 @@ def main() -> int:
                 dataPaths.directory / "knowledge" / "roles",
                 tacticVocabulary,
                 {attribute.name for attribute in config.attributes},
+                config.roleAssessmentWeights(),
+                config.roleAssessmentSettings(),
             ),
             tacticVocabulary,
         )

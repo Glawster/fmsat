@@ -1,6 +1,6 @@
 # Development status
 
-Last updated: 2026-08-14
+Last updated: 2026-08-15
 
 ## Current delivery point
 
@@ -64,15 +64,16 @@ modifiers, scoring policy, version identity and calculation traces.
 
 ### Requirement 007 — Role-centric squad assessment
 
-Requirement 007 is now `InProgress`. Its first delivery is a squad viewer in the
-same visual family as the tactic viewer. It will combine a selected stored squad,
-a selected tactic revision and a known scoring configuration without mixing
-those independent sources.
+Requirement 007 remains `InProgress`. Its squad-viewer foundation was merged
+through PR 5 and provides Overview, Players, Roles and Analysis views in the same
+visual family as the tactic viewer.
 
-The first increment will provide squad Overview, Players and Roles views,
-generic role-fit calculations, transparent unavailable states and initial role
-coverage. Tactical fit, overall suitability, comparisons, alternatives and Role
-Health will follow through the same UI-independent assessment services.
+The active increment completes the Generic Role Fit evidence base: explicit
+weights for all canonical roles, consistent all-player assessment, required-role
+depth, player best and alternative roles, weak/duplicated/unused-strength findings,
+transparent calculation traces and unavailable states for incomplete evidence.
+Tactical Fit, Overall Suitability, Best XI, comparison and Role Health remain
+later increments.
 
 Implementation is now underway on `feature/007-squad-viewer`. The assessment
 identity is the unique canonical role, not the formation position or slot.

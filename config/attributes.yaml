@@ -110,3 +110,12 @@ attributes:
   work_rate:
     abbreviation: Wor
     order: 37
+  kicking:
+    abbreviation: Kic
+    order: 38
+  one_on_ones:
+    abbreviation: 1v1
+    order: 39
+  rushing_out:
+    abbreviation: Rsh
+    order: 40

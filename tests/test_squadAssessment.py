@@ -4,8 +4,15 @@ from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from fmsat.core.squadAssessment import GenericRoleFitCalculator
-from fmsat.core.squadAssessment import SquadAssessmentService
+from fmsat.core.squadAssessment import (
+    GenericRoleFit,
+    GenericRoleFitCalculator,
+    RequiredRoleAssessment,
+    RoleCandidate,
+    SquadAssessmentService,
+)
+from fmsat.core.config import Configuration
+from fmsat.core.parser import TacticVocabulary
 from fmsat.core.roleKnowledge import StoredRoleDefinition
 from fmsat.core.squadModel import SquadModel, SquadModelPlayer
 
@@ -57,6 +64,22 @@ def testGenericRoleFitIsUnavailableWithoutRoleWeights() -> None:
 
     assert result.score is None
     assert result.unavailableReason == "No assessment weights are defined"
+
+
+def testPackagedWeightsCoverEveryCanonicalTacticRole() -> None:
+    """Every vocabulary role should have a non-empty, explicit assessment policy."""
+
+    configuration = Configuration()
+    weights = configuration.roleAssessmentWeights()
+    vocabulary = TacticVocabulary()
+
+    assert set(weights) == set(vocabulary.roles)
+    assert all(roleWeights for roleWeights in weights.values())
+    assert all(
+        1 <= weight <= 5
+        for roleWeights in weights.values()
+        for weight in roleWeights.values()
+    )
 
 
 def testSquadAssessmentUsesUniqueRoleRatherThanPositionOrSlot() -> None:
@@ -164,3 +187,46 @@ def testStoredRoleDefinitionAbbreviationOverridesVocabularyFallback() -> None:
     )
 
     assert assessed.abbreviation == "BGK"
+
+
+def testWeakRoleRequiresTwoCandidatesAtOrAboveThreshold() -> None:
+    """A calculable but weak backup should still be reported as a depth weakness."""
+
+    first = _player(())
+    second = SquadModelPlayer(
+        name="Backup Player",
+        positions="ST (C)",
+        ca="",
+        pa="",
+        confidence=0.9,
+        attributes=(),
+    )
+    role = RequiredRoleAssessment(
+        "channelForward",
+        17,
+        "Channel Forward",
+        "CHF",
+        ("STC",),
+        ("In Possession",),
+        (
+            RoleCandidate(first, GenericRoleFit(72.0, None, ())),
+            RoleCandidate(second, GenericRoleFit(55.0, None, ())),
+        ),
+        first.name,
+        second.name,
+        False,
+    )
+    roleKnowledge = Mock()
+    roleKnowledge.assessmentSettings = {"weakRoleFitThreshold": 60.0}
+    service = SquadAssessmentService(
+        Mock(),
+        Mock(),
+        Mock(),
+        roleKnowledge,
+        Mock(),
+    )
+
+    findings = service._weakRolesFind((role,))
+
+    assert len(findings) == 1
+    assert "only candidate at 60.0 or above" in findings[0].explanation

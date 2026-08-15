@@ -85,6 +85,25 @@ Tactical Fit, Position Familiarity, Overall Suitability, candidate comparison,
 alternative roles and Role Health remain part of this requirement but follow
 the initial increment.
 
+## Generic analysis increment
+
+The next increment after the merged squad-viewer foundation must:
+
+1. define explicit, versioned Generic Role Fit weights for every canonical
+   tactic role;
+2. calculate every available player against the complete role catalogue;
+3. show best candidate, backup candidate and uncovered state for required roles;
+4. show each player's best role and ordered alternative roles using the same
+   scoring context;
+5. identify weak required roles, concentrated role duplication and strong best
+   roles unused by the selected tactic through documented thresholds;
+6. retain and display the complete weighted-attribute calculation trace; and
+7. keep every affected result `Unavailable` when weights or required player
+   attributes are missing.
+
+Present these results in the existing Analysis tab. Best XI, Tactical Fit,
+Overall Suitability and recruitment recommendations remain later increments.
+
 ## Role Cards
 
 Each Role Card must show enough information to understand the role at a glance,

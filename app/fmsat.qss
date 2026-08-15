@@ -56,6 +56,7 @@ QTableWidget#squadPlayersTable::item, QTableWidget#roleAssessmentTable::item, QT
 QTableWidget#squadPlayersTable::item:selected, QTableWidget#roleAssessmentTable::item:selected, QTableWidget#roleCandidateTable::item:selected {
     background: #163b38; color: #75e0bf;
 }
+QHeaderView { background: #101f2e; }
 QHeaderView::section { background: #132536; color: #d9e5ef; border: 0; border-right: 1px solid #30465a; padding: 6px; font-weight: 700; }
 QTabWidget::pane { border: 0; background: transparent; }
 QTabBar::tab { color: #8095a9; padding: 11px 22px; border-bottom: 2px solid transparent; font-weight: 600; }

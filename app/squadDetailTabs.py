@@ -217,26 +217,118 @@ class PlayerTraitDialog(QDialog):
 
 
 class SquadAnalysisTab(QWidget):
-    """Explain that later assessment stages have not been generated yet."""
+    """Present explainable Generic Role Fit depth and squad findings."""
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        model: SquadDetailModel,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
         layout = QVBoxLayout(self)
-        layout.addStretch()
-        title = QLabel("Further Squad Analysis Is Not Generated Yet")
-        title.setObjectName("emptyTitle")
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(title)
-        copy = QLabel(
-            "Generic Role Fit and initial role coverage are available in Roles. "
-            "Tactical Fit, Overall Suitability, Best XI and recruitment analysis "
-            "will be added as separate explainable calculations."
+        context = QLabel(
+            f"Scoring policy: {model.scoringIdentity}. These findings use Generic Role "
+            "Fit only; they are not Best XI, Tactical Fit or recruitment recommendations."
         )
-        copy.setObjectName("mutedText")
-        copy.setWordWrap(True)
-        copy.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(copy)
-        layout.addStretch()
+        context.setObjectName("mutedText")
+        context.setWordWrap(True)
+        layout.addWidget(context)
+
+        depthTitle = QLabel("Required Role Depth")
+        depthTitle.setObjectName("cardTitle")
+        layout.addWidget(depthTitle)
+        self.depthTable = QTableWidget(len(model.roles), 2, self)
+        self.depthTable.setObjectName("roleDepthAnalysisTable")
+        self.depthTable.setHorizontalHeaderLabels(("Required role", "Depth"))
+        self.depthTable.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        for row, role in enumerate(model.roles):
+            self.depthTable.setItem(row, 0, QTableWidgetItem(role.displayName))
+            self.depthTable.setItem(row, 1, QTableWidgetItem(role.coverage))
+        depthHeader = self.depthTable.horizontalHeader()
+        depthHeader.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        depthHeader.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        layout.addWidget(self.depthTable, 1)
+
+        playerTitle = QLabel("Player Role Strengths")
+        playerTitle.setObjectName("cardTitle")
+        layout.addWidget(playerTitle)
+        self.playerTable = QTableWidget(len(model.playerRoles), 5, self)
+        self.playerTable.setObjectName("playerRoleAnalysisTable")
+        self.playerTable.setHorizontalHeaderLabels(
+            (
+                "Player",
+                "Best role",
+                "Generic Role Fit",
+                "Score breakdown",
+                "Alternative roles",
+            )
+        )
+        self.playerTable.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.playerTable.setSortingEnabled(False)
+        for row, player in enumerate(model.playerRoles):
+            for column, value in enumerate(
+                (
+                    player.name,
+                    player.bestRole,
+                    player.bestScore,
+                    player.bestBreakdown,
+                    player.alternatives,
+                )
+            ):
+                sortValue = (
+                    float(player.bestScore)
+                    if column == 2 and player.bestScore != "Unavailable"
+                    else -1.0 if column == 2 else value.casefold()
+                )
+                self.playerTable.setItem(
+                    row,
+                    column,
+                    SortableTableWidgetItem(value, sortValue),
+                )
+        playerHeader = self.playerTable.horizontalHeader()
+        for column in range(3):
+            playerHeader.setSectionResizeMode(
+                column,
+                QHeaderView.ResizeMode.ResizeToContents,
+            )
+        playerHeader.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        playerHeader.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        self.playerTable.setWordWrap(True)
+        self.playerTable.resizeRowsToContents()
+        self.playerTable.setSortingEnabled(True)
+        layout.addWidget(self.playerTable, 2)
+
+        findingsTitle = QLabel("Squad Depth Findings")
+        findingsTitle.setObjectName("cardTitle")
+        layout.addWidget(findingsTitle)
+        self.findingsTable = QTableWidget(len(model.findings), 3, self)
+        self.findingsTable.setObjectName("squadFindingsTable")
+        self.findingsTable.setHorizontalHeaderLabels(
+            ("Finding", "Role or player", "Evidence")
+        )
+        self.findingsTable.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        if model.findings:
+            for row, finding in enumerate(model.findings):
+                for column, value in enumerate(
+                    (finding.category, finding.subject, finding.explanation)
+                ):
+                    self.findingsTable.setItem(row, column, QTableWidgetItem(value))
+        else:
+            self.findingsTable.setRowCount(1)
+            self.findingsTable.setItem(0, 0, QTableWidgetItem("No findings"))
+            self.findingsTable.setItem(0, 1, QTableWidgetItem("—"))
+            self.findingsTable.setItem(
+                0,
+                2,
+                QTableWidgetItem("No weak, duplicated or unused role strengths were identified."),
+            )
+        findingsHeader = self.findingsTable.horizontalHeader()
+        findingsHeader.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        findingsHeader.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        findingsHeader.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self.findingsTable.setWordWrap(True)
+        self.findingsTable.resizeRowsToContents()
+        layout.addWidget(self.findingsTable, 1)
 
 
 class SquadOverviewTab(QWidget):
@@ -267,6 +359,7 @@ class SquadOverviewTab(QWidget):
                     ("Unique tactic roles", str(len(model.roles))),
                     ("Covered unique roles", str(covered)),
                     ("Uncovered unique roles", str(len(model.roles) - covered)),
+                    ("Scoring policy", model.scoringIdentity),
                     (
                         "Scoring stage",
                         "Generic Role Fit only; position is context, not the assessment identity",
@@ -649,15 +742,24 @@ class SquadRolesTab(QWidget):
 
     @staticmethod
     def _tablePaletteApply(table: QTableWidget) -> None:
-        """Paint native viewport gaps with the squad table palette."""
+        """Paint table, header, and unused viewport areas with the dark palette."""
 
         palette = table.palette()
         palette.setColor(QPalette.ColorRole.Base, QColor("#101f2e"))
         palette.setColor(QPalette.ColorRole.AlternateBase, QColor("#0c1926"))
+        palette.setColor(QPalette.ColorRole.Window, QColor("#101f2e"))
+        palette.setColor(QPalette.ColorRole.Button, QColor("#132536"))
         palette.setColor(QPalette.ColorRole.Text, QColor("#f5f8fb"))
+        palette.setColor(QPalette.ColorRole.WindowText, QColor("#f5f8fb"))
+        palette.setColor(QPalette.ColorRole.ButtonText, QColor("#d9e5ef"))
         table.setPalette(palette)
-        table.viewport().setPalette(palette)
-        table.viewport().setAutoFillBackground(True)
+        for viewport in (
+            table.viewport(),
+            table.horizontalHeader().viewport(),
+            table.verticalHeader().viewport(),
+        ):
+            viewport.setPalette(palette)
+            viewport.setAutoFillBackground(True)
 
     def _roleShow(
         self,

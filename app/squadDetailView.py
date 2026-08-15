@@ -125,7 +125,7 @@ class SquadDetailView(QWidget):
         self.playersTab.changed.connect(lambda: self.saveButton.setEnabled(True))
         tabs.addTab(self.playersTab, "Players")
         tabs.addTab(SquadRolesTab(self.model.roles), "Roles")
-        tabs.addTab(SquadAnalysisTab(), "Analysis")
+        tabs.addTab(SquadAnalysisTab(self.model), "Analysis")
         return tabs
 
     ## actions
