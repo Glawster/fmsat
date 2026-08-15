@@ -6,6 +6,7 @@ from unittest.mock import Mock
 
 from fmsat.core.squadAssessment import GenericRoleFitCalculator
 from fmsat.core.squadAssessment import SquadAssessmentService
+from fmsat.core.roleKnowledge import StoredRoleDefinition
 from fmsat.core.squadModel import SquadModel, SquadModelPlayer
 
 
@@ -120,3 +121,46 @@ def testSquadAssessmentUsesUniqueRoleRatherThanPositionOrSlot() -> None:
     assert assessment.roles[0].roleCode == "advancedWingBack"
     assert assessment.roles[0].positions == ("WBL", "WBR")
     assert assessment.roles[0].candidates[0].player.name == "Example Player"
+
+
+def testStoredRoleDefinitionAbbreviationOverridesVocabularyFallback() -> None:
+    """The confirmed role definition should control the abbreviation shown in views."""
+
+    player = _player(())
+    roleKnowledge = Mock()
+    roleKnowledge.weightsLoad.return_value = {}
+    vocabulary = Mock()
+    vocabulary.roles = {
+        "ballPlayingGoalkeeper": SimpleNamespace(
+            roleID=2,
+            displayName="Ball-Playing Goalkeeper",
+            abbreviations=("BPGK", "BGK"),
+            positions=("GK",),
+        )
+    }
+    service = SquadAssessmentService(Mock(), Mock(), Mock(), roleKnowledge, vocabulary)
+    definition = StoredRoleDefinition(
+        roleID=2,
+        roleCode="ballPlayingGoalkeeper",
+        displayName="Ball-Playing Goalkeeper",
+        abbreviations=("BGK",),
+        positions=("GK",),
+        duties=(),
+        behaviours=(),
+    )
+
+    assessed = service._roleAssess(
+        "ballPlayingGoalkeeper",
+        {"GK"},
+        {"In Possession"},
+        SquadModel(
+            "First Team",
+            (player,),
+            datetime(2026, 8, 15),
+            datetime(2026, 8, 15),
+            False,
+        ),
+        definition,
+    )
+
+    assert assessed.abbreviation == "BGK"
