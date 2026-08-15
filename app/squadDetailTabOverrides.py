@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QHeaderView, QTableWidget
+from PySide6.QtWidgets import QHeaderView, QTableWidget, QSizePolicy
 
 from fmsat.app.squadDetailModel import RoleDisplay, SquadDetailModel
 from fmsat.app.squadDetailTabs import (
@@ -31,9 +31,7 @@ class SquadRolesTab(BaseSquadRolesTab):
         if not hasattr(self, "candidateTable"):
             return
         self.candidateTable.setWordWrap(False)
-        self.candidateTable.verticalHeader().setSectionResizeMode(
-            QHeaderView.ResizeMode.Fixed
-        )
+        self.candidateTable.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
         self.candidateTable.verticalHeader().setDefaultSectionSize(28)
         self.roleTable.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
         self.roleTable.verticalHeader().setDefaultSectionSize(28)
@@ -90,8 +88,10 @@ class SquadAnalysisTab(BaseSquadAnalysisTab):
         }
         super().__init__(model, parent)
         self._depthExpand(model, requiredRows)
+        self._compactTable(self.depthTable)
         self._compactTable(self.playerTable)
         self._compactTable(self.findingsTable)
+        self._equalTableHeights()
         self._breakdownsAbbreviate(self.playerTable, 3)
         self._tooltipsApply(self.findingsTable, 2)
         QTimer.singleShot(0, self._rowsCompact)
@@ -134,6 +134,19 @@ class SquadAnalysisTab(BaseSquadAnalysisTab):
         table.setWordWrap(False)
         table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
         table.verticalHeader().setDefaultSectionSize(28)
+
+    def _equalTableHeights(self) -> None:
+        """Give the three Analysis evidence tables equal vertical workspace."""
+
+        for table in (self.depthTable, self.playerTable, self.findingsTable):
+            table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+            table.setMinimumHeight(120)
+            table.setMaximumHeight(16777215)
+        layout = self.layout()
+        if layout is None:
+            return
+        for table in (self.depthTable, self.playerTable, self.findingsTable):
+            layout.setStretchFactor(table, 1)
 
     def _rowsCompact(self) -> None:
         for table in (self.depthTable, self.playerTable, self.findingsTable):
