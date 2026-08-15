@@ -1,6 +1,7 @@
 """Squad regeneration UI and service routing tests."""
 
 from datetime import datetime
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 from PySide6.QtCore import Qt
@@ -45,6 +46,10 @@ def testRegenerationButtonAppearsForStaleSquadAndRequestsOriginalModel(qtbot) ->
     assert view.regenerateButton.text() == "Regenerate Squad Model"
     qtbot.mouseClick(view.regenerateButton, Qt.MouseButton.LeftButton)
     assert requested == [squad]
+    assert view.regenerationProgress is not None
+    assert view.regenerationProgress.objectName() == "squadRegenerationProgressDialog"
+    assert view.regenerationProgress.minimum() == 0
+    assert view.regenerationProgress.maximum() == 0
 
 
 def testRegenerationButtonIsHiddenForCurrentSquad(qtbot) -> None:  # type: ignore[no-untyped-def]
@@ -80,3 +85,49 @@ def testModelSaveRoutesStaleModelToRegeneration() -> None:
 
     assert result is refreshed
     service._modelRegenerate.assert_called_once_with("First Team")
+
+
+def testRegenerationMergesComplementaryAttributeViewsUsingNewestValues() -> None:
+    """A GK attribute capture should add attributes without discarding older squad evidence."""
+
+    newest = SimpleNamespace(
+        name="Ada Keeper",
+        positions="GK",
+        ca="110",
+        pa="125",
+        confidence=0.98,
+        importSessionId=12,
+        attributes=[
+            SimpleNamespace(attributeName="reflexes", attributeValue=16),
+            SimpleNamespace(attributeName="handling", attributeValue=None),
+            SimpleNamespace(attributeName="throwing", attributeValue=15),
+        ],
+    )
+    older = SimpleNamespace(
+        name="Ada Keeper",
+        positions="GK",
+        ca="108",
+        pa="125",
+        confidence=0.95,
+        importSessionId=8,
+        attributes=[
+            SimpleNamespace(attributeName="reflexes", attributeValue=14),
+            SimpleNamespace(attributeName="handling", attributeValue=13),
+            SimpleNamespace(attributeName="concentration", attributeValue=12),
+        ],
+    )
+
+    player = SquadModelService._playerFromEvidenceRows((newest, older))
+    attributes = {
+        attribute.attributeName: attribute.attributeValue
+        for attribute in player.attributes
+    }
+
+    assert player.ca == "110"
+    assert player.sourceImportSessionId == 12
+    assert attributes == {
+        "concentration": 12,
+        "handling": 13,
+        "reflexes": 16,
+        "throwing": 15,
+    }
