@@ -72,8 +72,24 @@ class SquadDetailModel:
 def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
     """Map one domain assessment into deterministic squad-viewer text."""
 
+    visibleRoles = tuple(
+        sorted(
+            (
+                role
+                for role in assessment.roles
+                if not role.roleCode.startswith("capturedRole")
+            ),
+            key=_rolePositionSortKey,
+        )
+    )
+    visibleCatalogue = tuple(
+        role
+        for role in assessment.allRoles
+        if not role.roleCode.startswith("capturedRole")
+    )
+
     bestRoles: dict[str, tuple[float, str]] = {}
-    for role in assessment.roles:
+    for role in visibleCatalogue:
         for candidate in role.candidates:
             score = candidate.genericRoleFit.score
             if score is None:
@@ -87,7 +103,7 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
                 bestRoles[key] = proposed
 
     roles = []
-    for role in assessment.roles:
+    for role in visibleRoles:
         candidates = []
         for candidate in role.candidates:
             fit = candidate.genericRoleFit
@@ -131,31 +147,40 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
                 candidates=tuple(candidates),
             )
         )
+
     catalogueFits = {
         (role.roleCode, candidate.player.name.casefold()): candidate.genericRoleFit
-        for role in assessment.allRoles
+        for role in visibleCatalogue
         for candidate in role.candidates
     }
+    catalogueByPlayer: dict[str, list[tuple[float, str, str]]] = {}
+    for role in visibleCatalogue:
+        for candidate in role.candidates:
+            score = candidate.genericRoleFit.score
+            if score is None:
+                continue
+            catalogueByPlayer.setdefault(candidate.player.name.casefold(), []).append(
+                (score, role.roleCode, role.displayName)
+            )
+
     playerRoles = []
     for player in assessment.players:
+        ordered = sorted(
+            catalogueByPlayer.get(player.player.name.casefold(), ()),
+            key=lambda item: (-item[0], item[2].casefold()),
+        )
+        best = ordered[0] if ordered else None
+        alternatives = ordered[1:4]
         bestFit = (
-            catalogueFits.get((player.bestRole.roleCode, player.player.name.casefold()))
-            if player.bestRole is not None
+            catalogueFits.get((best[1], player.player.name.casefold()))
+            if best is not None
             else None
         )
         playerRoles.append(
             PlayerRoleDisplay(
                 name=player.player.name,
-                bestRole=(
-                    player.bestRole.displayName
-                    if player.bestRole is not None
-                    else "Unavailable"
-                ),
-                bestScore=(
-                    f"{player.bestRole.score:.1f}"
-                    if player.bestRole is not None
-                    else "Unavailable"
-                ),
+                bestRole=best[2] if best is not None else "Unavailable",
+                bestScore=f"{best[0]:.1f}" if best is not None else "Unavailable",
                 bestBreakdown=(
                     "; ".join(
                         f"{item.attribute}: {item.value} × {item.weight} = "
@@ -166,7 +191,7 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
                     else player.unavailableReason or "Required data is unavailable"
                 ),
                 alternatives=(
-                    ", ".join(role.displayName for role in player.alternativeRoles)
+                    ", ".join(role[2] for role in alternatives)
                     or "Unavailable"
                 ),
             )
@@ -179,6 +204,7 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
             ("Unused strength", assessment.unusedStrengths),
         )
         for finding in group
+        if not finding.code.startswith("capturedRole")
     )
     return SquadDetailModel(
         squad=assessment.squad,
@@ -198,3 +224,33 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
         playerRoles=tuple(playerRoles),
         findings=findings,
     )
+
+
+def _rolePositionSortKey(role) -> tuple[int, int, str, str]:
+    """Order roles using FM pitch order: GK, defence, DM, M, AM, ST."""
+
+    positionKeys = [_positionSortKey(position) for position in role.positions]
+    line, side = min(positionKeys, default=(6, 3))
+    return line, side, role.displayName.casefold(), role.roleCode.casefold()
+
+
+def _positionSortKey(position: str) -> tuple[int, int]:
+    compact = position.upper().replace(" ", "").replace("(", "").replace(")", "")
+    if compact == "GK":
+        line = 0
+    elif compact.startswith("WB") or (
+        compact.startswith("D") and not compact.startswith("DM")
+    ):
+        line = 1
+    elif compact.startswith("DM"):
+        line = 2
+    elif compact.startswith("M") and not compact.startswith("AM"):
+        line = 3
+    elif compact.startswith("AM"):
+        line = 4
+    elif compact.startswith("ST"):
+        line = 5
+    else:
+        line = 6
+    side = 0 if compact.endswith("L") else 1 if compact.endswith("C") else 2 if compact.endswith("R") else 3
+    return line, side
