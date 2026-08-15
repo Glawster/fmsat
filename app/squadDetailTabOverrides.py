@@ -3,7 +3,15 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QHeaderView, QTableWidget, QSizePolicy
+from PySide6.QtWidgets import (
+    QFrame,
+    QHeaderView,
+    QHBoxLayout,
+    QLabel,
+    QSizePolicy,
+    QTableWidget,
+    QVBoxLayout,
+)
 
 from fmsat.app.squadDetailModel import RoleDisplay, SquadDetailModel
 from fmsat.app.squadDetailTabs import (
@@ -62,7 +70,7 @@ class SquadRolesTab(BaseSquadRolesTab):
 
 
 class SquadAnalysisTab(BaseSquadAnalysisTab):
-    """Show tactical-slot depth while keeping evidence tables compact."""
+    """Show the three analysis areas as side-by-side dashboard cards."""
 
     def __init__(
         self,
@@ -76,9 +84,9 @@ class SquadAnalysisTab(BaseSquadAnalysisTab):
         self._compactTable(self.depthTable)
         self._compactTable(self.playerTable)
         self._compactTable(self.findingsTable)
-        self._equalTableHeights()
         self._tooltipsApply(self.playerTable, 3)
         self._tooltipsApply(self.findingsTable, 2)
+        self._horizontalCardsArrange()
         QTimer.singleShot(0, self._rowsCompact)
 
     def _depthExpand(
@@ -119,19 +127,46 @@ class SquadAnalysisTab(BaseSquadAnalysisTab):
         table.setWordWrap(False)
         table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
         table.verticalHeader().setDefaultSectionSize(28)
+        table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
-    def _equalTableHeights(self) -> None:
-        """Give the three Analysis evidence tables equal vertical workspace."""
+    def _horizontalCardsArrange(self) -> None:
+        """Replace the vertical report stack with three independently scrolling cards."""
 
-        for table in (self.depthTable, self.playerTable, self.findingsTable):
-            table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-            table.setMinimumHeight(120)
-            table.setMaximumHeight(16777215)
-        layout = self.layout()
-        if layout is None:
+        root = self.layout()
+        if root is None:
             return
-        for table in (self.depthTable, self.playerTable, self.findingsTable):
-            layout.setStretchFactor(table, 1)
+        context = root.itemAt(0).widget() if root.count() else None
+        while root.count():
+            item = root.takeAt(0)
+            widget = item.widget()
+            if widget is not None and widget is not context and widget not in {
+                self.depthTable,
+                self.playerTable,
+                self.findingsTable,
+            }:
+                widget.deleteLater()
+        if context is not None:
+            context.setParent(self)
+            root.addWidget(context)
+
+        cards = QHBoxLayout()
+        cards.setSpacing(12)
+        cards.addWidget(self._cardCreate("Required Role Depth", self.depthTable), 3)
+        cards.addWidget(self._cardCreate("Player Role Strengths", self.playerTable), 4)
+        cards.addWidget(self._cardCreate("Squad Depth Findings", self.findingsTable), 3)
+        root.addLayout(cards, 1)
+
+    def _cardCreate(self, title: str, table: QTableWidget) -> QFrame:
+        card = QFrame(self)
+        card.setObjectName("overviewPanel")
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(10, 10, 10, 10)
+        heading = QLabel(title, card)
+        heading.setObjectName("cardTitle")
+        layout.addWidget(heading)
+        table.setParent(card)
+        layout.addWidget(table, 1)
+        return card
 
     def _rowsCompact(self) -> None:
         for table in (self.depthTable, self.playerTable, self.findingsTable):
