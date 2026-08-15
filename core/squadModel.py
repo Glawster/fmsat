@@ -9,6 +9,7 @@ from fmsat.database.models import (
     ImportSession,
     ObjectModelPlayer,
     ObjectModelPlayerAttribute,
+    ObjectModelPlayerTrait,
     ObjectModelSquad,
     Player,
     Squad,
@@ -30,6 +31,7 @@ class SquadModelPlayer:
     attributes: tuple[tuple[str, int | None], ...]
     sourceImportSessionId: int | None = None
     validationState: str = "extracted"
+    traits: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -173,6 +175,7 @@ class SquadModelService:
                                 key=lambda item: item.attributeName,
                             )
                         ],
+                        traits=[],
                     )
                 )
             session.add(stored)
@@ -215,6 +218,13 @@ class SquadModelService:
                         for attribute in sorted(
                             player.attributes,
                             key=lambda item: item.attributeName,
+                        )
+                    ),
+                    traits=tuple(
+                        trait.traitName
+                        for trait in sorted(
+                            player.traits,
+                            key=lambda item: item.traitName.casefold(),
                         )
                     ),
                 )
@@ -261,6 +271,16 @@ class SquadModelService:
                 )
                 for name, value in sorted(player.attributes)
             ],
+            traits=[
+                ObjectModelPlayerTrait(
+                    traitName=name,
+                    validationState=state,
+                )
+                for name in sorted(
+                    {trait.strip() for trait in player.traits if trait.strip()},
+                    key=str.casefold,
+                )
+            ],
         )
 
     @staticmethod
@@ -274,6 +294,9 @@ class SquadModelService:
                 selectinload(ObjectModelSquad.sourceSquad).selectinload(Squad.screenshots),
                 selectinload(ObjectModelSquad.players).selectinload(
                     ObjectModelPlayer.attributes
+                ),
+                selectinload(ObjectModelSquad.players).selectinload(
+                    ObjectModelPlayer.traits
                 ),
             )
         )
