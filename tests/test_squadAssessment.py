@@ -115,6 +115,7 @@ def testSquadAssessmentUsesUniqueRoleRatherThanPositionOrSlot() -> None:
     ).assessmentBuild("Test Squad")
 
     assert assessment is not None
+    assert assessment.requiredPositionCount == 2
     assert len(assessment.roles) == 1
     assert assessment.roles[0].roleCode == "advancedWingBack"
     assert assessment.roles[0].positions == ("WBL", "WBR")
