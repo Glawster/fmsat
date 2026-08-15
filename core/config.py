@@ -68,14 +68,31 @@ class Configuration:
         return {key: self.roleAssessment[key] for key in keys}
 
     def roleAssessmentWeights(self) -> dict[str, dict[str, int]]:
-        """Return validated Generic Role Fit weights by canonical role code."""
+        """Return complete, validated Generic Role Fit weights by canonical role code."""
 
         roles = self.roleAssessment.get("roles")
         if not isinstance(roles, dict):
             raise ConfigurationError("roleAssessment.yaml must contain a roles mapping")
+
+        vocabulary = self._yamlLoad("tacticalVocabulary.yaml")
+        canonicalRoles = vocabulary.get("roles")
+        if not isinstance(canonicalRoles, dict):
+            raise ConfigurationError("tacticalVocabulary.yaml must contain a roles mapping")
+
+        configuredCodes = {str(roleCode) for roleCode in roles}
+        canonicalCodes = {str(roleCode) for roleCode in canonicalRoles}
+        missingRoles = sorted(canonicalCodes - configuredCodes)
+        unknownRoles = sorted(configuredCodes - canonicalCodes)
+        if missingRoles or unknownRoles:
+            raise ConfigurationError(
+                "Generic Role Fit weights must cover the canonical role catalogue exactly: "
+                f"missing={missingRoles}, unknown={unknownRoles}"
+            )
+
         knownAttributes = {attribute.name for attribute in self.attributes}
         result = {}
-        for roleCode, roleData in roles.items():
+        for roleCode in sorted(canonicalCodes):
+            roleData = roles[roleCode]
             weights = roleData.get("attributeWeights") if isinstance(roleData, dict) else None
             if not isinstance(weights, dict) or not weights:
                 raise ConfigurationError(f"Role {roleCode} requires attribute weights")
@@ -89,7 +106,7 @@ class Configuration:
                 raise ConfigurationError(
                     f"Invalid role weights for {roleCode}: unknown={unknown}, invalid={invalid}"
                 )
-            result[str(roleCode)] = {
+            result[roleCode] = {
                 str(attribute): int(weight) for attribute, weight in weights.items()
             }
         return result
