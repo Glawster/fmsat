@@ -33,6 +33,10 @@ QPushButton#quietButton, QPushButton#secondaryButton { background: transparent; 
 QPushButton#quietButton:hover, QPushButton#secondaryButton:hover { background: #132536; color: white; }
 QPushButton#secondaryButton[copyState="copied"] { background: #163b38; color: #75e0bf; border-color: #28675e; }
 QComboBox { background: #101f2e; color: #d9e5ef; border: 1px solid #30465a; border-radius: 7px; padding: 8px 12px; }
+QToolButton#playerFilterButton { background: #132536; color: #d9e5ef; border: 1px solid #30465a; border-radius: 7px; padding: 8px 12px; font-weight: 700; }
+QToolButton#playerFilterButton:hover { background: #163b38; color: #75e0bf; }
+QMenu#playerFilterMenu { background: #101f2e; color: #f5f8fb; border: 1px solid #30465a; padding: 7px; }
+QMenu#playerFilterMenu QCheckBox { color: #f5f8fb; spacing: 9px; padding: 7px 12px; min-width: 170px; }
 QTableWidget#squadPlayersTable, QTableWidget#roleAssessmentTable, QTableWidget#roleCandidateTable {
     background: #101f2e; alternate-background-color: #0c1926; color: #f5f8fb;
     border: 1px solid #30465a; gridline-color: #263b4e; selection-background-color: #163b38;
