@@ -182,6 +182,9 @@ class SquadPlayersTab(QWidget):
                 item = self.table.item(row, column)
                 if item is not None:
                     item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.table.item(row, traitsColumn).setTextAlignment(
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+            )
         # Attribute abbreviations make a compact, regular comparison grid possible.
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)

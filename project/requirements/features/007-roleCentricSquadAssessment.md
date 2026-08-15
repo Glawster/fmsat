@@ -52,7 +52,8 @@ built.
    a correction makes the edited object model authoritative and marks its
    retained screenshot evidence as superseded without deleting that evidence.
 10. Display every configured attribute using its configured abbreviation and a
-    consistent compact column width, followed by the player's known traits.
+    consistent compact column width, followed by the player's left-aligned,
+    comma-separated known traits.
 11. Allow the Players table to be filtered by goalkeeper, defender, defensive
     midfielder, midfielder, attacking midfielder and attacker units. Filtering
     changes presentation only and must not remove players from the squad model.
