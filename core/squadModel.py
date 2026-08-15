@@ -69,11 +69,13 @@ class SquadModelService:
         return self._modelGenerate(cleanName)
 
     def modelSave(self, model: SquadModel) -> SquadModel:
-        """Persist user-edited values and mark their screenshot evidence superseded."""
+        """Persist edits, or explicitly regenerate a model marked as stale."""
 
         cleanName = model.name.strip()
         if not cleanName:
             raise ValueError("Squad name is required")
+        if model.regenerationRequired:
+            return self._modelRegenerate(cleanName)
         now = datetime.now()
         with Session(self.engine) as session, session.begin():
             source = session.scalar(
@@ -129,23 +131,6 @@ class SquadModelService:
             if source is None:
                 return None
 
-            latest: dict[str, Player] = {}
-            players = (
-                player
-                for capture in sorted(
-                    source.screenshots,
-                    key=lambda item: (item.importSession.date, item.importSession.id),
-                    reverse=True,
-                )
-                for player in sorted(
-                    capture.importSession.players,
-                    key=lambda item: item.id,
-                    reverse=True,
-                )
-            )
-            for player in players:
-                latest.setdefault(player.name.strip().casefold(), player)
-
             stored = ObjectModelSquad(
                 name=source.name,
                 normalizedName=source.normalizedName,
@@ -153,34 +138,118 @@ class SquadModelService:
                 generatedAt=now,
                 updatedAt=now,
             )
-            for player in sorted(latest.values(), key=lambda item: item.name.casefold()):
-                stored.players.append(
-                    ObjectModelPlayer(
-                        name=player.name,
-                        normalizedName=player.name.strip().casefold(),
-                        positions=player.positions,
-                        ca=player.ca,
-                        pa=player.pa,
-                        confidence=player.confidence,
-                        sourceImportSessionId=player.importSessionId,
-                        validationState="extracted",
-                        attributes=[
-                            ObjectModelPlayerAttribute(
-                                attributeName=attribute.attributeName,
-                                attributeValue=attribute.attributeValue,
-                                validationState="extracted",
-                            )
-                            for attribute in sorted(
-                                player.attributes,
-                                key=lambda item: item.attributeName,
-                            )
-                        ],
-                        traits=[],
-                    )
-                )
+            for player in self._latestPlayers(source):
+                stored.players.append(self._playerFromEvidence(player))
             session.add(stored)
             session.flush()
             return self._modelDetach(stored)
+
+    def _modelRegenerate(self, squadName: str) -> SquadModel:
+        """Replace stale screenshot-derived facts while retaining manual known traits."""
+
+        now = datetime.now()
+        with Session(self.engine) as session, session.begin():
+            source = session.scalar(
+                select(Squad)
+                .where(Squad.normalizedName == squadName.casefold())
+                .options(
+                    selectinload(Squad.screenshots)
+                    .selectinload(SquadScreenshot.importSession)
+                    .selectinload(ImportSession.players)
+                    .selectinload(Player.attributes)
+                )
+            )
+            if source is None:
+                raise ValueError(f"Squad evidence does not exist: {squadName}")
+            stored = self._storedLoad(session, squadName)
+            if stored is None:
+                raise ValueError(f"Squad model does not exist: {squadName}")
+
+            traitsByPlayer = {
+                player.normalizedName: tuple(
+                    trait.traitName
+                    for trait in sorted(
+                        player.traits,
+                        key=lambda item: item.traitName.casefold(),
+                    )
+                )
+                for player in stored.players
+            }
+            stored.players.clear()
+            session.flush()
+            stored.name = source.name
+            stored.normalizedName = source.normalizedName
+            stored.sourceSquad = source
+            stored.generatedAt = now
+            stored.updatedAt = now
+            for player in self._latestPlayers(source):
+                stored.players.append(
+                    self._playerFromEvidence(
+                        player,
+                        traits=traitsByPlayer.get(player.name.strip().casefold(), ()),
+                    )
+                )
+            session.flush()
+            return self._modelDetach(stored)
+
+    @staticmethod
+    def _latestPlayers(source: Squad) -> tuple[Player, ...]:
+        """Return each player's newest captured OCR row in deterministic name order."""
+
+        latest: dict[str, Player] = {}
+        players = (
+            player
+            for capture in sorted(
+                source.screenshots,
+                key=lambda item: (item.importSession.date, item.importSession.id),
+                reverse=True,
+            )
+            for player in sorted(
+                capture.importSession.players,
+                key=lambda item: item.id,
+                reverse=True,
+            )
+        )
+        for player in players:
+            latest.setdefault(player.name.strip().casefold(), player)
+        return tuple(sorted(latest.values(), key=lambda item: item.name.casefold()))
+
+    @staticmethod
+    def _playerFromEvidence(
+        player: Player,
+        *,
+        traits: tuple[str, ...] = (),
+    ) -> ObjectModelPlayer:
+        """Map one OCR player snapshot into the editable object model."""
+
+        return ObjectModelPlayer(
+            name=player.name,
+            normalizedName=player.name.strip().casefold(),
+            positions=player.positions,
+            ca=player.ca,
+            pa=player.pa,
+            confidence=player.confidence,
+            sourceImportSessionId=player.importSessionId,
+            validationState="extracted",
+            attributes=[
+                ObjectModelPlayerAttribute(
+                    attributeName=attribute.attributeName,
+                    attributeValue=attribute.attributeValue,
+                    validationState="extracted",
+                )
+                for attribute in sorted(
+                    player.attributes,
+                    key=lambda item: item.attributeName,
+                )
+            ],
+            traits=[
+                ObjectModelPlayerTrait(
+                    traitName=name,
+                    validationState="corrected",
+                )
+                for name in traits
+            ],
+        )
 
     ## persistence mapping
 
