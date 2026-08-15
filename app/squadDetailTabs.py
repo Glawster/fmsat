@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QFrame,
     QHBoxLayout,
     QLabel,
-    QListWidget,
-    QListWidgetItem,
+    QHeaderView,
     QSplitter,
     QTableWidget,
     QTableWidgetItem,
@@ -133,20 +131,29 @@ class SquadPlayersTab(QWidget):
         self.table.setHorizontalHeaderLabels(headers)
         self.table.setAlternatingRowColors(True)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectItems)
+        self.table.setSortingEnabled(False)
         for row, player in enumerate(model.players):
             values = dict(player.attributes)
             for column, value in enumerate(
                 (player.name, player.positions, player.ca, player.pa)
             ):
-                self.table.setItem(row, column, QTableWidgetItem(value))
+                item = QTableWidgetItem(value)
+                if column == 0:
+                    # Sorting changes visual row order, so retain the source model identity.
+                    item.setData(Qt.ItemDataRole.UserRole, row)
+                self.table.setItem(row, column, item)
             for offset, attribute in enumerate(self.attributeNames, start=4):
                 value = values.get(attribute)
                 self.table.setItem(
                     row,
                     offset,
-                    QTableWidgetItem("" if value is None else str(value)),
+                    SortableTableWidgetItem(
+                        "" if value is None else str(value),
+                        value if value is not None else -1,
+                    ),
                 )
         self.table.resizeColumnsToContents()
+        self.table.setSortingEnabled(True)
         self.table.itemChanged.connect(lambda _item: self.changed.emit())
         layout.addWidget(self.table)
 
@@ -154,7 +161,9 @@ class SquadPlayersTab(QWidget):
         """Return validated edited values while retaining source provenance."""
 
         players = []
-        for row, original in enumerate(self.model.players):
+        for row in range(self.table.rowCount()):
+            sourceIndex = self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+            original = self.model.players[int(sourceIndex)]
             attributes = []
             for column, attribute in enumerate(self.attributeNames, start=4):
                 text = self._text(row, column)
@@ -213,41 +222,87 @@ class SquadRolesTab(QWidget):
             return
 
         splitter = QSplitter(Qt.Orientation.Horizontal, self)
-        self.roleList = QListWidget(splitter)
-        self.roleList.setObjectName("roleAssessmentList")
-        for role in roles:
-            item = QListWidgetItem(
-                f"{role.abbreviation}  {role.displayName}\n{role.coverage}"
-            )
-            item.setData(Qt.ItemDataRole.UserRole, role.roleCode)
-            self.roleList.addItem(item)
+        self.rolesByCode = {role.roleCode: role for role in roles}
+        self.roleTable = QTableWidget(len(roles), 3, splitter)
+        self.roleTable.setObjectName("roleAssessmentTable")
+        self.roleTable.setHorizontalHeaderLabels(("Role", "Name", "Coverage"))
+        self.roleTable.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.roleTable.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.roleTable.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.roleTable.setSortingEnabled(False)
+        for row, role in enumerate(roles):
+            abbreviation = QTableWidgetItem(role.abbreviation)
+            abbreviation.setData(Qt.ItemDataRole.UserRole, role.roleCode)
+            self.roleTable.setItem(row, 0, abbreviation)
+            self.roleTable.setItem(row, 1, QTableWidgetItem(role.displayName))
+            self.roleTable.setItem(row, 2, QTableWidgetItem(role.coverage))
+        roleHeader = self.roleTable.horizontalHeader()
+        roleHeader.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        roleHeader.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        roleHeader.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self.roleTable.setSortingEnabled(True)
         self.candidateTable = QTableWidget(0, 4, splitter)
         self.candidateTable.setObjectName("roleCandidateTable")
         self.candidateTable.setHorizontalHeaderLabels(
             ("Player", "Natural positions", "Generic Role Fit", "Calculation breakdown")
         )
         self.candidateTable.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.candidateTable.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.candidateTable.setWordWrap(True)
-        splitter.addWidget(self.roleList)
+        candidateHeader = self.candidateTable.horizontalHeader()
+        candidateHeader.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        candidateHeader.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        candidateHeader.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        candidateHeader.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        splitter.addWidget(self.roleTable)
         splitter.addWidget(self.candidateTable)
         splitter.setStretchFactor(0, 1)
         splitter.setStretchFactor(1, 4)
         layout.addWidget(splitter)
-        self.roleList.currentRowChanged.connect(self._roleShow)
-        self.roleList.setCurrentRow(0)
+        self.roleTable.currentCellChanged.connect(self._roleShow)
+        self.roleTable.selectRow(0)
+        self.roleTable.setCurrentCell(0, 0)
 
-    def _roleShow(self, index: int) -> None:
-        if not 0 <= index < len(self.roles):
+    def _roleShow(
+        self,
+        currentRow: int,
+        _currentColumn: int,
+        _previousRow: int,
+        _previousColumn: int,
+    ) -> None:
+        if currentRow < 0:
             return
-        role = self.roles[index]
+        roleItem = self.roleTable.item(currentRow, 0)
+        if roleItem is None:
+            return
+        role = self.rolesByCode.get(str(roleItem.data(Qt.ItemDataRole.UserRole)))
+        if role is None:
+            return
+        self.candidateTable.setSortingEnabled(False)
         self.candidateTable.setRowCount(len(role.candidates))
         for row, candidate in enumerate(role.candidates):
             for column, value in enumerate(
                 (candidate.name, candidate.positions, candidate.score, candidate.breakdown)
             ):
-                item = QTableWidgetItem(value)
-                if not candidate.available:
-                    item.setForeground(QColor("#f4c65d"))
+                sortValue = (
+                    float(candidate.score)
+                    if column == 2 and candidate.available
+                    else -1.0 if column == 2 else value.casefold()
+                )
+                item = SortableTableWidgetItem(value, sortValue)
                 self.candidateTable.setItem(row, column, item)
-        self.candidateTable.resizeColumnsToContents()
         self.candidateTable.resizeRowsToContents()
+        self.candidateTable.setSortingEnabled(True)
+
+
+class SortableTableWidgetItem(QTableWidgetItem):
+    """Keep numeric and textual table sorting independent from display text."""
+
+    def __init__(self, text: str, sortValue: object) -> None:
+        super().__init__(text)
+        self.sortValue = sortValue
+
+    def __lt__(self, other: QTableWidgetItem) -> bool:
+        if isinstance(other, SortableTableWidgetItem):
+            return self.sortValue < other.sortValue
+        return super().__lt__(other)
