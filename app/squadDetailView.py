@@ -24,6 +24,7 @@ from fmsat.app.squadDetailTabs import (
     SquadPlayersTab,
     SquadRolesTab,
 )
+from fmsat.core.config import AttributeDefinition
 from fmsat.core.squadModel import SquadModel
 
 
@@ -34,8 +35,13 @@ class SquadDetailView(QWidget):
     modelSaveRequested = Signal(object)
     tacticSelected = Signal(str, str)
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+        attributes: tuple[AttributeDefinition, ...] = (),
+    ) -> None:
         super().__init__(parent)
+        self.attributes = attributes
         self.model: SquadDetailModel | None = None
         self.squadName = ""
         self.setObjectName("squadDetailView")
@@ -115,7 +121,7 @@ class SquadDetailView(QWidget):
         tabs = QTabWidget()
         tabs.setObjectName("squadTabs")
         tabs.addTab(SquadOverviewTab(self.model), "Overview")
-        self.playersTab = SquadPlayersTab(self.model.squad)
+        self.playersTab = SquadPlayersTab(self.model.squad, self.attributes)
         self.playersTab.changed.connect(lambda: self.saveButton.setEnabled(True))
         tabs.addTab(self.playersTab, "Players")
         tabs.addTab(SquadRolesTab(self.model.roles), "Roles")
