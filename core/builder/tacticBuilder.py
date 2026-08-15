@@ -295,6 +295,8 @@ class TacticBuilder:
             identity=identity,
             role=role,
             roleProfile=roleProfile,
+            canonicalPosition=slot.position,
+            canonicalRole=slot.role,
             slotId=slot.slotId,
             duty=slot.duty,
             x=slot.x,

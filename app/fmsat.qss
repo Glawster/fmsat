@@ -1,9 +1,11 @@
-QWidget#tacticDetailView { background: #08131f; color: #e8eef5; }
+QWidget#tacticDetailView, QWidget#squadDetailView { background: #08131f; color: #e8eef5; }
 QLabel#eyebrow, QLabel#factKey { color: #56d6b0; font-size: 10px; font-weight: 700; letter-spacing: 1px; }
 QLabel#pageTitle { color: #f7fafc; font-size: 28px; font-weight: 700; }
 QLabel#factValue { color: #f0f0f0; font-size: 14px; font-weight: 600; }
 QLabel#cardTitle, QLabel#emptyTitle { color: #f5f8fb; font-size: 17px; font-weight: 700; }
 QLabel#mutedText { color: #8fa3b8; }
+QLabel#overviewFieldKey { color: #d9e5ef; font-weight: 700; }
+QLabel#overviewFieldValue { color: #8fa3b8; }
 QLabel#emptyIcon { color: #56d6b0; font-size: 52px; }
 QLabel#summaryItem { background: #101f2e; color: #f5f8fb; border-radius: 7px; padding: 10px; }
 QLabel#valuePill { background: #163b38; color: #75e0bf; border: 1px solid #28675e; border-radius: 9px; padding: 4px 9px; }
@@ -31,6 +33,20 @@ QPushButton#quietButton, QPushButton#secondaryButton { background: transparent; 
 QPushButton#quietButton:hover, QPushButton#secondaryButton:hover { background: #132536; color: white; }
 QPushButton#secondaryButton[copyState="copied"] { background: #163b38; color: #75e0bf; border-color: #28675e; }
 QComboBox { background: #101f2e; color: #d9e5ef; border: 1px solid #30465a; border-radius: 7px; padding: 8px 12px; }
+QTableWidget#squadPlayersTable, QTableWidget#roleAssessmentTable, QTableWidget#roleCandidateTable {
+    background: #101f2e; alternate-background-color: #0c1926; color: #f5f8fb;
+    border: 1px solid #30465a; gridline-color: #263b4e; selection-background-color: #163b38;
+    selection-color: #75e0bf;
+}
+QTableWidget#squadPlayersTable QWidget#qt_scrollarea_viewport,
+QTableWidget#roleAssessmentTable QWidget#qt_scrollarea_viewport,
+QTableWidget#roleCandidateTable QWidget#qt_scrollarea_viewport { background: #101f2e; }
+QTableCornerButton::section { background: #132536; border: 0; border-right: 1px solid #30465a; border-bottom: 1px solid #30465a; }
+QTableWidget#squadPlayersTable::item, QTableWidget#roleAssessmentTable::item, QTableWidget#roleCandidateTable::item { padding: 5px; }
+QTableWidget#squadPlayersTable::item:selected, QTableWidget#roleAssessmentTable::item:selected, QTableWidget#roleCandidateTable::item:selected {
+    background: #163b38; color: #75e0bf;
+}
+QHeaderView::section { background: #132536; color: #d9e5ef; border: 0; border-right: 1px solid #30465a; padding: 6px; font-weight: 700; }
 QTabWidget::pane { border: 0; background: transparent; }
 QTabBar::tab { color: #8095a9; padding: 11px 22px; border-bottom: 2px solid transparent; font-weight: 600; }
 QTabBar::tab:selected { color: #6ee7c1; border-bottom-color: #31b98f; }

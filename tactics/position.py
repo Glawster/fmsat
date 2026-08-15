@@ -29,5 +29,7 @@ class Position:
     confidence: float | None = None
     sourceImportSessionId: int | None = None
     validationState: str = "unresolved"
+    canonicalPosition: str | None = None
+    canonicalRole: str | None = None
 
     needs: list = field(default_factory=list)

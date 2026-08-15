@@ -74,6 +74,11 @@ generic role-fit calculations, transparent unavailable states and initial role
 coverage. Tactical fit, overall suitability, comparisons, alternatives and Role
 Health will follow through the same UI-independent assessment services.
 
+Implementation is now underway on `feature/007-squad-viewer`. The assessment
+identity is the unique canonical role, not the formation position or slot.
+Position remains supporting eligibility context. The editable squad model keeps
+OCR evidence intact and marks it superseded when a user saves corrected values.
+
 ## Deferred work
 
 - Requirement 009 immutable tactic revisions and comparison.

@@ -83,6 +83,7 @@ class TacticScreenshot(Base):
         "import_session_id", ForeignKey("import_sessions.id"), unique=True, nullable=False
     )
     screenType: Mapped[str] = mappedColumn("screen_type", String(64), nullable=False, index=True)
+    supersededAt: Mapped[datetime | None] = mappedColumn("superseded_at", DateTime)
     tactic: Mapped[Tactic] = relationship(back_populates="screenshots")
     importSession: Mapped[ImportSession] = relationship(back_populates="tacticCapture")
 
@@ -283,6 +284,8 @@ class ObjectModelPosition(Base):
     ordinal: Mapped[int] = mappedColumn(Integer, nullable=False)
     positionIdentity: Mapped[str] = mappedColumn("position_identity", String(16), nullable=False)
     roleIdentity: Mapped[str] = mappedColumn("role_identity", String(32), nullable=False)
+    canonicalPosition: Mapped[str | None] = mappedColumn("canonical_position", String(16))
+    canonicalRole: Mapped[str | None] = mappedColumn("canonical_role", String(100))
     roleProfileName: Mapped[str] = mappedColumn("role_profile_name", String(128), nullable=False)
     roleProfileDescription: Mapped[str] = mappedColumn(
         "role_profile_description", Text, default="", nullable=False
@@ -383,6 +386,12 @@ class Squad(Base):
     tacticApplications: Mapped[list[SquadTacticApplication]] = relationship(
         back_populates="squad", cascade="all, delete-orphan"
     )
+    objectModelSquad: Mapped[ObjectModelSquad | None] = relationship(
+        back_populates="sourceSquad",
+        cascade="all, delete-orphan",
+        single_parent=True,
+        uselist=False,
+    )
 
 
 class SquadScreenshot(Base):
@@ -397,6 +406,7 @@ class SquadScreenshot(Base):
     importSessionId: Mapped[int] = mappedColumn(
         "import_session_id", ForeignKey("import_sessions.id"), unique=True, nullable=False
     )
+    supersededAt: Mapped[datetime | None] = mappedColumn("superseded_at", DateTime)
     squad: Mapped[Squad] = relationship(back_populates="screenshots")
     importSession: Mapped[ImportSession] = relationship(back_populates="squadCapture")
 
@@ -472,3 +482,75 @@ class AttributeSnapshot(Base):
     attributeName: Mapped[str] = mappedColumn("attribute_name", String(100), nullable=False)
     attributeValue: Mapped[int | None] = mappedColumn("attribute_value", Integer, nullable=True)
     player: Mapped[Player] = relationship(back_populates="attributes")
+
+
+class ObjectModelSquad(Base):
+    """Current editable squad model generated from retained screenshot evidence."""
+
+    __tablename__ = "object_model_squads"
+
+    id: Mapped[int] = mappedColumn(primary_key=True)
+    name: Mapped[str] = mappedColumn(String(255), nullable=False)
+    normalizedName: Mapped[str] = mappedColumn(
+        "normalized_name", String(255), unique=True, nullable=False
+    )
+    sourceSquadId: Mapped[int | None] = mappedColumn(
+        "source_squad_id", ForeignKey("squads.id"), unique=True, index=True
+    )
+    generatedAt: Mapped[datetime] = mappedColumn(
+        "generated_at", DateTime, default=datetime.now, nullable=False
+    )
+    updatedAt: Mapped[datetime] = mappedColumn(
+        "updated_at", DateTime, default=datetime.now, nullable=False
+    )
+    sourceSquad: Mapped[Squad | None] = relationship(back_populates="objectModelSquad")
+    players: Mapped[list[ObjectModelPlayer]] = relationship(
+        back_populates="squad", cascade="all, delete-orphan"
+    )
+
+
+class ObjectModelPlayer(Base):
+    """One editable player in the current squad model."""
+
+    __tablename__ = "object_model_players"
+    __table_args__ = (UniqueConstraint("squad_id", "normalized_name"),)
+
+    id: Mapped[int] = mappedColumn(primary_key=True)
+    squadId: Mapped[int] = mappedColumn(
+        "squad_id", ForeignKey("object_model_squads.id"), nullable=False, index=True
+    )
+    name: Mapped[str] = mappedColumn(String(255), nullable=False)
+    normalizedName: Mapped[str] = mappedColumn("normalized_name", String(255), nullable=False)
+    positions: Mapped[str] = mappedColumn(String(255), default="", nullable=False)
+    ca: Mapped[str] = mappedColumn(String(32), default="", nullable=False)
+    pa: Mapped[str] = mappedColumn(String(32), default="", nullable=False)
+    confidence: Mapped[float | None] = mappedColumn(Float)
+    sourceImportSessionId: Mapped[int | None] = mappedColumn(
+        "source_import_session_id", ForeignKey("import_sessions.id"), index=True
+    )
+    validationState: Mapped[str] = mappedColumn(
+        "validation_state", String(32), default="extracted", nullable=False
+    )
+    squad: Mapped[ObjectModelSquad] = relationship(back_populates="players")
+    sourceImportSession: Mapped[ImportSession | None] = relationship()
+    attributes: Mapped[list[ObjectModelPlayerAttribute]] = relationship(
+        back_populates="player", cascade="all, delete-orphan"
+    )
+
+
+class ObjectModelPlayerAttribute(Base):
+    """One editable numeric attribute in the current squad model."""
+
+    __tablename__ = "object_model_player_attributes"
+    __table_args__ = (UniqueConstraint("player_id", "attribute_name"),)
+
+    id: Mapped[int] = mappedColumn(primary_key=True)
+    playerId: Mapped[int] = mappedColumn(
+        "player_id", ForeignKey("object_model_players.id"), nullable=False, index=True
+    )
+    attributeName: Mapped[str] = mappedColumn("attribute_name", String(100), nullable=False)
+    attributeValue: Mapped[int | None] = mappedColumn("attribute_value", Integer)
+    validationState: Mapped[str] = mappedColumn(
+        "validation_state", String(32), default="extracted", nullable=False
+    )
+    player: Mapped[ObjectModelPlayer] = relationship(back_populates="attributes")

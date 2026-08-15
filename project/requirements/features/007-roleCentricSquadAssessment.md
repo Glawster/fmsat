@@ -45,6 +45,12 @@ built.
    midfield, attacking midfield and striker units.
 7. Use the shared palette subtly through headers, borders, role icons or badges
    while preserving readability in light and dark themes.
+8. Treat the canonical Football Manager role as the assessment identity. A
+   position is eligibility and presentation context only; the same role used in
+   multiple positions or tactic slots is assessed once.
+9. Allow corrections to squad object-model values from the Players view. Saving
+   a correction makes the edited object model authoritative and marks its
+   retained screenshot evidence as superseded without deleting that evidence.
 
 ## Initial delivery increment
 
@@ -59,6 +65,8 @@ built.
    each role without automatically assigning a lineup.
 6. Retain the complete calculation trace required to explain and test each
    available Generic Role Fit result.
+7. Use explicit role assessment weights only. Undefined weights or missing
+   player attributes produce `Unavailable`, never a fabricated zero.
 
 Tactical Fit, Position Familiarity, Overall Suitability, candidate comparison,
 alternative roles and Role Health remain part of this requirement but follow

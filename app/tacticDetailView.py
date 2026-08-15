@@ -32,6 +32,7 @@ class TacticDetailView(QWidget):
     backRequested = Signal()
     assignmentRequested = Signal(str)
     importToModelRequested = Signal(str)
+    modelEditRequested = Signal(str)
 
     def __init__(
         self,
@@ -128,6 +129,10 @@ class TacticDetailView(QWidget):
 
         footer = QHBoxLayout()
         footer.addStretch()
+        editButton = QPushButton("Edit Model")
+        editButton.setObjectName("secondaryButton")
+        editButton.clicked.connect(lambda: self.modelEditRequested.emit(self.tacticName))
+        footer.addWidget(editButton)
         self.importToModelButton = QPushButton("Regenerate Model")
         self.importToModelButton.clicked.connect(
             lambda: self.importToModelRequested.emit(self.tacticName)

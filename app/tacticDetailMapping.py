@@ -321,9 +321,11 @@ def _slotsBuild(formation: Formation) -> tuple[DisplaySlot, ...]:
             slots.append(
                 DisplaySlot(
                     slotId=position.slotId or f"{slotIndex:02d}",
-                    position=position.identity.value,
+                    position=position.canonicalPosition or position.identity.value,
                     role=(
-                        position.roleProfile.name
+                        _roleAbbreviation(position.canonicalRole)
+                        if position.canonicalRole
+                        else position.roleProfile.name
                         if position.role.identity is RoleIdentity.UNRESOLVED
                         or (
                             position.duty is None

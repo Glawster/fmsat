@@ -64,6 +64,7 @@ class Database:
             Base.metadata.create_all(self.engine)
             self._objectModelPositionColumnsAdd()
             self._objectModelTacticColumnsAdd()
+            self._screenshotEvidenceColumnsAdd()
             logger.info("database initialized path=%s", self.path)
         except SQLAlchemyError as exc:
             raise DatabaseError(f"Unable to create database tables: {exc}") from exc
@@ -77,6 +78,8 @@ class Database:
             return
         existing = {column["name"] for column in inspector.get_columns(tableName)}
         additions = {
+            "canonical_position": "VARCHAR(16)",
+            "canonical_role": "VARCHAR(100)",
             "slot_id": "VARCHAR(100)",
             "duty": "VARCHAR(32)",
             "x": "FLOAT",
@@ -107,6 +110,20 @@ class Database:
                     "ALTER TABLE object_model_tactics ADD COLUMN "
                     "source_import_session_id INTEGER REFERENCES import_sessions(id)"
                 ))
+
+    def _screenshotEvidenceColumnsAdd(self) -> None:
+        """Add model-supersession markers without removing screenshot history."""
+
+        inspector = inspect(self.engine)
+        with self.engine.begin() as connection:
+            for tableName in ("tactic_screenshots", "squad_screenshots"):
+                if tableName not in inspector.get_table_names():
+                    continue
+                existing = {column["name"] for column in inspector.get_columns(tableName)}
+                if "superseded_at" not in existing:
+                    connection.execute(
+                        text(f"ALTER TABLE {tableName} ADD COLUMN superseded_at DATETIME")
+                    )
 
     def importSave(
         self,
@@ -584,6 +601,24 @@ class Database:
                 ]
         except SQLAlchemyError as exc:
             raise DatabaseError(f"Unable to list squad players: {exc}") from exc
+
+    def squadAppliedTactics(self, squadName: str) -> tuple[str, ...]:
+        """Return tactics explicitly applied to one squad in stable name order."""
+
+        normalizedName = squadName.strip().casefold()
+        try:
+            with Session(self.engine) as session:
+                return tuple(
+                    session.scalars(
+                        select(Tactic.name)
+                        .join(SquadTacticApplication)
+                        .join(Squad)
+                        .where(Squad.normalizedName == normalizedName)
+                        .order_by(Tactic.name)
+                    ).all()
+                )
+        except SQLAlchemyError as exc:
+            raise DatabaseError(f"Unable to load squad tactics: {exc}") from exc
 
     def squadClean(self, squadName: str) -> SquadCleanupRecord:
         """Correct and merge only unambiguous duplicate players in a stored squad."""

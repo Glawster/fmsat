@@ -234,6 +234,9 @@ instructions:
    screenshot-derived generation or source identity used to build it.
 8. Do not require image OCR merely to open or redraw an existing football object
    model.
+9. Allow a user to correct tactic object-model values at role level. Saving a
+   correction marks the supporting screenshots as superseded while retaining
+   them and their extraction provenance.
 
 ## Version history
 
