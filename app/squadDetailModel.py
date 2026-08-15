@@ -41,6 +41,7 @@ class SquadDetailModel:
     availableTactics: tuple[str, ...]
     sourceStatus: str
     updated: str
+    requiredPositionCount: int
     roles: tuple[RoleDisplay, ...]
 
 
@@ -100,5 +101,6 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
             else "Generated from screenshot evidence"
         ),
         updated=assessment.squad.updatedAt.strftime("%d %b %Y %H:%M"),
+        requiredPositionCount=assessment.requiredPositionCount,
         roles=tuple(roles),
     )
