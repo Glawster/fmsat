@@ -4,6 +4,8 @@ QLabel#pageTitle { color: #f7fafc; font-size: 28px; font-weight: 700; }
 QLabel#factValue { color: #f0f0f0; font-size: 14px; font-weight: 600; }
 QLabel#cardTitle, QLabel#emptyTitle { color: #f5f8fb; font-size: 17px; font-weight: 700; }
 QLabel#mutedText { color: #8fa3b8; }
+QLabel#overviewFieldKey { color: #d9e5ef; font-weight: 700; }
+QLabel#overviewFieldValue { color: #8fa3b8; }
 QLabel#emptyIcon { color: #56d6b0; font-size: 52px; }
 QLabel#summaryItem { background: #101f2e; color: #f5f8fb; border-radius: 7px; padding: 10px; }
 QLabel#valuePill { background: #163b38; color: #75e0bf; border: 1px solid #28675e; border-radius: 9px; padding: 4px 9px; }

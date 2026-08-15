@@ -69,6 +69,7 @@ class SquadAssessment:
     squad: SquadModel
     tacticName: str | None
     availableTactics: tuple[str, ...]
+    requiredPositionCount: int
     roles: tuple[RequiredRoleAssessment, ...]
 
 
@@ -158,12 +159,18 @@ class SquadAssessmentService:
         if selectedTactic is None and availableTactics:
             selectedTactic = availableTactics[0]
         if selectedTactic is None:
-            return SquadAssessment(squad, None, availableTactics, ())
+            return SquadAssessment(squad, None, availableTactics, 0, ())
 
         loaded = self.tacticModels.tacticLoad(selectedTactic)
         if loaded.tactic is None:
-            return SquadAssessment(squad, selectedTactic, availableTactics, ())
+            return SquadAssessment(squad, selectedTactic, availableTactics, 0, ())
 
+        # A tactic can use the same canonical role in several positions and phases.
+        # Retain the formation size separately while assessing each role identity once.
+        requiredPositionCount = max(
+            len(loaded.tactic.inPossession.positions),
+            len(loaded.tactic.outOfPossession.positions),
+        )
         definitions = self._definitionsByCode()
         required: dict[str, dict[str, set[str]]] = {}
         for phase, formation in (
@@ -196,7 +203,13 @@ class SquadAssessmentService:
                 key=lambda code: self._roleSortKey(code, definitions.get(code)),
             )
         )
-        return SquadAssessment(squad, selectedTactic, availableTactics, roles)
+        return SquadAssessment(
+            squad,
+            selectedTactic,
+            availableTactics,
+            requiredPositionCount,
+            roles,
+        )
 
     ## roles
 

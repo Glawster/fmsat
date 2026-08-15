@@ -69,9 +69,10 @@ class SquadOverviewTab(QWidget):
             self._panel(
                 "Role Coverage",
                 (
-                    ("Required roles", str(len(model.roles))),
-                    ("Covered", str(covered)),
-                    ("Uncovered", str(len(model.roles) - covered)),
+                    ("Required positions", str(model.requiredPositionCount)),
+                    ("Unique tactic roles", str(len(model.roles))),
+                    ("Covered unique roles", str(covered)),
+                    ("Uncovered unique roles", str(len(model.roles) - covered)),
                     (
                         "Scoring stage",
                         "Generic Role Fit only; position is context, not the assessment identity",
@@ -90,9 +91,13 @@ class SquadOverviewTab(QWidget):
         heading.setObjectName("cardTitle")
         layout.addWidget(heading)
         for label, value in values:
-            row = QLabel(f"<b>{label}</b><br><span style='color:#8fa3b8'>{value}</span>")
-            row.setWordWrap(True)
-            layout.addWidget(row)
+            key = QLabel(label)
+            key.setObjectName("overviewFieldKey")
+            layout.addWidget(key)
+            fieldValue = QLabel(value)
+            fieldValue.setObjectName("overviewFieldValue")
+            fieldValue.setWordWrap(True)
+            layout.addWidget(fieldValue)
         layout.addStretch()
         return panel
 

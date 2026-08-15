@@ -103,8 +103,8 @@ class SquadDetailView(QWidget):
         for label, value in (
             ("PLAYERS", str(len(self.model.squad.players))),
             ("TACTIC", self.model.tacticName),
-            ("REQUIRED ROLES", str(len(self.model.roles))),
-            ("COVERED ROLES", f"{covered} of {len(self.model.roles)}"),
+            ("UNIQUE TACTIC ROLES", str(len(self.model.roles))),
+            ("COVERED UNIQUE ROLES", f"{covered} of {len(self.model.roles)}"),
             ("STATUS", self.model.sourceStatus),
         ):
             facts.addWidget(self._factCardCreate(label, value), 1)
