@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from fmsat.app.squadDetailModel import RoleDisplay, SquadDetailModel
+from fmsat.core.config import AttributeDefinition
 from fmsat.core.squadModel import SquadModel, SquadModelPlayer
 
 
@@ -105,18 +106,24 @@ class SquadPlayersTab(QWidget):
 
     changed = Signal()
 
-    def __init__(self, model: SquadModel, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        model: SquadModel,
+        attributes: tuple[AttributeDefinition, ...] = (),
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
         self.model = model
-        self.attributeNames = tuple(
-            sorted(
-                {
-                    name
-                    for player in model.players
-                    for name, _value in player.attributes
-                }
-            )
+        observedNames = {
+            name for player in model.players for name, _value in player.attributes
+        }
+        configuredNames = tuple(attribute.name for attribute in attributes)
+        self.attributeNames = configuredNames + tuple(
+            sorted(observedNames.difference(configuredNames))
         )
+        abbreviations = {
+            attribute.name: attribute.abbreviation for attribute in attributes
+        }
         layout = QVBoxLayout(self)
         hint = QLabel(
             "Edit model values here. Saving preserves the screenshots as history and marks "
@@ -125,7 +132,13 @@ class SquadPlayersTab(QWidget):
         hint.setObjectName("mutedText")
         hint.setWordWrap(True)
         layout.addWidget(hint)
-        headers = ("Name", "Positions", "CA", "PA", *self.attributeNames)
+        headers = (
+            "Name",
+            "Positions",
+            "CA",
+            "PA",
+            *(abbreviations.get(name, name) for name in self.attributeNames),
+        )
         self.table = QTableWidget(len(model.players), len(headers), self)
         self.table.setObjectName("squadPlayersTable")
         self.table.setHorizontalHeaderLabels(headers)
@@ -152,7 +165,15 @@ class SquadPlayersTab(QWidget):
                         value if value is not None else -1,
                     ),
                 )
-        self.table.resizeColumnsToContents()
+        # Attribute abbreviations make a compact, regular comparison grid possible.
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        for column in range(4, len(headers)):
+            header.setSectionResizeMode(column, QHeaderView.ResizeMode.Fixed)
+            self.table.setColumnWidth(column, 52)
         self.table.setSortingEnabled(True)
         self.table.itemChanged.connect(lambda _item: self.changed.emit())
         layout.addWidget(self.table)
