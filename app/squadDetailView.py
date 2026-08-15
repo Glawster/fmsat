@@ -21,12 +21,8 @@ from PySide6.QtWidgets import (
 )
 
 from fmsat.app.squadDetailModel import SquadDetailModel
-from fmsat.app.squadDetailTabs import (
-    SquadAnalysisTab,
-    SquadOverviewTab,
-    SquadPlayersTab,
-    SquadRolesTab,
-)
+from fmsat.app.squadDetailTabOverrides import SquadAnalysisTab, SquadRolesTab
+from fmsat.app.squadDetailTabs import SquadOverviewTab, SquadPlayersTab
 from fmsat.core.config import AttributeDefinition
 from fmsat.core.squadModel import SquadModel
 
@@ -106,12 +102,23 @@ class SquadDetailView(QWidget):
         header.addLayout(heading, 1)
         self.tacticPicker = QComboBox()
         self.tacticPicker.setObjectName("squadTacticPicker")
-        if self.model.availableTactics:
-            self.tacticPicker.addItems(self.model.availableTactics)
-            selected = self.tacticPicker.findText(self.model.tacticName)
-            self.tacticPicker.setCurrentIndex(max(0, selected))
-        else:
+        availableTactics = self._systemTactics()
+        tacticAssigned = self.model.tacticName not in {
+            "No tactic selected",
+            "No tactic assigned",
+        }
+        if not tacticAssigned:
             self.tacticPicker.addItem("No tactic assigned")
+        self.tacticPicker.addItems(availableTactics)
+        if tacticAssigned:
+            selected = self.tacticPicker.findText(self.model.tacticName)
+            if selected < 0:
+                self.tacticPicker.addItem(self.model.tacticName)
+                selected = self.tacticPicker.findText(self.model.tacticName)
+            self.tacticPicker.setCurrentIndex(selected)
+        elif availableTactics:
+            self.tacticPicker.setCurrentIndex(0)
+        else:
             self.tacticPicker.setEnabled(False)
         self.tacticPicker.currentTextChanged.connect(self._tacticChange)
         header.addWidget(self.tacticPicker)
@@ -121,9 +128,14 @@ class SquadDetailView(QWidget):
         assert self.model is not None
         covered = sum(not role.coverage.startswith("Uncovered") for role in self.model.roles)
         facts = QHBoxLayout()
+        tacticName = (
+            "No tactic assigned"
+            if self.model.tacticName in {"No tactic selected", "No tactic assigned"}
+            else self.model.tacticName
+        )
         for label, value in (
             ("PLAYERS", str(len(self.model.squad.players))),
-            ("TACTIC", self.model.tacticName),
+            ("TACTIC", tacticName),
             ("UNIQUE TACTIC ROLES", str(len(self.model.roles))),
             ("COVERED UNIQUE ROLES", f"{covered} of {len(self.model.roles)}"),
             ("STATUS", self.model.sourceStatus),
@@ -139,8 +151,8 @@ class SquadDetailView(QWidget):
         self.playersTab = SquadPlayersTab(self.model.squad, self.attributes)
         self.playersTab.changed.connect(lambda: self.saveButton.setEnabled(True))
         tabs.addTab(self.playersTab, "Players")
-        tabs.addTab(SquadRolesTab(self.model.roles), "Roles")
-        tabs.addTab(SquadAnalysisTab(self.model), "Analysis")
+        tabs.addTab(SquadRolesTab(self.model.roles, self.attributes), "Roles")
+        tabs.addTab(SquadAnalysisTab(self.model, self.attributes), "Analysis")
         return tabs
 
     ## actions
@@ -206,10 +218,43 @@ class SquadDetailView(QWidget):
         return progress
 
     def _tacticChange(self, tacticName: str) -> None:
-        if self.model is None or tacticName == self.model.tacticName:
+        if self.model is None or tacticName in {"", "No tactic assigned"}:
             return
-        if tacticName in self.model.availableTactics:
-            self.tacticSelected.emit(self.squadName, tacticName)
+        if tacticName == self.model.tacticName:
+            return
+        database = getattr(self.window(), "database", None)
+        if database is not None:
+            try:
+                database.tacticApplyToSquad(self.squadName, tacticName)
+                logger.action(
+                    "squad tactic selected squad=%r tactic=%r",
+                    self.squadName,
+                    tacticName,
+                )
+            except Exception as exc:  # UI boundary: keep database failures visible in logs.
+                logger.exception(
+                    "unable to assign tactic from squad workspace squad=%r tactic=%r",
+                    self.squadName,
+                    tacticName,
+                )
+                statusBar = getattr(self.window(), "statusBar", None)
+                if callable(statusBar):
+                    statusBar().showMessage(str(exc), 10000)
+                return
+        self.tacticSelected.emit(self.squadName, tacticName)
+
+    def _systemTactics(self) -> tuple[str, ...]:
+        """Return every stored tactic while retaining model-provided fallbacks."""
+
+        assert self.model is not None
+        names = set(self.model.availableTactics)
+        database = getattr(self.window(), "database", None)
+        if database is not None:
+            try:
+                names.update(database.tacticsList())
+            except Exception:
+                logger.exception("unable to list system tactics for squad workspace")
+        return tuple(sorted((name for name in names if name.strip()), key=str.casefold))
 
     ## utilities
 

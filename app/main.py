@@ -9,7 +9,7 @@ from fmsat.core.logUtils import getApplicationLogDir, getLogger
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from fmsat.app.window import MainWindow
-from fmsat.core.config import AttributeDefinition, Configuration, ConfigurationError
+from fmsat.core.config import Configuration, ConfigurationError
 from fmsat.core.dataPaths import PersistentDataError, persistentDataPrepare
 from fmsat.core.detection import KeywordScreenDetector, ScreenType
 from fmsat.core.images import ImagePreprocessor, PreprocessingOptions
@@ -64,19 +64,9 @@ def main() -> int:
         preprocessor = ImagePreprocessor(
             PreprocessingOptions.fromMapping(config.screens.get("preprocessing", {}))
         )
-        # FM26 displays squad-view headers as full names and truncates long labels
-        # with ellipses. The parser already accepts prefix matches, so derive its
-        # recognition token from the configured canonical name while retaining the
-        # configured compact abbreviation for the editable squad UI.
-        parserAttributes = tuple(
-            AttributeDefinition(
-                definition.name,
-                definition.name.split("_", 1)[0],
-                definition.order,
-            )
-            for definition in config.attributes
-        )
-        squadParser = SquadAttributesParser(ocr, config.regions, parserAttributes)
+        # Screenshot OCR matches Football Manager's canonical attribute headings.
+        # FMSAT abbreviations remain presentation-only labels in the Players tab.
+        squadParser = SquadAttributesParser(ocr, config.regions, config.attributes)
         tacticParser = TacticParser(ocr, config.regions)
         tacticVocabulary = TacticVocabulary()
         roleProfileParser = RoleProfileParser(ocr, tacticVocabulary, config.attributes)
