@@ -78,6 +78,50 @@ def testPlayersTableUsesConfiguredAttributeAbbreviationsAndWidths(qtbot) -> None
         is QHeaderView.ResizeMode.Fixed
         for column in range(4, 7)
     )
+    assert tab.table.horizontalHeaderItem(tab.table.columnCount() - 1).text() == "Known Traits"
+    assert (
+        tab.table.horizontalHeader().sectionResizeMode(tab.table.columnCount() - 1)
+        is QHeaderView.ResizeMode.Stretch
+    )
+    assert all(
+        tab.table.item(row, column).textAlignment() == Qt.AlignmentFlag.AlignCenter
+        for row in range(tab.table.rowCount())
+        for column in range(tab.table.columnCount())
+    )
+
+
+def testPlayersTableFiltersRowsByPositionUnitWithoutChangingModel(qtbot) -> None:  # type: ignore[no-untyped-def]
+    """Position filters should alter presentation without removing squad players."""
+
+    tab = SquadPlayersTab(_squadModel())
+    qtbot.addWidget(tab)
+
+    tab.positionFilters["defenders"].setChecked(False)
+
+    defenderRow = next(
+        row
+        for row in range(tab.table.rowCount())
+        if tab.table.item(row, 0).text() == "Alpha Player"
+    )
+    attackerRow = next(
+        row for row in range(tab.table.rowCount()) if tab.table.item(row, 0).text() == "Zulu Player"
+    )
+    assert tab.table.isRowHidden(defenderRow)
+    assert not tab.table.isRowHidden(attackerRow)
+    assert len(tab.modelBuild().players) == 2
+
+
+def testPlayersTableEditsKnownTraitsAsModelValues(qtbot) -> None:  # type: ignore[no-untyped-def]
+    """Known traits should be editable in the final player-model column."""
+
+    tab = SquadPlayersTab(_squadModel())
+    qtbot.addWidget(tab)
+    traitsColumn = tab.table.columnCount() - 1
+    tab.table.item(0, traitsColumn).setText("Places Shots, Curls Ball")
+
+    saved = tab.modelBuild()
+
+    assert saved.players[0].traits == ("Places Shots", "Curls Ball")
 
 
 def testRolesTablesAreSortableAndFillAvailableWidth(qtbot) -> None:  # type: ignore[no-untyped-def]
@@ -91,8 +135,15 @@ def testRolesTablesAreSortableAndFillAvailableWidth(qtbot) -> None:  # type: ign
         phases="In Possession",
         coverage="Uncovered",
         candidates=(
-            CandidateDisplay("Zulu", "ST (C)", "80.0", "weighted", True),
-            CandidateDisplay("Alpha", "AM (C)", "Unavailable", "missing", False),
+            CandidateDisplay("Zulu", "ST (C)", "80.0", "Channel Forward", "weighted", True),
+            CandidateDisplay(
+                "Alpha",
+                "AM (C)",
+                "Unavailable",
+                "Inside Forward",
+                "missing",
+                False,
+            ),
         ),
     )
     tab = SquadRolesTab((role,))
@@ -105,6 +156,7 @@ def testRolesTablesAreSortableAndFillAvailableWidth(qtbot) -> None:  # type: ign
         is QHeaderView.ResizeMode.Stretch
     )
     assert (
-        tab.candidateTable.horizontalHeader().sectionResizeMode(3)
+        tab.candidateTable.horizontalHeader().sectionResizeMode(4)
         is QHeaderView.ResizeMode.Stretch
     )
+    assert tab.candidateTable.horizontalHeaderItem(3).text() == "Best role"
