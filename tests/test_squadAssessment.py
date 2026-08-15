@@ -4,8 +4,16 @@ from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from fmsat.core.squadAssessment import GenericRoleFitCalculator
-from fmsat.core.squadAssessment import SquadAssessmentService
+from fmsat.core.squadAssessment import (
+    GenericRoleFit,
+    GenericRoleFitCalculator,
+    RequiredRoleAssessment,
+    RoleCandidate,
+    SquadAssessmentService,
+)
+from fmsat.core.config import Configuration
+from fmsat.core.parser import TacticVocabulary
+from fmsat.core.roleKnowledge import StoredRoleDefinition
 from fmsat.core.squadModel import SquadModel, SquadModelPlayer
 
 
@@ -56,6 +64,22 @@ def testGenericRoleFitIsUnavailableWithoutRoleWeights() -> None:
 
     assert result.score is None
     assert result.unavailableReason == "No assessment weights are defined"
+
+
+def testPackagedWeightsCoverEveryCanonicalTacticRole() -> None:
+    """Every vocabulary role should have a non-empty, explicit assessment policy."""
+
+    configuration = Configuration()
+    weights = configuration.roleAssessmentWeights()
+    vocabulary = TacticVocabulary()
+
+    assert set(weights) == set(vocabulary.roles)
+    assert all(roleWeights for roleWeights in weights.values())
+    assert all(
+        1 <= weight <= 5
+        for roleWeights in weights.values()
+        for weight in roleWeights.values()
+    )
 
 
 def testSquadAssessmentUsesUniqueRoleRatherThanPositionOrSlot() -> None:
@@ -120,3 +144,89 @@ def testSquadAssessmentUsesUniqueRoleRatherThanPositionOrSlot() -> None:
     assert assessment.roles[0].roleCode == "advancedWingBack"
     assert assessment.roles[0].positions == ("WBL", "WBR")
     assert assessment.roles[0].candidates[0].player.name == "Example Player"
+
+
+def testStoredRoleDefinitionAbbreviationOverridesVocabularyFallback() -> None:
+    """The confirmed role definition should control the abbreviation shown in views."""
+
+    player = _player(())
+    roleKnowledge = Mock()
+    roleKnowledge.weightsLoad.return_value = {}
+    vocabulary = Mock()
+    vocabulary.roles = {
+        "ballPlayingGoalkeeper": SimpleNamespace(
+            roleID=2,
+            displayName="Ball-Playing Goalkeeper",
+            abbreviations=("BPGK", "BGK"),
+            positions=("GK",),
+        )
+    }
+    service = SquadAssessmentService(Mock(), Mock(), Mock(), roleKnowledge, vocabulary)
+    definition = StoredRoleDefinition(
+        roleID=2,
+        roleCode="ballPlayingGoalkeeper",
+        displayName="Ball-Playing Goalkeeper",
+        abbreviations=("BGK",),
+        positions=("GK",),
+        duties=(),
+        behaviours=(),
+    )
+
+    assessed = service._roleAssess(
+        "ballPlayingGoalkeeper",
+        {"GK"},
+        {"In Possession"},
+        SquadModel(
+            "First Team",
+            (player,),
+            datetime(2026, 8, 15),
+            datetime(2026, 8, 15),
+            False,
+        ),
+        definition,
+    )
+
+    assert assessed.abbreviation == "BGK"
+
+
+def testWeakRoleRequiresTwoCandidatesAtOrAboveThreshold() -> None:
+    """A calculable but weak backup should still be reported as a depth weakness."""
+
+    first = _player(())
+    second = SquadModelPlayer(
+        name="Backup Player",
+        positions="ST (C)",
+        ca="",
+        pa="",
+        confidence=0.9,
+        attributes=(),
+    )
+    role = RequiredRoleAssessment(
+        "channelForward",
+        17,
+        "Channel Forward",
+        "CHF",
+        ("STC",),
+        ("In Possession",),
+        (
+            RoleCandidate(first, GenericRoleFit(72.0, None, ())),
+            RoleCandidate(second, GenericRoleFit(55.0, None, ())),
+        ),
+        first.name,
+        second.name,
+        False,
+    )
+    roleKnowledge = Mock()
+    roleKnowledge.assessmentSettings = {"weakRoleFitThreshold": 60.0}
+    service = SquadAssessmentService(
+        Mock(),
+        Mock(),
+        Mock(),
+        roleKnowledge,
+        Mock(),
+    )
+
+    findings = service._weakRolesFind((role,))
+
+    assert len(findings) == 1
+    assert "only candidate at 60.0 or above" in findings[0].explanation

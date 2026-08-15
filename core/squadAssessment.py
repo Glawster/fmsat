@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field, replace
 
 from fmsat.core.builder.tacticModelLoader import TacticModelLoader
 from fmsat.core.parser import TacticVocabulary
@@ -63,6 +64,34 @@ class RequiredRoleAssessment:
 
 
 @dataclass(frozen=True, slots=True)
+class PlayerRoleFit:
+    """One named role and score used in a player's role ordering."""
+
+    roleCode: str
+    displayName: str
+    score: float
+
+
+@dataclass(frozen=True, slots=True)
+class PlayerRoleAssessment:
+    """One player's best and alternative roles from the complete role catalogue."""
+
+    player: SquadModelPlayer
+    bestRole: PlayerRoleFit | None
+    alternativeRoles: tuple[PlayerRoleFit, ...]
+    unavailableReason: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class AnalysisFinding:
+    """One deterministic squad-level observation backed by Generic Role Fit."""
+
+    code: str
+    title: str
+    explanation: str
+
+
+@dataclass(frozen=True, slots=True)
 class SquadAssessment:
     """UI-independent assessment result for one squad and tactic context."""
 
@@ -71,6 +100,12 @@ class SquadAssessment:
     availableTactics: tuple[str, ...]
     requiredPositionCount: int
     roles: tuple[RequiredRoleAssessment, ...]
+    scoringIdentity: str = "Unavailable"
+    allRoles: tuple[RequiredRoleAssessment, ...] = field(default_factory=tuple)
+    players: tuple[PlayerRoleAssessment, ...] = field(default_factory=tuple)
+    weakRoles: tuple[AnalysisFinding, ...] = field(default_factory=tuple)
+    duplicatedRoles: tuple[AnalysisFinding, ...] = field(default_factory=tuple)
+    unusedStrengths: tuple[AnalysisFinding, ...] = field(default_factory=tuple)
 
 
 class GenericRoleFitCalculator:
@@ -141,6 +176,20 @@ class SquadAssessmentService:
         self.roleKnowledge = roleKnowledge
         self.vocabulary = vocabulary
         self.calculator = calculator or GenericRoleFitCalculator()
+        candidateSettings = getattr(roleKnowledge, "assessmentSettings", {})
+        settings = candidateSettings if isinstance(candidateSettings, Mapping) else {}
+        self.scoringIdentity = str(settings.get("identity", "Unavailable"))
+        self.weakRoleFitThreshold = float(settings.get("weakRoleFitThreshold", 60.0))
+        self.duplicationFitThreshold = float(
+            settings.get("duplicationFitThreshold", 60.0)
+        )
+        self.duplicationMinimumPlayers = int(
+            settings.get("duplicationMinimumPlayers", 3)
+        )
+        self.unusedStrengthThreshold = float(
+            settings.get("unusedStrengthThreshold", 60.0)
+        )
+        self.alternativeRoleLimit = int(settings.get("alternativeRoleLimit", 3))
 
     ## assessment
 
@@ -155,15 +204,37 @@ class SquadAssessmentService:
         if squad is None:
             return None
         availableTactics = self.database.squadAppliedTactics(squadName)
+        definitions = self._definitionsByCode()
+        allRoles = self._allRolesAssess(squad, definitions)
+        catalogueByCode = {role.roleCode: role for role in allRoles}
+        players = self._playersAssess(squad, allRoles)
         selectedTactic = tacticName if tacticName in availableTactics else None
         if selectedTactic is None and availableTactics:
             selectedTactic = availableTactics[0]
         if selectedTactic is None:
-            return SquadAssessment(squad, None, availableTactics, 0, ())
+            return SquadAssessment(
+                squad,
+                None,
+                availableTactics,
+                0,
+                (),
+                self.scoringIdentity,
+                allRoles,
+                players,
+            )
 
         loaded = self.tacticModels.tacticLoad(selectedTactic)
         if loaded.tactic is None:
-            return SquadAssessment(squad, selectedTactic, availableTactics, 0, ())
+            return SquadAssessment(
+                squad,
+                selectedTactic,
+                availableTactics,
+                0,
+                (),
+                self.scoringIdentity,
+                allRoles,
+                players,
+            )
 
         # A tactic can use the same canonical role in several positions and phases.
         # Retain the formation size separately while assessing each role identity once.
@@ -171,7 +242,6 @@ class SquadAssessmentService:
             len(loaded.tactic.inPossession.positions),
             len(loaded.tactic.outOfPossession.positions),
         )
-        definitions = self._definitionsByCode()
         required: dict[str, dict[str, set[str]]] = {}
         for phase, formation in (
             ("In Possession", loaded.tactic.inPossession),
@@ -191,12 +261,11 @@ class SquadAssessmentService:
                 context["phases"].add(phase)
 
         roles = tuple(
-            self._roleAssess(
-                roleCode,
-                required[roleCode]["positions"],
-                required[roleCode]["phases"],
-                squad,
-                definitions.get(roleCode),
+            replace(
+                catalogueByCode.get(roleCode)
+                or self._roleAssess(roleCode, set(), set(), squad, definitions.get(roleCode)),
+                positions=tuple(sorted(required[roleCode]["positions"])),
+                phases=tuple(sorted(required[roleCode]["phases"])),
             )
             for roleCode in sorted(
                 required,
@@ -209,6 +278,156 @@ class SquadAssessmentService:
             availableTactics,
             requiredPositionCount,
             roles,
+            self.scoringIdentity,
+            allRoles,
+            players,
+            self._weakRolesFind(roles),
+            self._duplicatedRolesFind(roles, players),
+            self._unusedStrengthsFind(roles, players),
+        )
+
+    ## analysis
+
+    def _duplicatedRolesFind(
+        self,
+        roles: tuple[RequiredRoleAssessment, ...],
+        players: tuple[PlayerRoleAssessment, ...],
+    ) -> tuple[AnalysisFinding, ...]:
+        """Identify several strong players whose best role is the same required role."""
+
+        requiredCodes = {role.roleCode for role in roles}
+        grouped: dict[str, list[PlayerRoleAssessment]] = {}
+        for player in players:
+            best = player.bestRole
+            if (
+                best is not None
+                and best.roleCode in requiredCodes
+                and best.score >= self.duplicationFitThreshold
+            ):
+                grouped.setdefault(best.roleCode, []).append(player)
+        findings = []
+        roleNames = {role.roleCode: role.displayName for role in roles}
+        for roleCode, candidates in sorted(grouped.items()):
+            if len(candidates) < self.duplicationMinimumPlayers:
+                continue
+            names = ", ".join(player.player.name for player in candidates)
+            findings.append(
+                AnalysisFinding(
+                    roleCode,
+                    roleNames[roleCode],
+                    f"{len(candidates)} players have this as their best role at "
+                    f"{self.duplicationFitThreshold:.1f} or above: {names}.",
+                )
+            )
+        return tuple(findings)
+
+    def _playersAssess(
+        self,
+        squad: SquadModel,
+        roles: tuple[RequiredRoleAssessment, ...],
+    ) -> tuple[PlayerRoleAssessment, ...]:
+        """Order every calculable catalogue role for every available player."""
+
+        results = []
+        for player in squad.players:
+            available = sorted(
+                (
+                    PlayerRoleFit(role.roleCode, role.displayName, candidate.genericRoleFit.score)
+                    for role in roles
+                    for candidate in role.candidates
+                    if candidate.player is player
+                    and candidate.genericRoleFit.score is not None
+                ),
+                key=lambda fit: (-fit.score, fit.displayName.casefold()),
+            )
+            results.append(
+                PlayerRoleAssessment(
+                    player,
+                    available[0] if available else None,
+                    tuple(available[1 : 1 + self.alternativeRoleLimit]),
+                    None if available else "No role has complete attributes and weights",
+                )
+            )
+        return tuple(sorted(results, key=lambda item: item.player.name.casefold()))
+
+    def _unusedStrengthsFind(
+        self,
+        roles: tuple[RequiredRoleAssessment, ...],
+        players: tuple[PlayerRoleAssessment, ...],
+    ) -> tuple[AnalysisFinding, ...]:
+        """Identify strong best roles which the selected tactic does not use."""
+
+        requiredCodes = {role.roleCode for role in roles}
+        return tuple(
+            AnalysisFinding(
+                player.player.name,
+                player.player.name,
+                f"Best role is {player.bestRole.displayName} at {player.bestRole.score:.1f}, "
+                "but that role is not used by the selected tactic.",
+            )
+            for player in players
+            if player.bestRole is not None
+            and player.bestRole.roleCode not in requiredCodes
+            and player.bestRole.score >= self.unusedStrengthThreshold
+        )
+
+    def _weakRolesFind(
+        self,
+        roles: tuple[RequiredRoleAssessment, ...],
+    ) -> tuple[AnalysisFinding, ...]:
+        """Identify unavailable, single-candidate or below-threshold role coverage."""
+
+        findings = []
+        for role in roles:
+            available = [
+                candidate
+                for candidate in role.candidates
+                if candidate.genericRoleFit.score is not None
+            ]
+            suitable = [
+                candidate
+                for candidate in available
+                if candidate.genericRoleFit.score >= self.weakRoleFitThreshold
+            ]
+            if not available:
+                explanation = "No player has complete evidence for a calculable score."
+            elif not suitable:
+                explanation = (
+                    f"Best fit is {available[0].player.name} at "
+                    f"{available[0].genericRoleFit.score:.1f}, below the "
+                    f"{self.weakRoleFitThreshold:.1f} threshold."
+                )
+            elif len(suitable) == 1:
+                explanation = (
+                    f"{suitable[0].player.name} is the only candidate at "
+                    f"{self.weakRoleFitThreshold:.1f} or above."
+                )
+            else:
+                continue
+            findings.append(AnalysisFinding(role.roleCode, role.displayName, explanation))
+        return tuple(findings)
+
+    ## catalogue
+
+    def _allRolesAssess(
+        self,
+        squad: SquadModel,
+        definitions: dict[str, StoredRoleDefinition],
+    ) -> tuple[RequiredRoleAssessment, ...]:
+        """Assess the complete canonical role catalogue independently of the tactic."""
+
+        return tuple(
+            self._roleAssess(
+                roleCode,
+                set(role.positions),
+                set(),
+                squad,
+                definitions.get(roleCode),
+            )
+            for roleCode, role in sorted(
+                self.vocabulary.roles.items(),
+                key=lambda item: self._roleSortKey(item[0], definitions.get(item[0])),
+            )
         )
 
     ## roles
@@ -253,9 +472,9 @@ class SquadAssessmentService:
             else storedDefinition.displayName if storedDefinition is not None else roleCode
         )
         abbreviations = (
-            vocabularyRole.abbreviations
-            if vocabularyRole is not None
-            else storedDefinition.abbreviations if storedDefinition is not None else ()
+            storedDefinition.abbreviations
+            if storedDefinition is not None and storedDefinition.abbreviations
+            else vocabularyRole.abbreviations if vocabularyRole is not None else ()
         )
         weights = self.roleKnowledge.weightsLoad(roleID) if roleID is not None else {}
         candidates = tuple(

@@ -100,3 +100,24 @@ Possession and Squad Attributes screens. Only the tactic and Squad Attributes ca
 processed by their relevant extraction workflows; Club Information is retained as a visual
 asset. FMSAT intentionally reads screenshots only. It neither reads Football Manager save
 files nor communicates with or modifies a running Football Manager process.
+
+## Squad assessment
+
+`SquadAssessmentService` is the Qt-independent boundary for Generic Role Fit and squad
+depth. It receives the editable squad model, selected football object-model tactic,
+canonical role vocabulary and role assessment policy. The UI consumes immutable display
+models and does not calculate scores or query SQLAlchemy.
+
+`config/roleAssessment.yaml` identifies the assessment policy and defines explicit 1–5
+attribute weights for every canonical FM26 tactic role. A confirmed user role-requirement
+file overrides the packaged policy for that stable role identity. Missing weights or any
+missing weighted player attribute makes that player-role result `Unavailable`; the scorer
+does not substitute zero or renormalize incomplete evidence.
+
+Generic Role Fit uses a 0–100 scale. Each contribution retains the player value, configured
+weight, earned weighted points and maximum weighted points, allowing the displayed score to
+be reproduced exactly. Deterministic score and name ordering produces required-role best and
+backup candidates, player best and alternative roles, and the first Analysis-tab findings.
+Weak-role, duplication and unused-strength thresholds belong to the same versioned policy.
+These observations are not Tactical Fit, Overall Suitability, Best XI selection or
+recruitment recommendations; those remain separate later calculation stages.

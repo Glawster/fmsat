@@ -52,7 +52,7 @@ Remaining Phase 3 work is non-blocking for the squad-viewer start:
 
 Current development phase.
 
-First increment:
+Delivered squad-viewer foundation:
 
 - a squad viewer using the tactic viewer's visual language;
 - explicit squad, tactic revision and knowledge-version context;
@@ -61,12 +61,21 @@ First increment:
 - reproducible score explanations and unavailable states; and
 - initial starter, backup and uncovered-role assessment.
 
+Current Generic Role Fit analysis increment:
+
+- complete, versioned weights for every canonical tactic role;
+- consistent all-player/all-role calculation;
+- required-role depth and uncovered roles;
+- player best and alternative roles;
+- weak positions, concentrated role duplication and unused squad strengths;
+- transparent weighted contribution traces; and
+- explicit unavailable states for incomplete evidence.
+
 Later increments:
 
 - Tactical Fit and Position Familiarity;
 - Overall Suitability;
 - candidate comparison;
-- alternative-role ranking;
 - Role Health;
 - squad depth and Best XI; and
 - recruitment analysis built on confirmed assessment results.

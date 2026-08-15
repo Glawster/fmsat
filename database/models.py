@@ -536,6 +536,9 @@ class ObjectModelPlayer(Base):
     attributes: Mapped[list[ObjectModelPlayerAttribute]] = relationship(
         back_populates="player", cascade="all, delete-orphan"
     )
+    traits: Mapped[list[ObjectModelPlayerTrait]] = relationship(
+        back_populates="player", cascade="all, delete-orphan"
+    )
 
 
 class ObjectModelPlayerAttribute(Base):
@@ -554,3 +557,20 @@ class ObjectModelPlayerAttribute(Base):
         "validation_state", String(32), default="extracted", nullable=False
     )
     player: Mapped[ObjectModelPlayer] = relationship(back_populates="attributes")
+
+
+class ObjectModelPlayerTrait(Base):
+    """One known trait retained in the editable player model."""
+
+    __tablename__ = "object_model_player_traits"
+    __table_args__ = (UniqueConstraint("player_id", "trait_name"),)
+
+    id: Mapped[int] = mappedColumn(primary_key=True)
+    playerId: Mapped[int] = mappedColumn(
+        "player_id", ForeignKey("object_model_players.id"), nullable=False, index=True
+    )
+    traitName: Mapped[str] = mappedColumn("trait_name", String(255), nullable=False)
+    validationState: Mapped[str] = mappedColumn(
+        "validation_state", String(32), default="confirmed", nullable=False
+    )
+    player: Mapped[ObjectModelPlayer] = relationship(back_populates="traits")

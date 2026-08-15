@@ -51,6 +51,19 @@ built.
 9. Allow corrections to squad object-model values from the Players view. Saving
    a correction makes the edited object model authoritative and marks its
    retained screenshot evidence as superseded without deleting that evidence.
+10. Display every configured attribute using its configured abbreviation and a
+    consistent compact column width, followed by the player's left-aligned,
+    comma-separated known traits. Attribute headers expose their full names as
+    hover text. Known traits are edited through a searchable, categorized and
+    collapsible checklist using the canonical player-trait vocabulary rather
+    than free-text entry. A selected-only view makes reviewing a player's small
+    active trait set straightforward, while frequently used traits appear first
+    as browse shortcuts without implying that they are selected.
+11. Allow the Players table to be filtered by goalkeeper, defender, defensive
+    midfielder, midfielder, attacking midfielder and attacker units. Filtering
+    changes presentation only and must not remove players from the squad model.
+12. Hide goalkeeper-specific attribute columns in mixed or outfield views and
+    expose them when Goalkeepers is the only selected position filter.
 
 ## Initial delivery increment
 
@@ -71,6 +84,25 @@ built.
 Tactical Fit, Position Familiarity, Overall Suitability, candidate comparison,
 alternative roles and Role Health remain part of this requirement but follow
 the initial increment.
+
+## Generic analysis increment
+
+The next increment after the merged squad-viewer foundation must:
+
+1. define explicit, versioned Generic Role Fit weights for every canonical
+   tactic role;
+2. calculate every available player against the complete role catalogue;
+3. show best candidate, backup candidate and uncovered state for required roles;
+4. show each player's best role and ordered alternative roles using the same
+   scoring context;
+5. identify weak required roles, concentrated role duplication and strong best
+   roles unused by the selected tactic through documented thresholds;
+6. retain and display the complete weighted-attribute calculation trace; and
+7. keep every affected result `Unavailable` when weights or required player
+   attributes are missing.
+
+Present these results in the existing Analysis tab. Best XI, Tactical Fit,
+Overall Suitability and recruitment recommendations remain later increments.
 
 ## Role Cards
 
@@ -109,6 +141,8 @@ Role Workspace.
 5. Make ranking deterministic when candidates have equal scores.
 6. Clearly identify unavailable scores caused by missing attributes or tactical
    data rather than treating them as zero.
+7. Show each player's best calculable role within the selected tactic alongside
+   every role-candidate row; show `Unavailable` when no role can be calculated.
 
 ## Suitability model
 
