@@ -1,6 +1,7 @@
 """Regression tests for the requirement 007 squad presentation refinements."""
 
 from datetime import datetime
+from types import SimpleNamespace
 
 from PySide6.QtWidgets import QMainWindow
 
@@ -69,6 +70,80 @@ def testAnalysisDepthShowsEveryRequiredTacticalSlot(qtbot) -> None:  # type: ign
     assert tab.depthTable.rowCount() == 11
     assert tab.depthTable.item(0, 0).text().startswith("AWB · WBL")
     assert tab.depthTable.item(1, 0).text().startswith("AWB · WBR")
+
+
+def testSquadViewBuildsExactlyElevenDepthRowsFromLinkedTacticSlots(qtbot) -> None:  # type: ignore[no-untyped-def]
+    """Phase role changes are combined by slot rather than counted as extra players."""
+
+    def position(slotId: str, roleCode: str, canonicalPosition: str) -> SimpleNamespace:
+        return SimpleNamespace(
+            slotId=slotId,
+            canonicalRole=roleCode,
+            canonicalPosition=canonicalPosition,
+            identity=SimpleNamespace(value=canonicalPosition),
+            roleProfile=SimpleNamespace(name=roleCode),
+        )
+
+    roleDefinitions = {
+        "AWB": _role("AWB", "AWB", "WBL, WBR"),
+        "CB": _role("CB", "CB", "DCL, DCR"),
+        "DLP": _role("DLP", "DLP", "DMCL"),
+        "DM": _role("DM", "DM", "DMCR"),
+        "IF": _role("IF", "IF", "AML, AMR"),
+        "CHF": _role("CHF", "CHF", "STC"),
+        "SK": _role("SK", "SK", "GK"),
+        "BGK": _role("BGK", "BGK", "GK"),
+    }
+    inRoles = (
+        ("01", "SK", "GK"),
+        ("02", "CB", "DCL"),
+        ("03", "CB", "DCR"),
+        ("04", "AWB", "WBL"),
+        ("05", "AWB", "WBR"),
+        ("06", "DLP", "DMCL"),
+        ("07", "DM", "DMCR"),
+        ("08", "IF", "AML"),
+        ("09", "IF", "AMR"),
+        ("10", "CHF", "STC"),
+        ("11", "DLP", "AMC"),
+    )
+    outRoles = tuple(
+        (slotId, "BGK" if slotId == "01" else roleCode, canonicalPosition)
+        for slotId, roleCode, canonicalPosition in inRoles
+    )
+    tactic = SimpleNamespace(
+        inPossession=SimpleNamespace(
+            positions=tuple(position(*values) for values in inRoles)
+        ),
+        outOfPossession=SimpleNamespace(
+            positions=tuple(position(*values) for values in outRoles)
+        ),
+    )
+
+    class FakeLoader:
+        def tacticLoad(self, _tacticName: str) -> SimpleNamespace:
+            return SimpleNamespace(tactic=tactic)
+
+    window = QMainWindow()
+    window.tacticModelLoader = FakeLoader()  # type: ignore[attr-defined]
+    view = SquadDetailView(window)
+    window.setCentralWidget(view)
+    qtbot.addWidget(window)
+    view.model = SquadDetailModel(
+        squad=_squad(),
+        tacticName="High Press",
+        availableTactics=("High Press",),
+        sourceStatus="Generated from screenshot evidence",
+        updated="15 Aug 2026 22:00",
+        requiredPositionCount=11,
+        roles=tuple(roleDefinitions.values()),
+    )
+
+    rows = view._requiredRoleRows()
+
+    assert len(rows) == 11
+    assert sum(label.startswith("AWB ·") for label, _coverage in rows) == 2
+    assert rows[0][0].startswith("IP SK / OOP BGK · GK")
 
 
 def testRoleCandidateKeepsSelectedFitSeparateFromBestRoleAndUsesAbbreviations(qtbot) -> None:  # type: ignore[no-untyped-def]
