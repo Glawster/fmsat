@@ -152,7 +152,14 @@ class SquadDetailView(QWidget):
         self.playersTab.changed.connect(lambda: self.saveButton.setEnabled(True))
         tabs.addTab(self.playersTab, "Players")
         tabs.addTab(SquadRolesTab(self.model.roles, self.attributes), "Roles")
-        tabs.addTab(SquadAnalysisTab(self.model, self.attributes), "Analysis")
+        tabs.addTab(
+            SquadAnalysisTab(
+                self.model,
+                self.attributes,
+                self._requiredRoleRows(),
+            ),
+            "Analysis",
+        )
         return tabs
 
     ## actions
@@ -231,6 +238,9 @@ class SquadDetailView(QWidget):
                     self.squadName,
                     tacticName,
                 )
+                dataChanged = getattr(self.window(), "dataChanged", None)
+                if dataChanged is not None and hasattr(dataChanged, "emit"):
+                    dataChanged.emit()
             except Exception as exc:  # UI boundary: keep database failures visible in logs.
                 logger.exception(
                     "unable to assign tactic from squad workspace squad=%r tactic=%r",
@@ -255,6 +265,104 @@ class SquadDetailView(QWidget):
             except Exception:
                 logger.exception("unable to list system tactics for squad workspace")
         return tuple(sorted((name for name in names if name.strip()), key=str.casefold))
+
+    def _requiredRoleRows(self) -> tuple[tuple[str, str], ...]:
+        """Build one depth row per player slot, combining the two tactical phases."""
+
+        assert self.model is not None
+        if self.model.tacticName in {"No tactic selected", "No tactic assigned"}:
+            return ()
+        loader = getattr(self.window(), "tacticModelLoader", None)
+        if loader is None:
+            return ()
+        try:
+            loaded = loader.tacticLoad(self.model.tacticName)
+        except Exception:
+            logger.exception(
+                "unable to load tactic slots for squad analysis tactic=%r",
+                self.model.tacticName,
+            )
+            return ()
+        tactic = getattr(loaded, "tactic", None)
+        if tactic is None:
+            return ()
+
+        inPositions = tuple(tactic.inPossession.positions)
+        outPositions = tuple(tactic.outOfPossession.positions)
+        inIds = {position.slotId for position in inPositions if position.slotId}
+        outIds = {position.slotId for position in outPositions if position.slotId}
+        sharedIds = inIds.intersection(outIds)
+        expectedShared = min(len(inPositions), len(outPositions))
+        useSlotIds = expectedShared > 0 and len(sharedIds) == expectedShared
+
+        roleByCode = {role.roleCode: role for role in self.model.roles}
+        slots: dict[str, dict[str, object]] = {}
+        order: list[str] = []
+        for phase, positions in (
+            ("IP", inPositions),
+            ("OOP", outPositions),
+        ):
+            for index, position in enumerate(positions):
+                key = (
+                    str(position.slotId)
+                    if useSlotIds and position.slotId
+                    else f"ordinal:{index}"
+                )
+                if key not in slots:
+                    slots[key] = {"position": "", "roles": []}
+                    order.append(key)
+                positionName = position.canonicalPosition or position.identity.value
+                if not slots[key]["position"]:
+                    slots[key]["position"] = positionName
+                roleCode = position.canonicalRole
+                role = roleByCode.get(roleCode) if roleCode else None
+                roleLabel = (
+                    role.abbreviation
+                    if role is not None
+                    else roleCode
+                    or position.roleProfile.name
+                    or "Unavailable"
+                )
+                coverage = (
+                    role.coverage
+                    if role is not None
+                    else "Unavailable — role assessment is unresolved"
+                )
+                roles = slots[key]["roles"]
+                if isinstance(roles, list):
+                    roles.append((phase, roleLabel, coverage))
+
+        rows: list[tuple[str, str]] = []
+        for key in order:
+            entry = slots[key]
+            roleFacts = entry["roles"] if isinstance(entry["roles"], list) else []
+            uniqueLabels = list(dict.fromkeys(fact[1] for fact in roleFacts))
+            if len(uniqueLabels) == 1:
+                roleText = uniqueLabels[0]
+            else:
+                roleText = " / ".join(
+                    f"{phase} {label}" for phase, label, _coverage in roleFacts
+                )
+            positionText = str(entry["position"])
+            label = f"{roleText} · {positionText}" if positionText else roleText
+            uniqueCoverage = list(dict.fromkeys(fact[2] for fact in roleFacts))
+            if len(uniqueCoverage) == 1:
+                coverageText = uniqueCoverage[0]
+            else:
+                coverageText = " | ".join(
+                    f"{phase} {roleLabel}: {coverage}"
+                    for phase, roleLabel, coverage in roleFacts
+                )
+            rows.append((label, coverageText))
+
+        if self.model.requiredPositionCount and len(rows) != self.model.requiredPositionCount:
+            logger.warning(
+                "squad analysis slot count mismatch tactic=%r expected=%d actual=%d",
+                self.model.tacticName,
+                self.model.requiredPositionCount,
+                len(rows),
+            )
+        return tuple(rows)
 
     ## utilities
 

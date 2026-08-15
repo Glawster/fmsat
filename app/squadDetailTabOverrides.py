@@ -82,33 +82,39 @@ class SquadAnalysisTab(BaseSquadAnalysisTab):
         self,
         model: SquadDetailModel,
         attributes: tuple[AttributeDefinition, ...] = (),
+        requiredRows: tuple[tuple[str, str], ...] = (),
         parent=None,
     ) -> None:
         self.attributeAbbreviations = {
             attribute.name: attribute.abbreviation for attribute in attributes
         }
         super().__init__(model, parent)
-        self._depthExpand(model)
+        self._depthExpand(model, requiredRows)
         self._compactTable(self.playerTable)
         self._compactTable(self.findingsTable)
         self._breakdownsAbbreviate(self.playerTable, 3)
         self._tooltipsApply(self.findingsTable, 2)
         QTimer.singleShot(0, self._rowsCompact)
 
-    def _depthExpand(self, model: SquadDetailModel) -> None:
-        """Present one depth row per tactical position rather than per unique role."""
+    def _depthExpand(
+        self,
+        model: SquadDetailModel,
+        requiredRows: tuple[tuple[str, str], ...],
+    ) -> None:
+        """Present one depth row per tactical player slot, retaining repeated roles."""
 
-        rows: list[tuple[str, str]] = []
-        for role in model.roles:
-            positions = tuple(
-                value.strip() for value in role.positions.split(",") if value.strip()
-            ) or ("",)
-            for position in positions:
-                label = role.abbreviation
-                if position:
-                    label += f" · {position}"
-                label += f" — {role.displayName}"
-                rows.append((label, role.coverage))
+        rows = list(requiredRows)
+        if not rows:
+            for role in model.roles:
+                positions = tuple(
+                    value.strip() for value in role.positions.split(",") if value.strip()
+                ) or ("",)
+                for position in positions:
+                    label = role.abbreviation
+                    if position:
+                        label += f" · {position}"
+                    label += f" — {role.displayName}"
+                    rows.append((label, role.coverage))
 
         self.depthTable.setRowCount(len(rows))
         for row, (label, coverage) in enumerate(rows):
