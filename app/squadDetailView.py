@@ -68,6 +68,15 @@ class SquadDetailView(QWidget):
         self.rootLayout.addWidget(self._tabsCreate(), 1)
         footer = QHBoxLayout()
         footer.addStretch()
+        if self.model.squad.regenerationRequired:
+            self.regenerateButton = QPushButton("Regenerate Squad Model")
+            self.regenerateButton.setToolTip(
+                "Rebuild the squad model from the newer saved squad screenshots."
+            )
+            self.regenerateButton.clicked.connect(self._regenerateRequest)
+            footer.addWidget(self.regenerateButton)
+        else:
+            self.regenerateButton = None
         self.saveButton = QPushButton("Save Squad Model")
         self.saveButton.setEnabled(False)
         self.saveButton.clicked.connect(self._saveRequest)
@@ -133,6 +142,15 @@ class SquadDetailView(QWidget):
     def _saveRequest(self) -> None:
         model: SquadModel = self.playersTab.modelBuild()
         self.modelSaveRequested.emit(model)
+
+    def _regenerateRequest(self) -> None:
+        """Request regeneration using the stale model as an explicit command marker."""
+
+        if self.model is None or not self.model.squad.regenerationRequired:
+            return
+        if self.regenerateButton is not None:
+            self.regenerateButton.setEnabled(False)
+        self.modelSaveRequested.emit(self.model.squad)
 
     def _tacticChange(self, tacticName: str) -> None:
         if self.model is None or tacticName == self.model.tacticName:
