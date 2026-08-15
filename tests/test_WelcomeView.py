@@ -686,7 +686,10 @@ def testIncompleteRegenerationRetainsExistingObjectModel(qtbot) -> None:  # type
 
     window.tacticProcess("High Press", openDetail=False, forceRebuild=True)
 
-    window.tacticModelLoader.tacticLoad.assert_called_once_with("High Press")
+    assert window.tacticModelLoader.tacticLoad.call_args_list == [
+        (("High Press",), {}),
+        (("High Press",), {"preferStructured": True}),
+    ]
     assert changed.count() == 0
     assert "existing model retained" in window.statusBar().currentMessage()
     assert window.tacticProcessStatuses["high press"] == "Regeneration failed"
