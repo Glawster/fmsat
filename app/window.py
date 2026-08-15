@@ -28,7 +28,6 @@ from PySide6.QtWidgets import (
     QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
-    QToolBar,
     QVBoxLayout,
     QWidget,
 )
@@ -146,7 +145,6 @@ class MainWindow(QMainWindow):
         self.resize(1500, 800)
         self._actionsCreate()
         self._menuCreate()
-        self._toolbarCreate()
         self._contentCreate()
         self.dataChanged.connect(self.welcomeView.refresh)
         self.statusBar().messageChanged.connect(self._statusRecord)
@@ -1191,6 +1189,8 @@ class MainWindow(QMainWindow):
                 self.screenshotStore,
                 self,
                 tacticApply=self.tacticApplyToSquad,
+                tacticShow=self.tacticShow,
+                squadShow=self.squadShow,
             )
             self.managementWindow.destroyed.connect(self._managementForget)
             self.managementWindow.dataChanged.connect(self.dataChanged.emit)
@@ -1891,13 +1891,3 @@ class MainWindow(QMainWindow):
                 )
             )
         return players
-
-    def _toolbarCreate(self) -> None:
-        toolbar = QToolBar("Main", self)
-        toolbar.setMovable(False)
-        for action in (
-            self.importTacticAction,
-            self.importSquadAction,
-        ):
-            toolbar.addAction(action)
-        self.addToolBar(toolbar)
