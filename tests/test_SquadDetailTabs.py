@@ -86,7 +86,12 @@ def testPlayersTableUsesConfiguredAttributeAbbreviationsAndWidths(qtbot) -> None
     assert all(
         tab.table.item(row, column).textAlignment() == Qt.AlignmentFlag.AlignCenter
         for row in range(tab.table.rowCount())
-        for column in range(tab.table.columnCount())
+        for column in range(tab.table.columnCount() - 1)
+    )
+    assert all(
+        tab.table.item(row, tab.table.columnCount() - 1).textAlignment()
+        == (Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        for row in range(tab.table.rowCount())
     )
 
 
