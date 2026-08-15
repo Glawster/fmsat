@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QHeaderView, QTableWidget
 
@@ -69,8 +71,7 @@ class SquadRolesTab(BaseSquadRolesTab):
 
     def _attributeTextAbbreviate(self, text: str) -> str:
         for name, abbreviation in self.attributeAbbreviations.items():
-            text = text.replace(f"{name}:", f"{abbreviation}:")
-            text = text.replace(f"{name},", f"{abbreviation},")
+            text = re.sub(rf"\b{re.escape(name)}\b", abbreviation, text)
         return text
 
 
@@ -141,8 +142,7 @@ class SquadAnalysisTab(BaseSquadAnalysisTab):
             original = item.text()
             item.setToolTip(original)
             for name, abbreviation in self.attributeAbbreviations.items():
-                original = original.replace(f"{name}:", f"{abbreviation}:")
-                original = original.replace(f"{name},", f"{abbreviation},")
+                original = re.sub(rf"\b{re.escape(name)}\b", abbreviation, original)
             item.setText(original)
 
     @staticmethod
