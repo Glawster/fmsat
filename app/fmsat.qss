@@ -43,17 +43,23 @@ QTreeWidget#playerTraitList { background: #101f2e; alternate-background-color: #
 QTreeWidget#playerTraitList::item { padding: 7px; }
 QTreeWidget#playerTraitList::item:hover { background: #132536; }
 QTreeWidget#playerTraitList::item:selected { background: #163b38; color: #75e0bf; }
-QTableWidget#squadPlayersTable, QTableWidget#roleAssessmentTable, QTableWidget#roleCandidateTable {
+QTableWidget#squadPlayersTable, QTableWidget#roleAssessmentTable, QTableWidget#roleCandidateTable,
+QTableWidget#roleDepthAnalysisTable, QTableWidget#playerRoleAnalysisTable, QTableWidget#squadFindingsTable {
     background: #101f2e; alternate-background-color: #0c1926; color: #f5f8fb;
     border: 1px solid #30465a; gridline-color: #263b4e; selection-background-color: #163b38;
     selection-color: #75e0bf;
 }
 QTableWidget#squadPlayersTable QWidget#qt_scrollarea_viewport,
 QTableWidget#roleAssessmentTable QWidget#qt_scrollarea_viewport,
-QTableWidget#roleCandidateTable QWidget#qt_scrollarea_viewport { background: #101f2e; }
+QTableWidget#roleCandidateTable QWidget#qt_scrollarea_viewport,
+QTableWidget#roleDepthAnalysisTable QWidget#qt_scrollarea_viewport,
+QTableWidget#playerRoleAnalysisTable QWidget#qt_scrollarea_viewport,
+QTableWidget#squadFindingsTable QWidget#qt_scrollarea_viewport { background: #101f2e; }
 QTableCornerButton::section { background: #132536; border: 0; border-right: 1px solid #30465a; border-bottom: 1px solid #30465a; }
-QTableWidget#squadPlayersTable::item, QTableWidget#roleAssessmentTable::item, QTableWidget#roleCandidateTable::item { padding: 5px; }
-QTableWidget#squadPlayersTable::item:selected, QTableWidget#roleAssessmentTable::item:selected, QTableWidget#roleCandidateTable::item:selected {
+QTableWidget#squadPlayersTable::item, QTableWidget#roleAssessmentTable::item, QTableWidget#roleCandidateTable::item,
+QTableWidget#roleDepthAnalysisTable::item, QTableWidget#playerRoleAnalysisTable::item, QTableWidget#squadFindingsTable::item { padding: 5px; }
+QTableWidget#squadPlayersTable::item:selected, QTableWidget#roleAssessmentTable::item:selected, QTableWidget#roleCandidateTable::item:selected,
+QTableWidget#roleDepthAnalysisTable::item:selected, QTableWidget#playerRoleAnalysisTable::item:selected, QTableWidget#squadFindingsTable::item:selected {
     background: #163b38; color: #75e0bf;
 }
 QHeaderView { background: #101f2e; }
