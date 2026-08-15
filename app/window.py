@@ -1367,7 +1367,7 @@ class MainWindow(QMainWindow):
         self.tacticDetailView.importToModelRequested.connect(self.tacticModelImport)
         self.tacticDetailView.modelEditRequested.connect(self._tacticModelEdit)
         self.contentStack.addWidget(self.tacticDetailView)
-        self.squadDetailView = SquadDetailView(self)
+        self.squadDetailView = SquadDetailView(self, attributes=self.attributes)
         self.squadDetailView.backRequested.connect(self._tacticDetailBack)
         self.squadDetailView.modelSaveRequested.connect(self._squadModelSave)
         self.squadDetailView.tacticSelected.connect(self.squadShow)
