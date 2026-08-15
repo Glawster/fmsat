@@ -2,18 +2,24 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+import re
+
+from PySide6.QtCore import QSignalBlocker, Qt, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QFrame,
+    QCheckBox,
     QHBoxLayout,
     QLabel,
     QHeaderView,
+    QMenu,
     QSplitter,
     QTableWidget,
     QTableWidgetItem,
+    QToolButton,
     QVBoxLayout,
     QWidget,
+    QWidgetAction,
 )
 
 from fmsat.app.squadDetailModel import RoleDisplay, SquadDetailModel
@@ -125,19 +131,24 @@ class SquadPlayersTab(QWidget):
             attribute.name: attribute.abbreviation for attribute in attributes
         }
         layout = QVBoxLayout(self)
+        controls = QHBoxLayout()
         hint = QLabel(
             "Edit model values here. Saving preserves the screenshots as history and marks "
             "their evidence as superseded by this model. Attribute values must be 1–20."
         )
         hint.setObjectName("mutedText")
         hint.setWordWrap(True)
-        layout.addWidget(hint)
+        controls.addWidget(hint, 1)
+        self.filterButton = self._filterCreate()
+        controls.addWidget(self.filterButton)
+        layout.addLayout(controls)
         headers = (
             "Name",
             "Positions",
             "CA",
             "PA",
             *(abbreviations.get(name, name) for name in self.attributeNames),
+            "Known Traits",
         )
         self.table = QTableWidget(len(model.players), len(headers), self)
         self.table.setObjectName("squadPlayersTable")
@@ -165,6 +176,12 @@ class SquadPlayersTab(QWidget):
                         value if value is not None else -1,
                     ),
                 )
+            traitsColumn = len(headers) - 1
+            self.table.setItem(row, traitsColumn, QTableWidgetItem(", ".join(player.traits)))
+            for column in range(len(headers)):
+                item = self.table.item(row, column)
+                if item is not None:
+                    item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         # Attribute abbreviations make a compact, regular comparison grid possible.
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
@@ -172,6 +189,9 @@ class SquadPlayersTab(QWidget):
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
         for column in range(4, len(headers)):
+            if column == len(headers) - 1:
+                header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
+                continue
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.Fixed)
             self.table.setColumnWidth(column, 52)
         self.table.setSortingEnabled(True)
@@ -195,6 +215,13 @@ class SquadPlayersTab(QWidget):
                     if not 1 <= value <= 20:
                         raise ValueError(f"{attribute} for row {row + 1} must be between 1 and 20")
                 attributes.append((attribute, value))
+            traits = tuple(
+                dict.fromkeys(
+                    value.strip()
+                    for value in self._text(row, self.table.columnCount() - 1).split(",")
+                    if value.strip()
+                )
+            )
             name = self._text(row, 0)
             if not name:
                 raise ValueError(f"Player row {row + 1} requires a name")
@@ -208,6 +235,7 @@ class SquadPlayersTab(QWidget):
                     sourceImportSessionId=original.sourceImportSessionId,
                     validationState="corrected",
                     attributes=tuple(attributes),
+                    traits=traits,
                 )
             )
         return SquadModel(
@@ -222,6 +250,87 @@ class SquadPlayersTab(QWidget):
     def _text(self, row: int, column: int) -> str:
         item = self.table.item(row, column)
         return item.text().strip() if item is not None else ""
+
+    ## filtering
+
+    def _filterCreate(self) -> QToolButton:
+        """Build the persistent position-unit checklist used to filter player rows."""
+
+        button = QToolButton(self)
+        button.setObjectName("playerFilterButton")
+        button.setText("Filter · All Positions")
+        button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        menu = QMenu(button)
+        menu.setObjectName("playerFilterMenu")
+        button.setMenu(menu)
+        self.positionFilters: dict[str, QCheckBox] = {}
+        for key, label in (
+            ("all", "All Positions"),
+            ("goalkeepers", "Goalkeepers"),
+            ("defenders", "Defenders"),
+            ("defensiveMidfielders", "Def. Midfielders"),
+            ("midfielders", "Midfielders"),
+            ("attackingMidfielders", "Att. Midfielders"),
+            ("attackers", "Attackers"),
+        ):
+            checkbox = QCheckBox(label, menu)
+            checkbox.setChecked(True)
+            action = QWidgetAction(menu)
+            action.setDefaultWidget(checkbox)
+            menu.addAction(action)
+            self.positionFilters[key] = checkbox
+        self.positionFilters["all"].toggled.connect(self._allPositionsToggle)
+        for key, checkbox in self.positionFilters.items():
+            if key != "all":
+                checkbox.toggled.connect(self._positionFilterApply)
+        return button
+
+    def _allPositionsToggle(self, checked: bool) -> None:
+        for key, checkbox in self.positionFilters.items():
+            if key == "all":
+                continue
+            blocker = QSignalBlocker(checkbox)
+            checkbox.setChecked(checked)
+            del blocker
+        self._positionFilterApply()
+
+    def _positionFilterApply(self) -> None:
+        selected = {
+            key
+            for key, checkbox in self.positionFilters.items()
+            if key != "all" and checkbox.isChecked()
+        }
+        allSelected = len(selected) == len(self.positionFilters) - 1
+        allFilter = self.positionFilters["all"]
+        blocker = QSignalBlocker(allFilter)
+        allFilter.setChecked(allSelected)
+        del blocker
+        self.filterButton.setText(
+            "Filter · All Positions" if allSelected else f"Filter · {len(selected)} units"
+        )
+        for row in range(self.table.rowCount()):
+            groups = self._positionGroups(self._text(row, 1))
+            self.table.setRowHidden(row, not bool(groups.intersection(selected)))
+
+    @staticmethod
+    def _positionGroups(positions: str) -> set[str]:
+        """Map FM's compact natural-position text into selectable tactical units."""
+
+        compact = re.sub(r"\s+", "", positions.upper())
+        groups: set[str] = set()
+        if "GK" in compact:
+            groups.add("goalkeepers")
+        if "WB" in compact or re.search(r"(?:^|[,/])D(?:\(|[LCR]|$)", compact):
+            groups.add("defenders")
+        if "DM" in compact:
+            groups.add("defensiveMidfielders")
+        if re.search(r"(?:^|[,/])M(?:\(|[LCR]|$)", compact):
+            groups.add("midfielders")
+        if "AM" in compact:
+            groups.add("attackingMidfielders")
+        if "ST" in compact:
+            groups.add("attackers")
+        return groups
 
 
 class SquadRolesTab(QWidget):
@@ -262,10 +371,16 @@ class SquadRolesTab(QWidget):
         roleHeader.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         roleHeader.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         self.roleTable.setSortingEnabled(True)
-        self.candidateTable = QTableWidget(0, 4, splitter)
+        self.candidateTable = QTableWidget(0, 5, splitter)
         self.candidateTable.setObjectName("roleCandidateTable")
         self.candidateTable.setHorizontalHeaderLabels(
-            ("Player", "Natural positions", "Generic Role Fit", "Calculation breakdown")
+            (
+                "Player",
+                "Natural positions",
+                "Generic Role Fit",
+                "Best role",
+                "Calculation breakdown",
+            )
         )
         self.candidateTable.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.candidateTable.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -274,7 +389,8 @@ class SquadRolesTab(QWidget):
         candidateHeader.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         candidateHeader.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         candidateHeader.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-        candidateHeader.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        candidateHeader.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        candidateHeader.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
         splitter.addWidget(self.roleTable)
         splitter.addWidget(self.candidateTable)
         splitter.setStretchFactor(0, 1)
@@ -303,7 +419,13 @@ class SquadRolesTab(QWidget):
         self.candidateTable.setRowCount(len(role.candidates))
         for row, candidate in enumerate(role.candidates):
             for column, value in enumerate(
-                (candidate.name, candidate.positions, candidate.score, candidate.breakdown)
+                (
+                    candidate.name,
+                    candidate.positions,
+                    candidate.score,
+                    candidate.bestRole,
+                    candidate.breakdown,
+                )
             ):
                 sortValue = (
                     float(candidate.score)
