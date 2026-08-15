@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QHeaderView
 
 from fmsat.app.squadDetailModel import CandidateDisplay, RoleDisplay
 from fmsat.app.squadDetailTabs import SquadPlayersTab, SquadRolesTab
+from fmsat.core.config import AttributeDefinition
 from fmsat.core.squadModel import SquadModel, SquadModelPlayer
 
 
@@ -52,6 +53,31 @@ def testPlayersTableSortRetainsPlayerProvenance(qtbot) -> None:  # type: ignore[
     assert tab.table.isSortingEnabled()
     assert [player.name for player in saved.players] == ["Alpha Player", "Zulu Player"]
     assert [player.sourceImportSessionId for player in saved.players] == [12, 11]
+
+
+def testPlayersTableUsesConfiguredAttributeAbbreviationsAndWidths(qtbot) -> None:  # type: ignore[no-untyped-def]
+    """Configured attributes should all use compact, consistently sized columns."""
+
+    attributes = (
+        AttributeDefinition("Finishing", "Fin", 1),
+        AttributeDefinition("Passing", "Pas", 2),
+        AttributeDefinition("Vision", "Vis", 3),
+    )
+    tab = SquadPlayersTab(_squadModel(), attributes)
+    qtbot.addWidget(tab)
+
+    assert [tab.table.horizontalHeaderItem(column).text() for column in range(4, 7)] == [
+        "Fin",
+        "Pas",
+        "Vis",
+    ]
+    assert tab.attributeNames == ("Finishing", "Passing", "Vision")
+    assert {tab.table.columnWidth(column) for column in range(4, 7)} == {52}
+    assert all(
+        tab.table.horizontalHeader().sectionResizeMode(column)
+        is QHeaderView.ResizeMode.Fixed
+        for column in range(4, 7)
+    )
 
 
 def testRolesTablesAreSortableAndFillAvailableWidth(qtbot) -> None:  # type: ignore[no-untyped-def]
