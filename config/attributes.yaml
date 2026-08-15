@@ -119,3 +119,9 @@ attributes:
   rushing_out:
     abbreviation: Rsh
     order: 40
+  punching:
+    abbreviation: Pun
+    order: 41
+  throwing:
+    abbreviation: Thr
+    order: 42
