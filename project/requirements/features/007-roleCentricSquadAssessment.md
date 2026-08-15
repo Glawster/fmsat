@@ -51,6 +51,11 @@ built.
 9. Allow corrections to squad object-model values from the Players view. Saving
    a correction makes the edited object model authoritative and marks its
    retained screenshot evidence as superseded without deleting that evidence.
+10. Display every configured attribute using its configured abbreviation and a
+    consistent compact column width, followed by the player's known traits.
+11. Allow the Players table to be filtered by goalkeeper, defender, defensive
+    midfielder, midfielder, attacking midfielder and attacker units. Filtering
+    changes presentation only and must not remove players from the squad model.
 
 ## Initial delivery increment
 
@@ -109,6 +114,8 @@ Role Workspace.
 5. Make ranking deterministic when candidates have equal scores.
 6. Clearly identify unavailable scores caused by missing attributes or tactical
    data rather than treating them as zero.
+7. Show each player's best calculable role within the selected tactic alongside
+   every role-candidate row; show `Unavailable` when no role can be calculated.
 
 ## Suitability model
 

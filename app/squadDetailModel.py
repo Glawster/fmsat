@@ -15,6 +15,7 @@ class CandidateDisplay:
     name: str
     positions: str
     score: str
+    bestRole: str
     breakdown: str
     available: bool
 
@@ -48,6 +49,20 @@ class SquadDetailModel:
 def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
     """Map one domain assessment into deterministic squad-viewer text."""
 
+    bestRoles: dict[str, tuple[float, str]] = {}
+    for role in assessment.roles:
+        for candidate in role.candidates:
+            score = candidate.genericRoleFit.score
+            if score is None:
+                continue
+            key = candidate.player.name.casefold()
+            current = bestRoles.get(key)
+            proposed = (score, role.displayName)
+            if current is None or proposed[0] > current[0] or (
+                proposed[0] == current[0] and proposed[1].casefold() < current[1].casefold()
+            ):
+                bestRoles[key] = proposed
+
     roles = []
     for role in assessment.roles:
         candidates = []
@@ -68,6 +83,10 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
                     name=candidate.player.name,
                     positions=candidate.player.positions,
                     score=score,
+                    bestRole=bestRoles.get(
+                        candidate.player.name.casefold(),
+                        (0.0, "Unavailable"),
+                    )[1],
                     breakdown=breakdown,
                     available=fit.available,
                 )
