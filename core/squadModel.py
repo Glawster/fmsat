@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
+from fmsat.core.logUtils import getLogger
 from fmsat.database.models import (
     ImportSession,
     ObjectModelPlayer,
@@ -17,6 +18,8 @@ from fmsat.database.models import (
 )
 from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session, selectinload
+
+logger = getLogger()
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,6 +78,7 @@ class SquadModelService:
         if not cleanName:
             raise ValueError("Squad name is required")
         if model.regenerationRequired:
+            logger.doing(f"regenerating squad model {cleanName}")
             return self._modelRegenerate(cleanName)
         now = datetime.now()
         with Session(self.engine) as session, session.begin():
@@ -114,7 +118,7 @@ class SquadModelService:
     ## generation
 
     def _modelGenerate(self, squadName: str) -> SquadModel | None:
-        """Create the first editable model from each player's newest OCR snapshot."""
+        """Create the first editable model from all available OCR evidence."""
 
         now = datetime.now()
         with Session(self.engine) as session, session.begin():
@@ -138,8 +142,8 @@ class SquadModelService:
                 generatedAt=now,
                 updatedAt=now,
             )
-            for player in self._latestPlayers(source):
-                stored.players.append(self._playerFromEvidence(player))
+            for _, evidenceRows in self._playerEvidenceGroups(source):
+                stored.players.append(self._playerFromEvidenceRows(evidenceRows))
             session.add(stored)
             session.flush()
             return self._modelDetach(stored)
@@ -148,6 +152,7 @@ class SquadModelService:
         """Replace stale screenshot-derived facts while retaining manual known traits."""
 
         now = datetime.now()
+        logger.info("squad regeneration loading saved screenshot evidence: %s", squadName)
         with Session(self.engine) as session, session.begin():
             source = session.scalar(
                 select(Squad)
@@ -160,10 +165,18 @@ class SquadModelService:
                 )
             )
             if source is None:
+                logger.warning("squad regeneration evidence missing: %s", squadName)
                 raise ValueError(f"Squad evidence does not exist: {squadName}")
             stored = self._storedLoad(session, squadName)
             if stored is None:
+                logger.warning("squad regeneration model missing: %s", squadName)
                 raise ValueError(f"Squad model does not exist: {squadName}")
+
+            logger.value("squad regeneration screenshots", len(source.screenshots))
+            evidenceGroups = self._playerEvidenceGroups(source)
+            evidenceRows = sum(len(rows) for _, rows in evidenceGroups)
+            logger.value("squad regeneration OCR player rows", evidenceRows)
+            logger.value("squad regeneration unique players", len(evidenceGroups))
 
             traitsByPlayer = {
                 player.normalizedName: tuple(
@@ -175,6 +188,12 @@ class SquadModelService:
                 )
                 for player in stored.players
             }
+            logger.value(
+                "squad regeneration retained known traits",
+                sum(len(traits) for traits in traitsByPlayer.values()),
+            )
+
+            logger.info("squad regeneration replacing screenshot-derived player facts")
             stored.players.clear()
             session.flush()
             stored.name = source.name
@@ -182,65 +201,120 @@ class SquadModelService:
             stored.sourceSquad = source
             stored.generatedAt = now
             stored.updatedAt = now
-            for player in self._latestPlayers(source):
+            for normalizedName, playerRows in evidenceGroups:
                 stored.players.append(
-                    self._playerFromEvidence(
-                        player,
-                        traits=traitsByPlayer.get(player.name.strip().casefold(), ()),
+                    self._playerFromEvidenceRows(
+                        playerRows,
+                        traits=traitsByPlayer.get(normalizedName, ()),
                     )
                 )
             session.flush()
-            return self._modelDetach(stored)
+
+            logger.info("squad regeneration validating rebuilt model")
+            result = self._modelDetach(stored)
+            logger.value("squad regeneration rebuilt players", len(result.players))
+            logger.value("squad regeneration still required", result.regenerationRequired)
+            if result.regenerationRequired:
+                logger.error(
+                    "squad regeneration failed to consume newest player evidence: %s",
+                    squadName,
+                )
+                raise ValueError(
+                    "Squad regeneration completed but newer player evidence remains unconsumed"
+                )
+
+            logger.done(f"squad model regeneration finished for {squadName}")
+            return result
 
     @staticmethod
-    def _latestPlayers(source: Squad) -> tuple[Player, ...]:
-        """Return each player's newest captured OCR row in deterministic name order."""
+    def _playerEvidenceGroups(
+        source: Squad,
+    ) -> tuple[tuple[str, tuple[Player, ...]], ...]:
+        """Group every OCR row per player, newest first, so views can complement each other."""
 
-        latest: dict[str, Player] = {}
-        players = (
-            player
-            for capture in sorted(
-                source.screenshots,
-                key=lambda item: (item.importSession.date, item.importSession.id),
-                reverse=True,
-            )
+        grouped: dict[str, list[Player]] = {}
+        for capture in sorted(
+            source.screenshots,
+            key=lambda item: (item.importSession.date, item.importSession.id),
+            reverse=True,
+        ):
             for player in sorted(
                 capture.importSession.players,
                 key=lambda item: item.id,
                 reverse=True,
-            )
+            ):
+                normalizedName = player.name.strip().casefold()
+                grouped.setdefault(normalizedName, []).append(player)
+        return tuple(
+            (name, tuple(grouped[name]))
+            for name in sorted(grouped)
         )
-        for player in players:
-            latest.setdefault(player.name.strip().casefold(), player)
-        return tuple(sorted(latest.values(), key=lambda item: item.name.casefold()))
 
     @staticmethod
-    def _playerFromEvidence(
-        player: Player,
+    def _playerFromEvidenceRows(
+        players: tuple[Player, ...],
         *,
         traits: tuple[str, ...] = (),
     ) -> ObjectModelPlayer:
-        """Map one OCR player snapshot into the editable object model."""
+        """Merge complementary screenshot rows, preferring newest observed values."""
 
+        if not players:
+            raise ValueError("At least one player evidence row is required")
+        newest = players[0]
+
+        def newestText(field: str) -> str:
+            return next(
+                (
+                    str(value).strip()
+                    for player in players
+                    if (value := getattr(player, field, None)) is not None
+                    and str(value).strip()
+                ),
+                "",
+            )
+
+        attributes: dict[str, int | None] = {}
+        for player in players:
+            for attribute in sorted(
+                player.attributes,
+                key=lambda item: item.attributeName,
+            ):
+                current = attributes.get(attribute.attributeName)
+                if attribute.attributeName not in attributes or current is None:
+                    attributes[attribute.attributeName] = attribute.attributeValue
+
+        confidence = next(
+            (
+                player.confidence
+                for player in players
+                if player.confidence is not None
+            ),
+            None,
+        )
+        sourceImportSessionId = max(
+            (
+                player.importSessionId
+                for player in players
+                if player.importSessionId is not None
+            ),
+            default=None,
+        )
         return ObjectModelPlayer(
-            name=player.name,
-            normalizedName=player.name.strip().casefold(),
-            positions=player.positions,
-            ca=player.ca,
-            pa=player.pa,
-            confidence=player.confidence,
-            sourceImportSessionId=player.importSessionId,
+            name=newest.name,
+            normalizedName=newest.name.strip().casefold(),
+            positions=newestText("positions"),
+            ca=newestText("ca"),
+            pa=newestText("pa"),
+            confidence=confidence,
+            sourceImportSessionId=sourceImportSessionId,
             validationState="extracted",
             attributes=[
                 ObjectModelPlayerAttribute(
-                    attributeName=attribute.attributeName,
-                    attributeValue=attribute.attributeValue,
+                    attributeName=name,
+                    attributeValue=value,
                     validationState="extracted",
                 )
-                for attribute in sorted(
-                    player.attributes,
-                    key=lambda item: item.attributeName,
-                )
+                for name, value in sorted(attributes.items())
             ],
             traits=[
                 ObjectModelPlayerTrait(
@@ -261,7 +335,7 @@ class SquadModelService:
             [
                 capture.importSessionId
                 for capture in stored.sourceSquad.screenshots
-                if capture.supersededAt is None
+                if capture.supersededAt is None and capture.importSession.players
             ]
             if stored.sourceSquad is not None
             else []
@@ -360,7 +434,10 @@ class SquadModelService:
             select(ObjectModelSquad)
             .where(ObjectModelSquad.normalizedName == squadName.casefold())
             .options(
-                selectinload(ObjectModelSquad.sourceSquad).selectinload(Squad.screenshots),
+                selectinload(ObjectModelSquad.sourceSquad)
+                .selectinload(Squad.screenshots)
+                .selectinload(SquadScreenshot.importSession)
+                .selectinload(ImportSession.players),
                 selectinload(ObjectModelSquad.players).selectinload(
                     ObjectModelPlayer.attributes
                 ),
