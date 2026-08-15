@@ -9,6 +9,8 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
+    QDialog,
+    QDialogButtonBox,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -107,20 +109,13 @@ class SquadDetailView(QWidget):
             "No tactic selected",
             "No tactic assigned",
         }
-        if not tacticAssigned:
-            self.tacticPicker.addItem("No tactic assigned")
-        self.tacticPicker.addItems(availableTactics)
         if tacticAssigned:
-            selected = self.tacticPicker.findText(self.model.tacticName)
-            if selected < 0:
-                self.tacticPicker.addItem(self.model.tacticName)
-                selected = self.tacticPicker.findText(self.model.tacticName)
-            self.tacticPicker.setCurrentIndex(selected)
-        elif availableTactics:
-            self.tacticPicker.setCurrentIndex(0)
+            self.tacticPicker.addItem(self.model.tacticName)
         else:
-            self.tacticPicker.setEnabled(False)
+            self.tacticPicker.addItem("No tactic assigned")
+        self.tacticPicker.addItem("Assign tactic…")
         self.tacticPicker.currentTextChanged.connect(self._tacticChange)
+        self.tacticPicker.setEnabled(bool(availableTactics))
         header.addWidget(self.tacticPicker)
         return header
 
@@ -224,11 +219,48 @@ class SquadDetailView(QWidget):
         )
         return progress
 
-    def _tacticChange(self, tacticName: str) -> None:
-        if self.model is None or tacticName in {"", "No tactic assigned"}:
+    def _tacticChange(self, choice: str) -> None:
+        if self.model is None or choice != "Assign tactic…":
             return
-        if tacticName == self.model.tacticName:
+        selected = self._tacticAssignmentSelect()
+        current = (
+            self.model.tacticName
+            if self.model.tacticName not in {"No tactic selected", "No tactic assigned"}
+            else "No tactic assigned"
+        )
+        if selected is None:
+            self.tacticPicker.blockSignals(True)
+            self.tacticPicker.setCurrentText(current)
+            self.tacticPicker.blockSignals(False)
             return
+        self._tacticAssign(selected)
+
+    def _tacticAssignmentSelect(self) -> str | None:
+        """Choose a stored tactic using the same explicit assignment pattern as tactic view."""
+
+        tactics = self._systemTactics()
+        if not tactics:
+            return None
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Assign tactic")
+        layout = QVBoxLayout(dialog)
+        prompt = QLabel("Choose an existing tactic to assign to this squad:")
+        layout.addWidget(prompt)
+        picker = QComboBox(dialog)
+        picker.addItems(tactics)
+        layout.addWidget(picker)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
+            parent=dialog,
+        )
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return None
+        return picker.currentText().strip() or None
+
+    def _tacticAssign(self, tacticName: str) -> None:
         database = getattr(self.window(), "database", None)
         if database is not None:
             try:
@@ -241,7 +273,7 @@ class SquadDetailView(QWidget):
                 dataChanged = getattr(self.window(), "dataChanged", None)
                 if dataChanged is not None and hasattr(dataChanged, "emit"):
                     dataChanged.emit()
-            except Exception as exc:  # UI boundary: keep database failures visible in logs.
+            except Exception as exc:
                 logger.exception(
                     "unable to assign tactic from squad workspace squad=%r tactic=%r",
                     self.squadName,
@@ -303,11 +335,7 @@ class SquadDetailView(QWidget):
             ("OOP", outPositions),
         ):
             for index, position in enumerate(positions):
-                key = (
-                    str(position.slotId)
-                    if useSlotIds and position.slotId
-                    else f"ordinal:{index}"
-                )
+                key = str(position.slotId) if useSlotIds and position.slotId else f"ordinal:{index}"
                 if key not in slots:
                     slots[key] = {"position": "", "roles": []}
                     order.append(key)
@@ -316,18 +344,8 @@ class SquadDetailView(QWidget):
                     slots[key]["position"] = positionName
                 roleCode = position.canonicalRole
                 role = roleByCode.get(roleCode) if roleCode else None
-                roleLabel = (
-                    role.abbreviation
-                    if role is not None
-                    else roleCode
-                    or position.roleProfile.name
-                    or "Unavailable"
-                )
-                coverage = (
-                    role.coverage
-                    if role is not None
-                    else "Unavailable — role assessment is unresolved"
-                )
+                roleLabel = role.abbreviation if role is not None else roleCode or position.roleProfile.name or "Unavailable"
+                coverage = role.coverage if role is not None else "Unavailable — role assessment is unresolved"
                 roles = slots[key]["roles"]
                 if isinstance(roles, list):
                     roles.append((phase, roleLabel, coverage))
@@ -337,22 +355,16 @@ class SquadDetailView(QWidget):
             entry = slots[key]
             roleFacts = entry["roles"] if isinstance(entry["roles"], list) else []
             uniqueLabels = list(dict.fromkeys(fact[1] for fact in roleFacts))
-            if len(uniqueLabels) == 1:
-                roleText = uniqueLabels[0]
-            else:
-                roleText = " / ".join(
-                    f"{phase} {label}" for phase, label, _coverage in roleFacts
-                )
-            positionText = str(entry["position"])
-            label = f"{roleText} · {positionText}" if positionText else roleText
+            roleText = uniqueLabels[0] if len(uniqueLabels) == 1 else " / ".join(
+                f"{phase} {label}" for phase, label, _coverage in roleFacts
+            )
+            positionText = self._positionDisplay(str(entry["position"]))
+            label = f"{positionText} — {roleText}" if positionText else roleText
             uniqueCoverage = list(dict.fromkeys(fact[2] for fact in roleFacts))
-            if len(uniqueCoverage) == 1:
-                coverageText = uniqueCoverage[0]
-            else:
-                coverageText = " | ".join(
-                    f"{phase} {roleLabel}: {coverage}"
-                    for phase, roleLabel, coverage in roleFacts
-                )
+            coverageText = uniqueCoverage[0] if len(uniqueCoverage) == 1 else " | ".join(
+                f"{phase} {roleLabel}: {coverage}"
+                for phase, roleLabel, coverage in roleFacts
+            )
             rows.append((label, coverageText))
 
         if self.model.requiredPositionCount and len(rows) != self.model.requiredPositionCount:
@@ -363,6 +375,34 @@ class SquadDetailView(QWidget):
                 len(rows),
             )
         return tuple(rows)
+
+    @staticmethod
+    def _positionDisplay(position: str) -> str:
+        """Render canonical position identities using Football Manager terminology."""
+
+        direct = {
+            "GK": "GK",
+            "DL": "D(L)",
+            "DC": "D(C)",
+            "DR": "D(R)",
+            "WBL": "WB(L)",
+            "WBR": "WB(R)",
+            "DM": "DM(C)",
+            "ML": "M(L)",
+            "MC": "M(C)",
+            "MR": "M(R)",
+            "AML": "AM(L)",
+            "AMC": "AM(C)",
+            "AMR": "AM(R)",
+            "ST": "ST(C)",
+            "STC": "ST(C)",
+        }
+        if position in direct:
+            return direct[position]
+        for prefix, label in (("DM", "DM"), ("AM", "AM"), ("WB", "WB"), ("D", "D"), ("M", "M")):
+            if position.startswith(prefix) and position[-1:] in {"L", "C", "R"}:
+                return f"{label}({position[-1]})"
+        return position
 
     ## utilities
 
