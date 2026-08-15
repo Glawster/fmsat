@@ -253,9 +253,9 @@ class SquadAssessmentService:
             else storedDefinition.displayName if storedDefinition is not None else roleCode
         )
         abbreviations = (
-            vocabularyRole.abbreviations
-            if vocabularyRole is not None
-            else storedDefinition.abbreviations if storedDefinition is not None else ()
+            storedDefinition.abbreviations
+            if storedDefinition is not None and storedDefinition.abbreviations
+            else vocabularyRole.abbreviations if vocabularyRole is not None else ()
         )
         weights = self.roleKnowledge.weightsLoad(roleID) if roleID is not None else {}
         candidates = tuple(
