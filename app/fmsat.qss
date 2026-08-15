@@ -38,6 +38,10 @@ QTableWidget#squadPlayersTable, QTableWidget#roleAssessmentTable, QTableWidget#r
     border: 1px solid #30465a; gridline-color: #263b4e; selection-background-color: #163b38;
     selection-color: #75e0bf;
 }
+QTableWidget#squadPlayersTable QWidget#qt_scrollarea_viewport,
+QTableWidget#roleAssessmentTable QWidget#qt_scrollarea_viewport,
+QTableWidget#roleCandidateTable QWidget#qt_scrollarea_viewport { background: #101f2e; }
+QTableCornerButton::section { background: #132536; border: 0; border-right: 1px solid #30465a; border-bottom: 1px solid #30465a; }
 QTableWidget#squadPlayersTable::item, QTableWidget#roleAssessmentTable::item, QTableWidget#roleCandidateTable::item { padding: 5px; }
 QTableWidget#squadPlayersTable::item:selected, QTableWidget#roleAssessmentTable::item:selected, QTableWidget#roleCandidateTable::item:selected {
     background: #163b38; color: #75e0bf;
