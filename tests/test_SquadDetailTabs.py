@@ -7,7 +7,7 @@ from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QHeaderView
 
 from fmsat.app.squadDetailModel import CandidateDisplay, RoleDisplay
-from fmsat.app.squadDetailTabs import SquadPlayersTab, SquadRolesTab
+from fmsat.app.squadDetailTabs import PlayerTraitDialog, SquadPlayersTab, SquadRolesTab
 from fmsat.core.config import AttributeDefinition
 from fmsat.core.squadModel import SquadModel, SquadModelPlayer
 
@@ -72,6 +72,11 @@ def testPlayersTableUsesConfiguredAttributeAbbreviationsAndWidths(qtbot) -> None
         "Pas",
         "Vis",
     ]
+    assert [tab.table.horizontalHeaderItem(column).toolTip() for column in range(4, 7)] == [
+        "Finishing",
+        "Passing",
+        "Vision",
+    ]
     assert tab.attributeNames == ("Finishing", "Passing", "Vision")
     assert {tab.table.columnWidth(column) for column in range(4, 7)} == {52}
     assert all(
@@ -94,6 +99,10 @@ def testPlayersTableUsesConfiguredAttributeAbbreviationsAndWidths(qtbot) -> None
         == (Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         for row in range(tab.table.rowCount())
     )
+    assert not (
+        tab.table.item(0, tab.table.columnCount() - 1).flags()
+        & Qt.ItemFlag.ItemIsEditable
+    )
 
 
 def testPlayersTableFiltersRowsByPositionUnitWithoutChangingModel(qtbot) -> None:  # type: ignore[no-untyped-def]
@@ -115,6 +124,56 @@ def testPlayersTableFiltersRowsByPositionUnitWithoutChangingModel(qtbot) -> None
     assert tab.table.isRowHidden(defenderRow)
     assert not tab.table.isRowHidden(attackerRow)
     assert len(tab.modelBuild().players) == 2
+
+
+def testGoalkeeperAttributesAppearOnlyForGoalkeeperOnlyFilter(qtbot) -> None:  # type: ignore[no-untyped-def]
+    """Goalkeeper-only facts should not clutter mixed and outfield player views."""
+
+    attributes = (
+        AttributeDefinition("handling", "Han", 1),
+        AttributeDefinition("passing", "Pas", 2),
+    )
+    tab = SquadPlayersTab(_squadModel(), attributes)
+    qtbot.addWidget(tab)
+
+    assert tab.table.isColumnHidden(4)
+    assert not tab.table.isColumnHidden(5)
+
+    tab.positionFilters["all"].setChecked(False)
+    tab.positionFilters["goalkeepers"].setChecked(True)
+
+    assert not tab.table.isColumnHidden(4)
+    assert not tab.table.isColumnHidden(5)
+
+
+def testTraitDialogGroupsSearchesAndReviewsSelectedTraits(qtbot) -> None:  # type: ignore[no-untyped-def]
+    """The trait editor should reduce the 61-item catalogue to browsable groups."""
+
+    dialog = PlayerTraitDialog(("Curls Ball", "Stays Back At All Times"))
+    qtbot.addWidget(dialog)
+
+    assert dialog.tree.topLevelItemCount() == 9
+    assert dialog.tree.topLevelItem(0).text(0) == "Commonly Used"
+    assert set(dialog.selectedTraits()) == {"Curls Ball", "Stays Back At All Times"}
+
+    dialog.search.setText("curls")
+    visible = [
+        parent.child(row).text(0)
+        for parentIndex in range(dialog.tree.topLevelItemCount())
+        for parent in (dialog.tree.topLevelItem(parentIndex),)
+        for row in range(parent.childCount())
+        if not parent.child(row).isHidden()
+    ]
+    assert visible == ["Curls Ball"]
+
+    dialog.search.clear()
+    dialog.selectedOnly.setChecked(True)
+    assert sum(
+        not parent.child(row).isHidden()
+        for parentIndex in range(dialog.tree.topLevelItemCount())
+        for parent in (dialog.tree.topLevelItem(parentIndex),)
+        for row in range(parent.childCount())
+    ) == 2
 
 
 def testPlayersTableEditsKnownTraitsAsModelValues(qtbot) -> None:  # type: ignore[no-untyped-def]

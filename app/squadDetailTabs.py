@@ -10,14 +10,19 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QFrame,
     QCheckBox,
+    QDialog,
+    QDialogButtonBox,
     QHBoxLayout,
     QLabel,
     QHeaderView,
+    QLineEdit,
     QMenu,
     QSplitter,
     QTableWidget,
     QTableWidgetItem,
     QToolButton,
+    QTreeWidget,
+    QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
     QWidgetAction,
@@ -26,6 +31,189 @@ from PySide6.QtWidgets import (
 from fmsat.app.squadDetailModel import RoleDisplay, SquadDetailModel
 from fmsat.core.config import AttributeDefinition
 from fmsat.core.squadModel import SquadModel, SquadModelPlayer
+from fmsat.football.trait import playerTraits
+
+
+class PlayerTraitDialog(QDialog):
+    """Select a player's known traits from the canonical FM26 catalogue."""
+
+    commonTraits = frozenset(
+        {
+            "Moves Into Channels",
+            "Gets Forward Whenever Possible",
+            "Plays Short Simple Passes",
+            "Tries Killer Balls Often",
+            "Places Shots",
+            "Tries To Play Way Out Of Trouble",
+            "Stays Back At All Times",
+            "Comes Deep To Get Ball",
+            "Hugs Line",
+            "Marks Opponent Tightly",
+            "Plays One-Twos",
+            "Dictates Tempo",
+            "Tries Long Range Passes",
+            "Likes To Switch Ball To Wide Areas",
+            "Bring Ball Out of Defence",
+        }
+    )
+    categoryOrder = (
+        "Commonly Used",
+        "Movement",
+        "Passing & Creativity",
+        "Shooting",
+        "Defending",
+        "Dribbling & Technique",
+        "Set Pieces",
+        "Goalkeeping",
+        "Behaviour & Decisions",
+    )
+
+    def __init__(
+        self,
+        selected: tuple[str, ...],
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Edit Known Traits")
+        self.resize(560, 620)
+        layout = QVBoxLayout(self)
+        prompt = QLabel("Select every trait known to be set for this player.")
+        prompt.setObjectName("mutedText")
+        layout.addWidget(prompt)
+        self.search = QLineEdit(self)
+        self.search.setPlaceholderText("Filter traits…")
+        layout.addWidget(self.search)
+        self.selectedOnly = QCheckBox("Show selected traits only", self)
+        layout.addWidget(self.selectedOnly)
+        self.tree = QTreeWidget(self)
+        self.tree.setObjectName("playerTraitList")
+        self.tree.setHeaderHidden(True)
+        selectedNames = set(selected)
+        canonicalNames = [trait.name for trait in playerTraits]
+        names = canonicalNames + sorted(selectedNames.difference(canonicalNames), key=str.casefold)
+        categories = {
+            category: QTreeWidgetItem(self.tree, (category,))
+            for category in self.categoryOrder
+        }
+        for parentItem in categories.values():
+            parentItem.setFlags(parentItem.flags() & ~Qt.ItemFlag.ItemIsSelectable)
+        for name in names:
+            category = self._traitCategory(name)
+            parentItem = categories[category]
+            item = QTreeWidgetItem(parentItem, (name,))
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(
+                0,
+                Qt.CheckState.Checked if name in selectedNames else Qt.CheckState.Unchecked,
+            )
+        self.tree.expandAll()
+        layout.addWidget(self.tree, 1)
+        self.summary = QLabel()
+        self.summary.setObjectName("mutedText")
+        layout.addWidget(self.summary)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
+            parent=self,
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+        self.search.textChanged.connect(lambda _text: self._filterApply())
+        self.selectedOnly.toggled.connect(lambda _checked: self._filterApply())
+        self.tree.itemChanged.connect(lambda _item, _column: self._selectionChange())
+        self._summaryUpdate()
+
+    def selectedTraits(self) -> tuple[str, ...]:
+        """Return checked traits in stable catalogue order."""
+
+        return tuple(
+            parent.child(row).text(0)
+            for parentIndex in range(self.tree.topLevelItemCount())
+            for parent in (self.tree.topLevelItem(parentIndex),)
+            for row in range(parent.childCount())
+            if parent.child(row).checkState(0) is Qt.CheckState.Checked
+        )
+
+    def _filterApply(self) -> None:
+        query = self.search.text().strip().casefold()
+        for parentIndex in range(self.tree.topLevelItemCount()):
+            parent = self.tree.topLevelItem(parentIndex)
+            visibleChildren = 0
+            for row in range(parent.childCount()):
+                item = parent.child(row)
+                hidden = bool(query and query not in item.text(0).casefold()) or (
+                    self.selectedOnly.isChecked()
+                    and item.checkState(0) is not Qt.CheckState.Checked
+                )
+                item.setHidden(hidden)
+                visibleChildren += not hidden
+            parent.setHidden(visibleChildren == 0)
+
+    def _selectionChange(self) -> None:
+        self._summaryUpdate()
+        if self.selectedOnly.isChecked():
+            self._filterApply()
+
+    def _summaryUpdate(self) -> None:
+        count = len(self.selectedTraits())
+        self.summary.setText(f"{count} trait{'s' if count != 1 else ''} selected")
+
+    @staticmethod
+    def _traitCategory(name: str) -> str:
+        """Place the large FM trait catalogue into small browsing groups."""
+
+        if name in PlayerTraitDialog.commonTraits:
+            return "Commonly Used"
+        lowered = name.casefold()
+        if any(token in lowered for token in ("keeper", "plays ball with feet")):
+            return "Goalkeeping"
+        if any(
+            token in lowered
+            for token in ("free kick", "penalt", "long flat throw", "long throw")
+        ):
+            return "Set Pieces"
+        if any(
+            token in lowered
+            for token in ("shoot", "score", "overhead", "penalty box", "places shots")
+        ):
+            return "Shooting"
+        if any(token in lowered for token in ("tackle", "marks opponent", "stays back")):
+            return "Defending"
+        if any(
+            token in lowered
+            for token in (
+                "knocks ball",
+                "weaker foot",
+                "outside of foot",
+                "tries tricks",
+                "beat opponent",
+                "before dribble",
+                "runs with ball often",
+                "runs with ball rarely",
+            )
+        ):
+            return "Dribbling & Technique"
+        if any(
+            token in lowered
+            for token in ("pass", "through balls", "one-twos", "tempo", "crosses early")
+        ):
+            return "Passing & Creativity"
+        if any(
+            token in lowered
+            for token in (
+                "runs with ball",
+                "gets into",
+                "moves into",
+                "gets forward",
+                "offside trap",
+                "arrives late",
+                "comes deep",
+                "hugs line",
+                "cuts inside",
+            )
+        ):
+            return "Movement"
+        return "Behaviour & Decisions"
 
 
 class SquadAnalysisTab(QWidget):
@@ -112,6 +300,22 @@ class SquadPlayersTab(QWidget):
     """Display and edit the current squad model rather than screenshot rows."""
 
     changed = Signal()
+    goalkeeperAttributeNames = frozenset(
+        {
+            "aerial_reach",
+            "command_of_area",
+            "communication",
+            "eccentricity",
+            "handling",
+            "kicking",
+            "one_on_ones",
+            "punching",
+            "reflexes",
+            "rushing_out",
+            "tendency_to_punch",
+            "throwing",
+        }
+    )
 
     def __init__(
         self,
@@ -154,6 +358,10 @@ class SquadPlayersTab(QWidget):
         self.table = QTableWidget(len(model.players), len(headers), self)
         self.table.setObjectName("squadPlayersTable")
         self.table.setHorizontalHeaderLabels(headers)
+        for offset, attribute in enumerate(self.attributeNames, start=4):
+            self.table.horizontalHeaderItem(offset).setToolTip(
+                attribute.replace("_", " ").title()
+            )
         self.table.setAlternatingRowColors(True)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectItems)
         self.table.setSortingEnabled(False)
@@ -178,7 +386,9 @@ class SquadPlayersTab(QWidget):
                     ),
                 )
             traitsColumn = len(headers) - 1
-            self.table.setItem(row, traitsColumn, QTableWidgetItem(", ".join(player.traits)))
+            traitItem = QTableWidgetItem(", ".join(player.traits))
+            traitItem.setFlags(traitItem.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            self.table.setItem(row, traitsColumn, traitItem)
             for column in range(len(headers)):
                 item = self.table.item(row, column)
                 if item is not None:
@@ -186,6 +396,7 @@ class SquadPlayersTab(QWidget):
             self.table.item(row, traitsColumn).setTextAlignment(
                 Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
             )
+            self.table.item(row, traitsColumn).setToolTip("Click to edit known traits")
         # Attribute abbreviations make a compact, regular comparison grid possible.
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
@@ -200,6 +411,8 @@ class SquadPlayersTab(QWidget):
             self.table.setColumnWidth(column, 52)
         self.table.setSortingEnabled(True)
         self.table.itemChanged.connect(lambda _item: self.changed.emit())
+        self.table.cellClicked.connect(self._traitEditorOpen)
+        self._goalkeeperColumnsUpdate()
         layout.addWidget(self.table)
 
     def modelBuild(self) -> SquadModel:
@@ -315,6 +528,34 @@ class SquadPlayersTab(QWidget):
         for row in range(self.table.rowCount()):
             groups = self._positionGroups(self._text(row, 1))
             self.table.setRowHidden(row, not bool(groups.intersection(selected)))
+        self._goalkeeperColumnsUpdate()
+
+    def _goalkeeperColumnsUpdate(self) -> None:
+        """Expose goalkeeper-only facts only in an exclusively goalkeeper view."""
+
+        if not hasattr(self, "table"):
+            return
+        selected = {
+            key
+            for key, checkbox in self.positionFilters.items()
+            if key != "all" and checkbox.isChecked()
+        }
+        goalkeeperOnly = selected == {"goalkeepers"}
+        for offset, attribute in enumerate(self.attributeNames, start=4):
+            if attribute.casefold() in self.goalkeeperAttributeNames:
+                self.table.setColumnHidden(offset, not goalkeeperOnly)
+
+    def _traitEditorOpen(self, row: int, column: int) -> None:
+        """Open the canonical checklist when the Known Traits cell is clicked."""
+
+        if column != self.table.columnCount() - 1:
+            return
+        current = tuple(
+            value.strip() for value in self._text(row, column).split(",") if value.strip()
+        )
+        dialog = PlayerTraitDialog(current, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.table.item(row, column).setText(", ".join(dialog.selectedTraits()))
 
     @staticmethod
     def _positionGroups(positions: str) -> set[str]:

@@ -53,10 +53,17 @@ built.
    retained screenshot evidence as superseded without deleting that evidence.
 10. Display every configured attribute using its configured abbreviation and a
     consistent compact column width, followed by the player's left-aligned,
-    comma-separated known traits.
+    comma-separated known traits. Attribute headers expose their full names as
+    hover text. Known traits are edited through a searchable, categorized and
+    collapsible checklist using the canonical player-trait vocabulary rather
+    than free-text entry. A selected-only view makes reviewing a player's small
+    active trait set straightforward, while frequently used traits appear first
+    as browse shortcuts without implying that they are selected.
 11. Allow the Players table to be filtered by goalkeeper, defender, defensive
     midfielder, midfielder, attacking midfielder and attacker units. Filtering
     changes presentation only and must not remove players from the squad model.
+12. Hide goalkeeper-specific attribute columns in mixed or outfield views and
+    expose them when Goalkeepers is the only selected position filter.
 
 ## Initial delivery increment
 
