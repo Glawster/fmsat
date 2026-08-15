@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QInputDialog,
     QMessageBox,
     QPushButton,
+    QToolBar,
 )
 
 from fmsat.app.managementWindow import ManagementWindow
@@ -49,6 +50,48 @@ def testManagementWindowIsOwnedAndClosedByMainWindow(qtbot) -> None:  # type: ig
     window.close()
 
     assert not managementWindow.isVisible()
+
+
+def testMainWindowDoesNotShowRedundantImportToolbar(qtbot) -> None:  # type: ignore[no-untyped-def]
+    """Import actions should remain in File and the workspace, not a duplicate row."""
+
+    window = _mainWindowCreate()
+    qtbot.addWidget(window)
+
+    assert window.findChildren(QToolBar) == []
+
+
+def testManagementSelectionLaunchesDedicatedViewer(qtbot) -> None:  # type: ignore[no-untyped-def]
+    """The editor should expose explicit viewer actions for its selected records."""
+
+    database = Mock()
+    database.tacticRecords.return_value = [
+        SimpleNamespace(name="High Press", formationImage=None, captureCount=3)
+    ]
+    database.squadRecords.return_value = [
+        SimpleNamespace(name="First Team", captureCount=4, playerCount=30)
+    ]
+    database.squadPlayerRecords.return_value = []
+    tacticShow = Mock()
+    squadShow = Mock()
+    window = ManagementWindow(
+        database,
+        Mock(),
+        tacticShow=tacticShow,
+        squadShow=squadShow,
+    )
+    qtbot.addWidget(window)
+
+    window.tacticTable.selectRow(0)
+    assert window.tacticShowButton.isEnabled()
+    qtbot.mouseClick(window.tacticShowButton, Qt.MouseButton.LeftButton)
+    tacticShow.assert_called_once_with("High Press")
+
+    window.show()
+    window.squadTable.selectRow(0)
+    assert window.squadShowButton.isEnabled()
+    qtbot.mouseClick(window.squadShowButton, Qt.MouseButton.LeftButton)
+    squadShow.assert_called_once_with("First Team")
 
 
 def testManagementWindowClosesItsScreenshotViewers(qtbot) -> None:  # type: ignore[no-untyped-def]
