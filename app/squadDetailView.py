@@ -4,13 +4,16 @@ from __future__ import annotations
 
 from importlib.resources import files
 
-from PySide6.QtCore import Signal
+from fmsat.core.logUtils import getLogger
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
+    QApplication,
     QComboBox,
     QFrame,
     QHBoxLayout,
     QLabel,
     QLayout,
+    QProgressDialog,
     QPushButton,
     QTabWidget,
     QVBoxLayout,
@@ -26,6 +29,8 @@ from fmsat.app.squadDetailTabs import (
 )
 from fmsat.core.config import AttributeDefinition
 from fmsat.core.squadModel import SquadModel
+
+logger = getLogger()
 
 
 class SquadDetailView(QWidget):
@@ -44,6 +49,7 @@ class SquadDetailView(QWidget):
         self.attributes = attributes
         self.model: SquadDetailModel | None = None
         self.squadName = ""
+        self.regenerationProgress: QProgressDialog | None = None
         self.setObjectName("squadDetailView")
         self.setStyleSheet(files("fmsat.app").joinpath("fmsat.qss").read_text(encoding="utf-8"))
         self.rootLayout = QVBoxLayout(self)
@@ -144,13 +150,60 @@ class SquadDetailView(QWidget):
         self.modelSaveRequested.emit(model)
 
     def _regenerateRequest(self) -> None:
-        """Request regeneration using the stale model as an explicit command marker."""
+        """Regenerate from saved evidence while keeping the UI visibly responsive."""
 
         if self.model is None or not self.model.squad.regenerationRequired:
             return
         if self.regenerateButton is not None:
             self.regenerateButton.setEnabled(False)
-        self.modelSaveRequested.emit(self.model.squad)
+
+        logger.doing(f"requesting squad model regeneration for {self.squadName}")
+        progress = self._regenerationProgressCreate()
+        self.regenerationProgress = progress
+        progress.show()
+        QApplication.processEvents()
+        try:
+            logger.info("squad regeneration UI handing model to persistence service")
+            self.modelSaveRequested.emit(self.model.squad)
+            logger.done(f"squad regeneration UI completed for {self.squadName}")
+        finally:
+            progress.close()
+            if self.regenerateButton is not None:
+                self.regenerateButton.setEnabled(True)
+
+    def _regenerationProgressCreate(self) -> QProgressDialog:
+        """Create a visible indeterminate progress dialog for squad regeneration."""
+
+        progress = QProgressDialog(
+            "Regenerating squad model from saved screenshot evidence…",
+            None,
+            0,
+            0,
+            self,
+        )
+        progress.setObjectName("squadRegenerationProgressDialog")
+        progress.setWindowTitle("Regenerate Squad Model")
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setCancelButton(None)
+        progress.setMinimumDuration(0)
+        progress.setAutoClose(False)
+        progress.setAutoReset(False)
+        progress.setMinimumWidth(560)
+        progress.setMinimumHeight(140)
+        progress.resize(560, 140)
+        progress.setStyleSheet(
+            "QProgressDialog#squadRegenerationProgressDialog { background-color: #101f2e; "
+            "color: #e8eef5; } "
+            "QProgressDialog#squadRegenerationProgressDialog QLabel { background: transparent; "
+            "color: #e8eef5; font-size: 14px; font-weight: 600; "
+            "padding: 12px 10px; min-height: 34px; } "
+            "QProgressDialog#squadRegenerationProgressDialog QProgressBar { "
+            "background-color: #08131f; color: #e8eef5; border: 1px solid #30465a; "
+            "border-radius: 7px; min-height: 24px; text-align: center; } "
+            "QProgressDialog#squadRegenerationProgressDialog QProgressBar::chunk { "
+            "background-color: #31b98f; border-radius: 6px; }"
+        )
+        return progress
 
     def _tacticChange(self, tacticName: str) -> None:
         if self.model is None or tacticName == self.model.tacticName:
