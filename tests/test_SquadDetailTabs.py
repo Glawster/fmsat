@@ -3,6 +3,7 @@
 from datetime import datetime
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QHeaderView
 
 from fmsat.app.squadDetailModel import CandidateDisplay, RoleDisplay
@@ -165,3 +166,8 @@ def testRolesTablesAreSortableAndFillAvailableWidth(qtbot) -> None:  # type: ign
         is QHeaderView.ResizeMode.Stretch
     )
     assert tab.candidateTable.horizontalHeaderItem(3).text() == "Best role"
+    assert tab.roleTable.viewport().palette().color(QPalette.ColorRole.Base).name() == "#101f2e"
+    assert (
+        tab.candidateTable.viewport().palette().color(QPalette.ColorRole.Base).name()
+        == "#101f2e"
+    )

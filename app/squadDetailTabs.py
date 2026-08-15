@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 
 from PySide6.QtCore import QSignalBlocker, Qt, Signal
+from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QFrame,
@@ -358,6 +359,7 @@ class SquadRolesTab(QWidget):
         self.rolesByCode = {role.roleCode: role for role in roles}
         self.roleTable = QTableWidget(len(roles), 3, splitter)
         self.roleTable.setObjectName("roleAssessmentTable")
+        self._tablePaletteApply(self.roleTable)
         self.roleTable.setHorizontalHeaderLabels(("Role", "Name", "Coverage"))
         self.roleTable.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.roleTable.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -376,6 +378,7 @@ class SquadRolesTab(QWidget):
         self.roleTable.setSortingEnabled(True)
         self.candidateTable = QTableWidget(0, 5, splitter)
         self.candidateTable.setObjectName("roleCandidateTable")
+        self._tablePaletteApply(self.candidateTable)
         self.candidateTable.setHorizontalHeaderLabels(
             (
                 "Player",
@@ -402,6 +405,18 @@ class SquadRolesTab(QWidget):
         self.roleTable.currentCellChanged.connect(self._roleShow)
         self.roleTable.selectRow(0)
         self.roleTable.setCurrentCell(0, 0)
+
+    @staticmethod
+    def _tablePaletteApply(table: QTableWidget) -> None:
+        """Paint native viewport gaps with the squad table palette."""
+
+        palette = table.palette()
+        palette.setColor(QPalette.ColorRole.Base, QColor("#101f2e"))
+        palette.setColor(QPalette.ColorRole.AlternateBase, QColor("#0c1926"))
+        palette.setColor(QPalette.ColorRole.Text, QColor("#f5f8fb"))
+        table.setPalette(palette)
+        table.viewport().setPalette(palette)
+        table.viewport().setAutoFillBackground(True)
 
     def _roleShow(
         self,
