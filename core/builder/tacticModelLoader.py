@@ -220,6 +220,8 @@ class TacticModelLoader:
             identity=identity,
             role=role,
             roleProfile=profile,
+            canonicalPosition=model.canonicalPosition or model.positionIdentity,
+            canonicalRole=model.canonicalRole,
             instructions=self._instructionSetBuild(model.instructions),
             slotId=model.slotId,
             duty=model.duty,
