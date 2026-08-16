@@ -38,13 +38,7 @@ class TacticDetailView(QWidget):
     modelEditRequested = Signal(str)
     renameRequested = Signal(str, str)
 
-    def __init__(
-        self,
-        parent: QWidget | None = None,
-        *,
-        model: TacticDetailModel | None = None,
-        validation: BuildResult | None = None,
-    ) -> None:
+    def __init__(self, parent: QWidget | None = None, *, model: TacticDetailModel | None = None, validation: BuildResult | None = None) -> None:
         super().__init__(parent)
         self.model = model or tacticDetailPrototype()
         self.validation = validation
@@ -57,16 +51,8 @@ class TacticDetailView(QWidget):
         self.rootLayout.setSpacing(16)
         self._contentRefresh()
 
-    def tacticShow(
-        self,
-        tacticName: str,
-        model: TacticDetailModel | None = None,
-        *,
-        sourceLabel: str | None = None,
-        validation: BuildResult | None = None,
-    ) -> None:
+    def tacticShow(self, tacticName: str, model: TacticDetailModel | None = None, *, sourceLabel: str | None = None, validation: BuildResult | None = None) -> None:
         """Refresh the workspace for the selected stored tactic identity."""
-
         if model is not None:
             self.model = model
         if sourceLabel is not None:
@@ -80,40 +66,34 @@ class TacticDetailView(QWidget):
     def _factsCreate(self) -> QHBoxLayout:
         facts = QHBoxLayout()
         facts.setSpacing(10)
-        for label, value in (
-            ("FORMATION", self.model.formation),
-            ("MENTALITY", self.model.mentality),
-            ("STATUS", self.model.status),
-            ("ASSIGNED SQUADS", self.model.assignedSquads),
-            ("UPDATED", self.model.updated),
-        ):
+        for label, value in (("FORMATION", self.model.formation), ("MENTALITY", self.model.mentality), ("STATUS", self.model.status), ("ASSIGNED SQUADS", self.model.assignedSquads), ("UPDATED", self.model.updated)):
             facts.addWidget(self._factCardCreate(label, value), 1)
         return facts
 
     def _headerCreate(self) -> QHBoxLayout:
         header = QHBoxLayout()
-        header.setSpacing(14)
+        header.setSpacing(18)
         back = QPushButton("←  FMSAT Workspace")
         back.setObjectName("quietButton")
         back.clicked.connect(self.backRequested.emit)
         header.addWidget(back, 0, Qt.AlignmentFlag.AlignVCenter)
 
         heading = QVBoxLayout()
-        heading.setSpacing(3)
+        heading.setSpacing(2)
+        workspace = QLabel(f"Tactic Workspace  ·  {self.sourceLabel}")
+        workspace.setObjectName("workspaceHeading")
+        heading.addWidget(workspace)
         titleRow = QHBoxLayout()
-        titleRow.setSpacing(10)
+        titleRow.setSpacing(12)
         self.titleLabel = QLabel(self.tacticName or "Tactic")
         self.titleLabel.setObjectName("pageTitle")
-        titleRow.addWidget(self.titleLabel)
+        titleRow.addWidget(self.titleLabel, 0, Qt.AlignmentFlag.AlignVCenter)
         self.renameButton = QPushButton("Rename")
         self.renameButton.setObjectName("quietButton")
         self.renameButton.clicked.connect(self._renameBegin)
         titleRow.addWidget(self.renameButton, 0, Qt.AlignmentFlag.AlignVCenter)
         titleRow.addStretch()
         heading.addLayout(titleRow)
-        eyebrow = QLabel(f"Tactic Workspace  ·  {self.sourceLabel}")
-        eyebrow.setObjectName("eyebrow")
-        heading.addWidget(eyebrow)
         header.addLayout(heading, 1)
 
         if self.model.revisions:
@@ -125,22 +105,14 @@ class TacticDetailView(QWidget):
         compare.setObjectName("secondaryButton")
         header.addWidget(compare, 0, Qt.AlignmentFlag.AlignVCenter)
         self.assignmentButton = QPushButton("Assign Squad")
-        self.assignmentButton.clicked.connect(
-            lambda: self.assignmentRequested.emit(self.tacticName)
-        )
+        self.assignmentButton.clicked.connect(lambda: self.assignmentRequested.emit(self.tacticName))
         header.addWidget(self.assignmentButton, 0, Qt.AlignmentFlag.AlignVCenter)
         return header
 
     def _renameBegin(self) -> None:
         """Rename the persisted tactic identity without regenerating evidence."""
-
         oldName = self.tacticName
-        newName, accepted = QInputDialog.getText(
-            self,
-            "Rename tactic",
-            "Tactic name:",
-            text=oldName,
-        )
+        newName, accepted = QInputDialog.getText(self, "Rename tactic", "Tactic name:", text=oldName)
         if not accepted or newName.strip() == oldName:
             return
         owner = self.window()
@@ -162,7 +134,6 @@ class TacticDetailView(QWidget):
 
     def _contentRefresh(self) -> None:
         """Rebuild all top-level sections after the active model changes."""
-
         self._layoutClear(self.rootLayout)
         self.rootLayout.addLayout(self._headerCreate())
         self.rootLayout.addLayout(self._factsCreate())
@@ -171,7 +142,6 @@ class TacticDetailView(QWidget):
 
     def _footerCreate(self) -> QHBoxLayout:
         """Create bottom-row actions for tactic maintenance workflows."""
-
         footer = QHBoxLayout()
         footer.addStretch()
         editButton = QPushButton("Edit Model")
@@ -179,9 +149,7 @@ class TacticDetailView(QWidget):
         editButton.clicked.connect(lambda: self.modelEditRequested.emit(self.tacticName))
         footer.addWidget(editButton)
         self.importToModelButton = QPushButton("Regenerate Model")
-        self.importToModelButton.clicked.connect(
-            lambda: self.importToModelRequested.emit(self.tacticName)
-        )
+        self.importToModelButton.clicked.connect(lambda: self.importToModelRequested.emit(self.tacticName))
         footer.addWidget(self.importToModelButton)
         return footer
 
@@ -217,7 +185,6 @@ class TacticDetailView(QWidget):
 
     def _layoutClear(self, layout: QLayout) -> None:
         """Delete all child widgets/layouts from one Qt layout container."""
-
         while layout.count():
             item = layout.takeAt(0)
             childWidget = item.widget()
