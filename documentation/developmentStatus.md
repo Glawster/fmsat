@@ -1,6 +1,6 @@
 # Development status
 
-Last updated: 2026-08-15
+Last updated: 2026-08-16
 
 ## Current delivery point
 
@@ -35,9 +35,20 @@ The end-to-end workflow is operational:
 - freshness detection, diagnostics and safe retention of an existing model when
   regeneration fails.
 
+A tactic-processing regression exposed that effective OCR recognition geometry
+can degrade even when normalized configured regions are unchanged. OCR geometry
+stabilisation is therefore the current extraction priority. FMSAT now has an
+append-only geometry-history layer and median/MAD drift classifier so validated
+zone observations can establish normal historical variation while anomalous or
+unvalidated observations are retained without teaching the baseline. The
+currently accepted FM26 geometry is also protected by regression tests. See
+[OCR zone geometry history](ocrZoneGeometry.md).
+
 Requirement 006 remains `InProgress` until its remaining correction, diagnostic
 CLI, acceptance-test and documentation criteria are either delivered or
-explicitly deferred.
+explicitly deferred. Wiring effective anchor-derived panel/card observations
+into every successful extraction and surfacing `ocrZoneDrift` diagnostics is the
+next step in this stabilisation increment.
 
 ### Requirement 009 — Tactic detail management
 
@@ -68,20 +79,25 @@ Requirement 007 remains `InProgress`. Its squad-viewer foundation was merged
 through PR 5 and provides Overview, Players, Roles and Analysis views in the same
 visual family as the tactic viewer.
 
-The active increment completes the Generic Role Fit evidence base: explicit
-weights for all canonical roles, consistent all-player assessment, required-role
-depth, player best and alternative roles, weak/duplicated/unused-strength findings,
-transparent calculation traces and unavailable states for incomplete evidence.
-Tactical Fit, Overall Suitability, Best XI, comparison and Role Health remain
-later increments.
+007A establishes the Generic Role Fit policy foundation: explicit weights for
+all canonical roles, exact catalogue validation, missing-evidence unavailable
+states and transparent weighted calculations. The assessment identity remains
+the unique canonical role, not the formation position or slot. Position remains
+supporting eligibility context.
 
-Implementation is now underway on `feature/007-squad-viewer`. The assessment
-identity is the unique canonical role, not the formation position or slot.
-Position remains supporting eligibility context. The editable squad model keeps
-OCR evidence intact and marks it superseded when a user saves corrected values.
+007B — complete all-player role calculation, player best/alternative roles and
+role-depth analysis — is deliberately postponed while tactic OCR geometry is
+stabilised. Dependable squad analysis must not be built on silently degraded
+source extraction.
+
+Implementation continues on `feature/007-squad-viewer`. The editable squad model
+keeps OCR evidence intact and marks it superseded when a user saves corrected
+values.
 
 ## Deferred work
 
+- Requirement 007B all-player role matrix and role-depth analysis until OCR
+  geometry stabilisation is complete.
 - Requirement 009 immutable tactic revisions and comparison.
 - Requirement 006 general structured-tactic correction and diagnostic CLI.
 - Requirement 003 and 004 final acceptance and traceability review.
