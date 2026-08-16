@@ -59,9 +59,6 @@ class TacticLayoutAnchor:
             }
             else "tactics planner"
         )
-        # Instruction captures contain both the background Team Instructions
-        # tab and the modal breadcrumb. Always add the focused modal pass so a
-        # valid but incorrect background match cannot suppress better evidence.
         focusedResults: list[OcrResult] = []
         if expectedPhase is not TacticalPhase.FORMATION:
             focusedResults = self._focusedRecognize(image, expectedPhase)
@@ -83,17 +80,22 @@ class TacticLayoutAnchor:
                 ),
             ))
 
-        # Formation captures are deliberately retained at the Tactics Planner
-        # window boundary. Interior header and pitch contours can also contain
-        # the breadcrumb, but selecting the smallest such contour truncates the
-        # lower half of the pitches. The complete capture is the stable frame.
         if expectedPhase is TacticalPhase.FORMATION:
             logger.info(
                 f"layout anchor={anchor.text!r} using complete Formation capture"
             )
             return TacticLayoutResult(image, anchored=True)
 
-        panel = self._containingPanel(image, anchor.bounds, expectedPhase)
+        # Team Instructions is the primary location anchor. The two tab labels
+        # and their underline are the scale/orientation anchor. When those are
+        # visible, derive the instruction reference frame directly from them;
+        # this is independent of desktop position and works equally for a full
+        # screenshot or an already-cropped modal.
+        panel = self._instructionPanelFromAnchors(image, results, anchor.bounds)
+        referenceMode = "tab anchors"
+        if panel is None:
+            panel = self._containingPanel(image, anchor.bounds, expectedPhase)
+            referenceMode = "contour/fallback"
         if panel is None:
             logger.info(f"layout panel not found around anchor {anchor.text!r}")
             return TacticLayoutResult(image, (
@@ -106,24 +108,23 @@ class TacticLayoutAnchor:
 
         left, top, right, bottom = panel
         reference = image[top:bottom, left:right]
-        detectedPhase = None
+        detectedPhase = self._activePhaseDetect(reference)
         issues: list[TacticIssue] = []
-        if expectedPhase is not TacticalPhase.FORMATION:
-            detectedPhase = self._activePhaseDetect(reference)
-            if detectedPhase is None:
-                issues.append(TacticIssue(
-                    "activeInstructionTabUnresolved",
-                    "Could not determine which Team Instructions tab is underlined",
-                ))
-            elif detectedPhase is not expectedPhase:
-                issues.append(TacticIssue(
-                    "instructionPhaseMismatch",
-                    f"Expected {expectedPhase.value}, but the underline indicates "
-                    f"{detectedPhase.value}",
-                ))
+        if detectedPhase is None:
+            issues.append(TacticIssue(
+                "activeInstructionTabUnresolved",
+                "Could not determine which Team Instructions tab is underlined",
+            ))
+        elif detectedPhase is not expectedPhase:
+            issues.append(TacticIssue(
+                "instructionPhaseMismatch",
+                f"Expected {expectedPhase.value}, but the underline indicates "
+                f"{detectedPhase.value}",
+            ))
         logger.info(
             f"layout anchor={anchor.text!r} panel=({left},{top})-({right},{bottom}) "
-            f"phase={detectedPhase.value if detectedPhase else 'formation'}"
+            f"mode={referenceMode} phase="
+            f"{detectedPhase.value if detectedPhase else 'unresolved'}"
         )
         return TacticLayoutResult(reference, tuple(issues), detectedPhase, True)
 
@@ -201,12 +202,73 @@ class TacticLayoutAnchor:
                 candidates.append((context, vertical, score, result))
         if not candidates:
             return None
-        # The modal occurrence is lower than the background navigation tab.
-        # Breadcrumb context then breaks ties between fragments on the same row.
         return max(
             candidates,
             key=lambda item: (item[1], item[0], item[2], item[3].confidence),
         )[3]
+
+    def _instructionPanelFromAnchors(
+        self,
+        image: np.ndarray,
+        results: list[OcrResult],
+        breadcrumbBounds: tuple[float, float, float, float] | None,
+    ) -> tuple[int, int, int, int] | None:
+        """Derive the instruction reference frame from breadcrumb and tab labels."""
+
+        if breadcrumbBounds is None:
+            return None
+        inPossession = self._anchorFind(results, "in possession")
+        outOfPossession = self._anchorFind(results, "out of possession")
+        if inPossession is None or outOfPossession is None:
+            return None
+        if inPossession.bounds is None or outOfPossession.bounds is None:
+            return None
+
+        # Reject unrelated occurrences elsewhere in a larger screenshot. The
+        # modal tabs must sit below the Team Instructions breadcrumb, on the
+        # same row, and in left-to-right order.
+        breadcrumbBottom = breadcrumbBounds[3]
+        inLeft, inTop, inRight, inBottom = inPossession.bounds
+        outLeft, outTop, outRight, outBottom = outOfPossession.bounds
+        tabHeight = max(inBottom - inTop, outBottom - outTop, 1.0)
+        if min(inTop, outTop) <= breadcrumbBottom:
+            return None
+        if abs((inTop + inBottom) / 2 - (outTop + outBottom) / 2) > tabHeight * 1.5:
+            return None
+        if outLeft <= inLeft:
+            return None
+
+        settings = self.configuration.get("anchors", {})
+        height, width = image.shape[:2]
+        tabGap = max(outLeft - inLeft, inRight - inLeft, outRight - outLeft)
+        left = int(max(0, inLeft - tabGap * float(settings.get("instructionAnchorLeftGap", 0.08))))
+        top = int(max(0, breadcrumbBounds[1] - tabGap * float(settings.get("instructionAnchorTopGap", 0.18))))
+
+        # The accepted instruction-region coordinates are normalized to the
+        # whole modal. The first tab begins at about x=.02 and its text baseline
+        # at about y=.10. Recover that local modal frame from the visible tab
+        # geometry instead of from the outer screenshot dimensions.
+        tabX = float(settings.get("instructionAnchorTabX", 0.022))
+        tabY = float(settings.get("instructionAnchorTabY", 0.105))
+        estimatedWidth = (inLeft - left) / tabX if tabX > 0 else width
+        estimatedHeight = (inTop - top) / tabY if tabY > 0 else height
+        if estimatedWidth <= 0 or estimatedHeight <= 0:
+            return None
+        right = int(min(width, left + estimatedWidth))
+        bottom = int(min(height, top + estimatedHeight))
+
+        # A tightly cropped modal naturally clamps to its image edges. For a
+        # larger screenshot, the tab spacing supplies a better width estimate:
+        # the second tab starts roughly 13% of a modal width after the first.
+        tabSeparation = outLeft - inLeft
+        separationRatio = float(settings.get("instructionAnchorTabSeparation", 0.13))
+        if separationRatio > 0:
+            widthFromTabs = tabSeparation / separationRatio
+            right = int(min(width, left + widthFromTabs))
+
+        if right - left < width * 0.45 or bottom - top < height * 0.45:
+            return None
+        return left, top, right, bottom
 
     def _containingPanel(
         self,
@@ -241,9 +303,6 @@ class TacticLayoutAnchor:
             candidates.append((boxWidth * boxHeight, (left, top, right, bottom)))
         if candidates:
             return min(candidates, key=lambda item: item[0])[1]
-
-        # A capture already cropped to the tactic window has no surrounding
-        # desktop edge. It is itself a valid Formation reference frame.
         if phase is TacticalPhase.FORMATION:
             return 0, 0, width, height
         return self._instructionPanelFallback(image, bounds, phase)
@@ -254,7 +313,7 @@ class TacticLayoutAnchor:
         anchorBounds: tuple[int, int, int, int],
         phase: TacticalPhase,
     ) -> tuple[int, int, int, int] | None:
-        """Estimate the FM modal from its anchored breadcrumb when edges are broken."""
+        """Estimate the FM modal only when the stronger tab anchors are absent."""
 
         settings = self.configuration.get("anchors", {})
         profiles = settings.get("instructionPanelFallback", {})
@@ -275,7 +334,7 @@ class TacticLayoutAnchor:
         if panel[2] <= panel[0] or panel[3] <= panel[1]:
             return None
         logger.info(
-            "instruction panel contour unavailable; using anchored fallback "
+            "instruction tab anchors unavailable; using legacy anchored fallback "
             f"({panel[0]},{panel[1]})-({panel[2]},{panel[3]})"
         )
         return panel
@@ -291,7 +350,12 @@ class TacticLayoutAnchor:
         if band.size == 0:
             return None
         gray = cv2.cvtColor(band, cv2.COLOR_BGR2GRAY)
-        _, bright = cv2.threshold(gray, int(settings.get("underlineBrightness", 170)), 255, cv2.THRESH_BINARY)
+        _, bright = cv2.threshold(
+            gray,
+            int(settings.get("underlineBrightness", 170)),
+            255,
+            cv2.THRESH_BINARY,
+        )
         horizontal = cv2.morphologyEx(
             bright,
             cv2.MORPH_OPEN,
