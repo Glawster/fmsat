@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import (
     QFrame,
     QHeaderView,
@@ -73,7 +72,7 @@ class SquadRolesTab(BaseSquadRolesTab):
         self.roleTable.verticalHeader().setDefaultSectionSize(28)
         _breakdownAbbreviate(self.candidateTable, 4, self.attributes)
         self._tooltipsApply(self.candidateTable, 4, preserve=True)
-        QTimer.singleShot(0, self._rowsCompact)
+        self._rowsCompact()
 
     def _roleShow(
         self,
@@ -90,7 +89,7 @@ class SquadRolesTab(BaseSquadRolesTab):
         self._rowsCompact()
 
     def _rowsCompact(self) -> None:
-        """Use stable one-line heights even when the tab was initially hidden."""
+        """Use stable one-line heights without queuing callbacks past widget lifetime."""
 
         for table in (self.roleTable, self.candidateTable):
             for row in range(table.rowCount()):
@@ -128,7 +127,7 @@ class SquadAnalysisTab(BaseSquadAnalysisTab):
         self._tooltipsApply(self.playerTable, 3, preserve=True)
         self._tooltipsApply(self.findingsTable, 2)
         self._horizontalCardsArrange()
-        QTimer.singleShot(0, self._rowsCompact)
+        self._rowsCompact()
 
     def _depthExpand(
         self,
