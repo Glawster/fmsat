@@ -13,6 +13,25 @@ compare and explain the available players. Keep each role as a long-lived
 planning object on which squad depth and later recruitment workflows can be
 built.
 
+## Current delivery state
+
+The squad-viewer foundation is delivered and the first generic-analysis
+sub-increment, 007A, has established the assessment-policy foundation:
+
+- every canonical tactic role has explicit Generic Role Fit weights;
+- policy validation rejects missing roles, unknown roles, unknown attributes and
+  weights outside the supported range;
+- the Generic Role Fit calculation retains its weighted-attribute trace and
+  returns `Unavailable` rather than fabricating a score when required evidence
+  is missing; and
+- regression tests protect the assessment-policy catalogue.
+
+007B is deliberately paused while requirement 006's current tactic-extraction
+reference-frame regression is verified. This does not change 007's scope. Once
+that supporting evidence is dependable, the next work is the complete
+player-role matrix, best/alternative roles and required-role depth in the
+existing Analysis tab.
+
 ## Dependencies
 
 1. Consume the validated football object-model tactic produced by requirement
@@ -249,6 +268,31 @@ invent a modifier when the structured tactic provides no supporting evidence.
 - Youth-development projections.
 - Automated starter selection or lineup changes.
 - Modifying Football Manager or reading its save files.
+
+## Verification and traceability
+
+### 007A — Generic Role Fit policy foundation
+
+- Implementation: `config/roleAssessment.yaml`, role-assessment configuration
+  loading/validation and the existing Generic Role Fit calculation service.
+- Tests: `tests/test_roleAssessmentPolicy.py` plus the existing Generic Role Fit
+  calculation tests.
+- Behaviour: all canonical roles require explicit valid weights; missing weights
+  or required player attributes remain `Unavailable`; complete weighted
+  contributions are retained for explanation.
+- Status: implemented; full branch test-suite verification remains part of the
+  current increment after the OMP 0.4 update.
+
+### Next verification gate
+
+Requirement 006 tactic extraction is being stabilised against the current FM26
+reference captures before 007B consumes that evidence. See
+`project/currentIncrement.md` and `documentation/ocrZoneGeometry.md`.
+
+## Change history
+
+- 2026-08-16: recorded completion of the 007A assessment-policy foundation and
+  explicit pause before 007B while structured tactic extraction is verified.
 
 ## Future foundation
 
