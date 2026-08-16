@@ -106,40 +106,85 @@ def testUnvalidatedObservationNeverLearnsBaseline() -> None:
     ) == ()
 
 
+def _expectedRegions(
+    rows: tuple[tuple[str, ...], ...],
+    rowY: tuple[float, ...],
+    height: float,
+) -> dict[str, dict[str, float]]:
+    xValues = (0.012, 0.177, 0.342, 0.507, 0.672, 0.838)
+    result = {}
+    for y, categories in zip(rowY, rows, strict=True):
+        for x, category in zip(xValues, categories, strict=True):
+            result[category] = {"x": x, "y": y, "width": 0.149, "height": height}
+    return result
+
+
 def testAcceptedTacticGeometryIsAnExplicitRegressionContract() -> None:
-    """Moving known-good normalized zones requires an intentional test update."""
+    """Moving any known-good normalized zone requires an intentional test update."""
 
     configuration = Configuration().tacticExtraction
     profiles = {
         profile["name"]: profile for profile in configuration["phaseRegionProfiles"]
+    }
+    assert profiles["compactTwoPitch"]["regions"] == {
+        "inPossession": {"x": 0.026, "y": 0.227, "width": 0.484, "height": 0.700},
+        "outOfPossession": {"x": 0.522, "y": 0.227, "width": 0.474, "height": 0.700},
     }
     assert profiles["widePlannerWithSquad"]["regions"] == {
         "inPossession": {"x": 0.024, "y": 0.218, "width": 0.271, "height": 0.550},
         "outOfPossession": {"x": 0.317, "y": 0.218, "width": 0.271, "height": 0.550},
     }
 
+    expectedInPossession = _expectedRegions(
+        (
+            (
+                "passingDirectness",
+                "tempo",
+                "timeWasting",
+                "attackingTransition",
+                "attackingWidth",
+                "playForSetPieces",
+            ),
+            (
+                "creativeFreedom",
+                "buildUpStrategy",
+                "goalKicks",
+                "goalkeeperDistribution",
+                "supportingRuns",
+                "dribbling",
+            ),
+            (
+                "progressThrough",
+                "passReception",
+                "patience",
+                "shotsFromDistance",
+                "crossingStyle",
+                "goalkeeperDistributionSpeed",
+            ),
+        ),
+        (0.172, 0.450, 0.729),
+        0.252,
+    )
+    expectedOutOfPossession = _expectedRegions(
+        (
+            (
+                "lineOfEngagement",
+                "defensiveLine",
+                "triggerPress",
+                "defensiveTransition",
+                "tackling",
+                "crossEngagement",
+            ),
+            (
+                "pressingTrap",
+                "shortGoalkeeperDistribution",
+                "defensiveLineBehaviour",
+            ),
+        ),
+        (0.234, 0.622),
+        0.349,
+    )
+
     instructionRegions = configuration["instructionPanelRegions"]
-    assert instructionRegions["inPossession"]["tempo"] == {
-        "x": 0.177,
-        "y": 0.172,
-        "width": 0.149,
-        "height": 0.252,
-    }
-    assert instructionRegions["inPossession"]["attackingWidth"] == {
-        "x": 0.672,
-        "y": 0.172,
-        "width": 0.149,
-        "height": 0.252,
-    }
-    assert instructionRegions["outOfPossession"]["tackling"] == {
-        "x": 0.672,
-        "y": 0.234,
-        "width": 0.149,
-        "height": 0.349,
-    }
-    assert instructionRegions["outOfPossession"]["defensiveLineBehaviour"] == {
-        "x": 0.342,
-        "y": 0.622,
-        "width": 0.149,
-        "height": 0.349,
-    }
+    assert instructionRegions["inPossession"] == expectedInPossession
+    assert instructionRegions["outOfPossession"] == expectedOutOfPossession
