@@ -19,6 +19,33 @@ The geometry history provides two protections:
    with previous validated observations for the same screen, layout profile and
    zone.
 
+## Team Instructions anchor contract
+
+Team Instructions extraction is deliberately local rather than screen-relative.
+The stable evidence chain is:
+
+1. locate the `Team Instructions` breadcrumb;
+2. locate the `In Possession` and `Out of Possession` labels below it;
+3. use the label spacing to establish the local modal scale and orientation;
+4. detect the active phase from the underline in that local frame; and
+5. project the configured six-column card grid into that frame.
+
+This means moving the FM window on the desktop, supplying a larger screenshot or
+supplying a screenshot already cropped to the Team Instructions modal must not
+move the instruction OCR zones. Whole-screen percentage geometry is retained
+only as a legacy fallback when the stronger breadcrumb/tab evidence cannot be
+recovered.
+
+A 2026-08-16 regression demonstrated why this contract matters. A 1505-pixel-wide
+already-cropped modal was incorrectly passed through the old `x=0.205`,
+`width=0.590` fallback. Its effective reference frame therefore began about 308
+pixels into the modal. Each category subsequently read text from the following
+card (`passingDirectness` read the tail of `Tempo`, `tempo` read `Time Wasting`,
+and the same displacement occurred Out of Possession). The active-tab underline
+was also outside the erroneous local frame. Tests now reproduce the 1505x895 In
+Possession and 1505x652 Out of Possession capture shapes and require the visible
+tab anchors to win over that fallback.
+
 ## Observation identity
 
 Only comparable observations belong in one history. Each observation therefore
@@ -33,8 +60,10 @@ records:
 - source import session where available; and
 - observation time.
 
-Different FM layouts such as the compact two-pitch planner and the wide planner
-with squad panel must not be mixed into one statistical baseline.
+Different FM layouts and different reference-frame modes must not be mixed into
+one statistical baseline. In particular, anchor-relative Team Instructions
+geometry should be compared with other anchor-relative observations rather than
+with old whole-screen fallback geometry.
 
 ## Drift classification
 
@@ -71,15 +100,23 @@ geometry is normal.
 accepted FM26 tactic geometry. Intentional recalibration therefore requires an
 explicit test change rather than silently moving the recognition zones.
 
-The historical classifier and persistence tests separately verify bootstrap
-behaviour, normal variation, drift, anomaly detection and exclusion of anomalous
-or unvalidated observations from the learned baseline.
+`tests/test_tacticLayoutAnchor.py` separately protects the anchor behaviour,
+including cropped Team Instructions captures. A change that reintroduces the
+whole-screen fallback when the breadcrumb and both phase labels are visible is a
+regression even if OCR happens to return some text.
+
+The historical classifier and persistence tests verify bootstrap behaviour,
+normal variation, drift, anomaly detection and exclusion of anomalous or
+unvalidated observations from the learned baseline.
 
 ## Current integration boundary
 
-The history and classification layer is now available for tactic extraction.
-The next extraction wiring step is to record the effective anchor-derived panel
-and card geometry from each successful tactic screenshot run and surface
-`ocrZoneDrift` diagnostics when a new observation is anomalous. This work is
-being prioritised before the next squad-analysis increment because dependable OCR
+Anchor-relative Team Instructions frame recovery is now preferred over the
+whole-screen percentage fallback. The history and classification layer is also
+available for tactic extraction.
+
+The remaining extraction wiring step is to record the effective anchor-derived
+panel and card geometry from each successful tactic screenshot run and surface
+`ocrZoneDrift` diagnostics when a new observation is anomalous. This work remains
+prioritised before the next squad-analysis increment because dependable OCR
 evidence is a prerequisite for dependable role-fit analysis.
