@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from importlib.resources import files
 
 from fmsat.core.logUtils import getLogger
@@ -179,7 +180,38 @@ class SquadDetailView(QWidget):
         progress.show()
         QApplication.processEvents()
         try:
+            # Keep the signal as the public UI event for tests and future controllers.
             self.modelRegenerateRequested.emit(self.squadName)
+
+            # The main workspace currently owns the squad model service directly.
+            # Force the existing public save path into its regeneration branch so
+            # the button works for both stale and current models.
+            window = self.window()
+            service = getattr(window, "squadModelService", None)
+            if service is None:
+                return
+            regenerationModel = replace(
+                self.model.squad,
+                regenerationRequired=True,
+            )
+            service.modelSave(regenerationModel)
+            dataChanged = getattr(window, "dataChanged", None)
+            if dataChanged is not None and hasattr(dataChanged, "emit"):
+                dataChanged.emit()
+            squadShow = getattr(window, "squadShow", None)
+            if callable(squadShow):
+                squadShow(self.squadName, self.model.tacticName)
+            statusBar = getattr(window, "statusBar", None)
+            if callable(statusBar):
+                statusBar().showMessage(
+                    f"Regenerated {self.squadName} from saved screenshot evidence.",
+                    10000,
+                )
+        except Exception as exc:
+            logger.exception("unable to regenerate squad model %r", self.squadName)
+            statusBar = getattr(self.window(), "statusBar", None)
+            if callable(statusBar):
+                statusBar().showMessage(str(exc), 10000)
         finally:
             progress.close()
             self.regenerateButton.setEnabled(True)

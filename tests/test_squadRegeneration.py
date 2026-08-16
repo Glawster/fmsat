@@ -22,55 +22,56 @@ def _model(*, regenerationRequired: bool) -> SquadModel:
     )
 
 
-def testRegenerationButtonAppearsForStaleSquadAndRequestsOriginalModel(qtbot) -> None:  # type: ignore[no-untyped-def]
-    """A stale squad should expose an explicit rebuild action using saved evidence."""
-
-    squad = _model(regenerationRequired=True)
-    detail = SquadDetailModel(
+def _detail(squad: SquadModel) -> SquadDetailModel:
+    return SquadDetailModel(
         squad=squad,
         tacticName="High Press",
         availableTactics=("High Press",),
-        sourceStatus="Regeneration required — newer squad screenshots exist",
+        sourceStatus=(
+            "Regeneration required — newer squad screenshots exist"
+            if squad.regenerationRequired
+            else "Generated from screenshot evidence"
+        ),
         updated="15 Aug 2026 22:00",
         requiredPositionCount=0,
         roles=(),
     )
+
+
+def testRegenerationButtonAppearsForStaleSquadAndRequestsRegeneration(qtbot) -> None:  # type: ignore[no-untyped-def]
+    """A stale squad should expose an explicit rebuild action using saved evidence."""
+
+    squad = _model(regenerationRequired=True)
     view = SquadDetailView()
     qtbot.addWidget(view)
-    requested = []
-    view.modelSaveRequested.connect(requested.append)
+    requested: list[str] = []
+    view.modelRegenerateRequested.connect(requested.append)
 
-    view.squadShow("First Team", detail)
+    view.squadShow("First Team", _detail(squad))
 
-    assert view.regenerateButton is not None
     assert view.regenerateButton.text() == "Regenerate Squad Model"
     qtbot.mouseClick(view.regenerateButton, Qt.MouseButton.LeftButton)
-    assert requested == [squad]
+    assert requested == ["First Team"]
     assert view.regenerationProgress is not None
     assert view.regenerationProgress.objectName() == "squadRegenerationProgressDialog"
     assert view.regenerationProgress.minimum() == 0
     assert view.regenerationProgress.maximum() == 0
 
 
-def testRegenerationButtonIsHiddenForCurrentSquad(qtbot) -> None:  # type: ignore[no-untyped-def]
-    """Current screenshot evidence should not offer a redundant regeneration action."""
+def testRegenerationButtonAppearsForCurrentSquad(qtbot) -> None:  # type: ignore[no-untyped-def]
+    """Current evidence may be explicitly re-read after parser/configuration improvements."""
 
     squad = _model(regenerationRequired=False)
-    detail = SquadDetailModel(
-        squad=squad,
-        tacticName="High Press",
-        availableTactics=("High Press",),
-        sourceStatus="Generated from screenshot evidence",
-        updated="15 Aug 2026 22:00",
-        requiredPositionCount=0,
-        roles=(),
-    )
     view = SquadDetailView()
     qtbot.addWidget(view)
+    requested: list[str] = []
+    view.modelRegenerateRequested.connect(requested.append)
 
-    view.squadShow("First Team", detail)
+    view.squadShow("First Team", _detail(squad))
 
-    assert view.regenerateButton is None
+    assert view.regenerateButton.text() == "Regenerate Squad Model"
+    qtbot.mouseClick(view.regenerateButton, Qt.MouseButton.LeftButton)
+    assert requested == ["First Team"]
 
 
 def testModelSaveRoutesStaleModelToRegeneration() -> None:
