@@ -21,6 +21,36 @@ from fmsat.app.squadDetailTabs import (
 from fmsat.core.config import AttributeDefinition
 
 
+def _breakdownAbbreviate(
+    table: QTableWidget,
+    column: int,
+    attributes: tuple[AttributeDefinition, ...],
+) -> None:
+    """Render configured attribute abbreviations without changing score evidence."""
+
+    abbreviations = {
+        attribute.name: attribute.abbreviation
+        for attribute in attributes
+        if attribute.abbreviation.strip()
+    }
+    if not abbreviations:
+        return
+    for row in range(table.rowCount()):
+        item = table.item(row, column)
+        if item is None:
+            continue
+        original = item.text()
+        rendered = original
+        for name, abbreviation in sorted(
+            abbreviations.items(),
+            key=lambda item: len(item[0]),
+            reverse=True,
+        ):
+            rendered = rendered.replace(f"{name}:", f"{abbreviation}:")
+        item.setText(rendered)
+        item.setToolTip(original)
+
+
 class SquadRolesTab(BaseSquadRolesTab):
     """Keep role rows compact while retaining descriptive calculation text."""
 
@@ -30,15 +60,19 @@ class SquadRolesTab(BaseSquadRolesTab):
         attributes: tuple[AttributeDefinition, ...] = (),
         parent=None,
     ) -> None:
+        self.attributes = attributes
         super().__init__(roles, parent)
         if not hasattr(self, "candidateTable"):
             return
         self.candidateTable.setWordWrap(False)
-        self.candidateTable.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
+        self.candidateTable.verticalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Fixed
+        )
         self.candidateTable.verticalHeader().setDefaultSectionSize(28)
         self.roleTable.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
         self.roleTable.verticalHeader().setDefaultSectionSize(28)
-        self._tooltipsApply(self.candidateTable, 4)
+        _breakdownAbbreviate(self.candidateTable, 4, self.attributes)
+        self._tooltipsApply(self.candidateTable, 4, preserve=True)
         QTimer.singleShot(0, self._rowsCompact)
 
     def _roleShow(
@@ -51,7 +85,8 @@ class SquadRolesTab(BaseSquadRolesTab):
         super()._roleShow(currentRow, currentColumn, previousRow, previousColumn)
         if not hasattr(self, "candidateTable"):
             return
-        self._tooltipsApply(self.candidateTable, 4)
+        _breakdownAbbreviate(self.candidateTable, 4, self.attributes)
+        self._tooltipsApply(self.candidateTable, 4, preserve=True)
         self._rowsCompact()
 
     def _rowsCompact(self) -> None:
@@ -62,10 +97,15 @@ class SquadRolesTab(BaseSquadRolesTab):
                 table.setRowHeight(row, 28)
 
     @staticmethod
-    def _tooltipsApply(table: QTableWidget, column: int) -> None:
+    def _tooltipsApply(
+        table: QTableWidget,
+        column: int,
+        *,
+        preserve: bool = False,
+    ) -> None:
         for row in range(table.rowCount()):
             item = table.item(row, column)
-            if item is not None:
+            if item is not None and (not preserve or not item.toolTip()):
                 item.setToolTip(item.text())
 
 
@@ -84,7 +124,8 @@ class SquadAnalysisTab(BaseSquadAnalysisTab):
         self._compactTable(self.depthTable)
         self._compactTable(self.playerTable)
         self._compactTable(self.findingsTable)
-        self._tooltipsApply(self.playerTable, 3)
+        _breakdownAbbreviate(self.playerTable, 3, attributes)
+        self._tooltipsApply(self.playerTable, 3, preserve=True)
         self._tooltipsApply(self.findingsTable, 2)
         self._horizontalCardsArrange()
         QTimer.singleShot(0, self._rowsCompact)
@@ -174,8 +215,13 @@ class SquadAnalysisTab(BaseSquadAnalysisTab):
                 table.setRowHeight(row, 28)
 
     @staticmethod
-    def _tooltipsApply(table: QTableWidget, column: int) -> None:
+    def _tooltipsApply(
+        table: QTableWidget,
+        column: int,
+        *,
+        preserve: bool = False,
+    ) -> None:
         for row in range(table.rowCount()):
             item = table.item(row, column)
-            if item is not None:
+            if item is not None and (not preserve or not item.toolTip()):
                 item.setToolTip(item.text())
