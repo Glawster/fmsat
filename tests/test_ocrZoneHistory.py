@@ -114,7 +114,7 @@ def _expectedRegions(
     xValues = (0.012, 0.177, 0.342, 0.507, 0.672, 0.838)
     result = {}
     for y, categories in zip(rowY, rows, strict=True):
-        for x, category in zip(xValues, categories, strict=True):
+        for x, category in zip(xValues, categories):
             result[category] = {"x": x, "y": y, "width": 0.149, "height": height}
     return result
 
