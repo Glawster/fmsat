@@ -17,7 +17,7 @@ def _configuration() -> dict:
             "minimumTextMatch": 0.68,
             "tabBandYMin": 0.08,
             "tabBandYMax": 0.24,
-            "instructionTabSplit": 0.30,
+            "instructionTabSplit": 0.18,
             "underlineBrightness": 170,
             "instructionAnchorLeftGap": 0.16,
             "instructionAnchorTopGap": 0.18,
@@ -125,8 +125,6 @@ def testCroppedInstructionModalUsesCompleteImageFromBreadcrumb() -> None:
     configuration["anchors"]["instructionPanelFallback"] = {
         "inPossession": {"x": 0.205, "topOffset": 0.025, "width": 0.590, "height": 0.680}
     }
-    # Deliberately omit tab-label OCR: the Team Instructions breadcrumb itself
-    # proves this image is already the modal and prevents a destructive recrop.
     ocr = FakeOcr([[OcrResult(
         "Squad > Tactics Planner > Team Instructions", 0.99, (20, 31, 385, 52)
     )]], suppliesGeometry=True)
