@@ -20,7 +20,11 @@ from sqlalchemy import (
 )
 from sqlalchemy.engine import Engine
 
-from fmsat.core.ocrZoneHistory import OcrZoneGeometry
+from fmsat.core.ocrZoneHistory import (
+    OcrZoneDriftClassifier,
+    OcrZoneDriftResult,
+    OcrZoneGeometry,
+)
 
 
 metadata = MetaData()
@@ -53,7 +57,7 @@ class OcrZoneObservationRecord:
 
 
 class OcrZoneHistoryStore:
-    """Append-only historical store; anomalous rows can be retained but excluded."""
+    """Append-only historical store; anomalous rows are never baseline evidence."""
 
     def __init__(self, engine: Engine) -> None:
         self.engine = engine
@@ -88,6 +92,36 @@ class OcrZoneHistoryStore:
             )
             for row in rows
         )
+
+    def observe(
+        self,
+        screenType: str,
+        layoutProfile: str,
+        zoneName: str,
+        geometry: OcrZoneGeometry,
+        classifier: OcrZoneDriftClassifier,
+        *,
+        validated: bool,
+        sourceImportSessionId: int | None = None,
+    ) -> OcrZoneDriftResult:
+        """Classify and append one observation without teaching from anomalies."""
+
+        history = self.history(screenType, layoutProfile, zoneName)
+        result = classifier.classify(
+            geometry,
+            tuple(item.geometry for item in history),
+        )
+        accepted = validated and result.state != "anomalous"
+        self.record(
+            screenType,
+            layoutProfile,
+            zoneName,
+            geometry,
+            result.state,
+            accepted,
+            sourceImportSessionId,
+        )
+        return result
 
     def record(
         self,
