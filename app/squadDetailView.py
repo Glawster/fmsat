@@ -49,7 +49,9 @@ class SquadDetailView(QWidget):
         self.squadName = ""
         self.regenerationProgress: QProgressDialog | None = None
         self.setObjectName("squadDetailView")
-        self.setStyleSheet(files("fmsat.app").joinpath("fmsat.qss").read_text(encoding="utf-8"))
+        self.setStyleSheet(
+            files("fmsat.app").joinpath("fmsat.qss").read_text(encoding="utf-8")
+        )
         self.rootLayout = QVBoxLayout(self)
         self.rootLayout.setContentsMargins(28, 20, 28, 24)
         self.rootLayout.setSpacing(16)
@@ -102,6 +104,7 @@ class SquadDetailView(QWidget):
         title.setObjectName("pageTitle")
         heading.addWidget(title)
         header.addLayout(heading, 1)
+
         self.tacticPicker = QComboBox()
         self.tacticPicker.setObjectName("squadTacticPicker")
         availableTactics = self._systemTactics()
@@ -109,11 +112,11 @@ class SquadDetailView(QWidget):
             "No tactic selected",
             "No tactic assigned",
         }
-        if tacticAssigned:
-            self.tacticPicker.addItem(self.model.tacticName)
-        else:
-            self.tacticPicker.addItem("No tactic assigned")
-        self.tacticPicker.addItem("Assign tactic…")
+        current = self.model.tacticName if tacticAssigned else "No tactic assigned"
+        self.tacticPicker.addItem(current)
+        for tacticName in availableTactics:
+            if tacticName != current:
+                self.tacticPicker.addItem(tacticName)
         self.tacticPicker.currentTextChanged.connect(self._tacticChange)
         self.tacticPicker.setEnabled(bool(availableTactics))
         header.addWidget(self.tacticPicker)
@@ -121,7 +124,9 @@ class SquadDetailView(QWidget):
 
     def _factsCreate(self) -> QHBoxLayout:
         assert self.model is not None
-        covered = sum(not role.coverage.startswith("Uncovered") for role in self.model.roles)
+        covered = sum(
+            not role.coverage.startswith("Uncovered") for role in self.model.roles
+        )
         facts = QHBoxLayout()
         tacticName = (
             "No tactic assigned"
@@ -220,23 +225,21 @@ class SquadDetailView(QWidget):
         return progress
 
     def _tacticChange(self, choice: str) -> None:
-        if self.model is None or choice != "Assign tactic…":
+        """Persist a directly selected stored tactic."""
+
+        if self.model is None or choice in {"", "No tactic assigned"}:
             return
-        selected = self._tacticAssignmentSelect()
-        current = (
-            self.model.tacticName
-            if self.model.tacticName not in {"No tactic selected", "No tactic assigned"}
-            else "No tactic assigned"
-        )
-        if selected is None:
-            self.tacticPicker.blockSignals(True)
-            self.tacticPicker.setCurrentText(current)
-            self.tacticPicker.blockSignals(False)
+        if choice == self.model.tacticName:
             return
-        self._tacticAssign(selected)
+        if choice == "Assign tactic…":
+            selected = self._tacticAssignmentSelect()
+            if selected is not None:
+                self._tacticAssign(selected)
+            return
+        self._tacticAssign(choice)
 
     def _tacticAssignmentSelect(self) -> str | None:
-        """Choose a stored tactic using the same explicit assignment pattern as tactic view."""
+        """Retain the explicit assignment dialog for callers that still use it."""
 
         tactics = self._systemTactics()
         if not tactics:
@@ -296,7 +299,12 @@ class SquadDetailView(QWidget):
                 names.update(database.tacticsList())
             except Exception:
                 logger.exception("unable to list system tactics for squad workspace")
-        return tuple(sorted((name for name in names if name.strip()), key=str.casefold))
+        return tuple(
+            sorted(
+                (name for name in names if name.strip()),
+                key=str.casefold,
+            )
+        )
 
     def _requiredRoleRows(self) -> tuple[tuple[str, str], ...]:
         """Build one depth row per player slot, combining the two tactical phases."""
@@ -335,7 +343,11 @@ class SquadDetailView(QWidget):
             ("OOP", outPositions),
         ):
             for index, position in enumerate(positions):
-                key = str(position.slotId) if useSlotIds and position.slotId else f"ordinal:{index}"
+                key = (
+                    str(position.slotId)
+                    if useSlotIds and position.slotId
+                    else f"ordinal:{index}"
+                )
                 if key not in slots:
                     slots[key] = {"position": "", "roles": []}
                     order.append(key)
@@ -344,8 +356,16 @@ class SquadDetailView(QWidget):
                     slots[key]["position"] = positionName
                 roleCode = position.canonicalRole
                 role = roleByCode.get(roleCode) if roleCode else None
-                roleLabel = role.abbreviation if role is not None else roleCode or position.roleProfile.name or "Unavailable"
-                coverage = role.coverage if role is not None else "Unavailable — role assessment is unresolved"
+                roleLabel = (
+                    role.abbreviation
+                    if role is not None
+                    else roleCode or position.roleProfile.name or "Unavailable"
+                )
+                coverage = (
+                    role.coverage
+                    if role is not None
+                    else "Unavailable — role assessment is unresolved"
+                )
                 roles = slots[key]["roles"]
                 if isinstance(roles, list):
                     roles.append((phase, roleLabel, coverage))
@@ -353,21 +373,37 @@ class SquadDetailView(QWidget):
         rows: list[tuple[str, str]] = []
         for key in order:
             entry = slots[key]
-            roleFacts = entry["roles"] if isinstance(entry["roles"], list) else []
+            roleFacts = (
+                entry["roles"] if isinstance(entry["roles"], list) else []
+            )
             uniqueLabels = list(dict.fromkeys(fact[1] for fact in roleFacts))
-            roleText = uniqueLabels[0] if len(uniqueLabels) == 1 else " / ".join(
-                f"{phase} {label}" for phase, label, _coverage in roleFacts
+            roleText = (
+                uniqueLabels[0]
+                if len(uniqueLabels) == 1
+                else " / ".join(
+                    f"{phase} {label}"
+                    for phase, label, _coverage in roleFacts
+                )
             )
             positionText = self._positionDisplay(str(entry["position"]))
-            label = f"{positionText} — {roleText}" if positionText else roleText
-            uniqueCoverage = list(dict.fromkeys(fact[2] for fact in roleFacts))
-            coverageText = uniqueCoverage[0] if len(uniqueCoverage) == 1 else " | ".join(
-                f"{phase} {roleLabel}: {coverage}"
-                for phase, roleLabel, coverage in roleFacts
+            label = f"{roleText} · {positionText}" if positionText else roleText
+            uniqueCoverage = list(
+                dict.fromkeys(fact[2] for fact in roleFacts)
+            )
+            coverageText = (
+                uniqueCoverage[0]
+                if len(uniqueCoverage) == 1
+                else " | ".join(
+                    f"{phase} {roleLabel}: {coverage}"
+                    for phase, roleLabel, coverage in roleFacts
+                )
             )
             rows.append((label, coverageText))
 
-        if self.model.requiredPositionCount and len(rows) != self.model.requiredPositionCount:
+        if (
+            self.model.requiredPositionCount
+            and len(rows) != self.model.requiredPositionCount
+        ):
             logger.warning(
                 "squad analysis slot count mismatch tactic=%r expected=%d actual=%d",
                 self.model.tacticName,
@@ -399,7 +435,13 @@ class SquadDetailView(QWidget):
         }
         if position in direct:
             return direct[position]
-        for prefix, label in (("DM", "DM"), ("AM", "AM"), ("WB", "WB"), ("D", "D"), ("M", "M")):
+        for prefix, label in (
+            ("DM", "DM"),
+            ("AM", "AM"),
+            ("WB", "WB"),
+            ("D", "D"),
+            ("M", "M"),
+        ):
             if position.startswith(prefix) and position[-1:] in {"L", "C", "R"}:
                 return f"{label}({position[-1]})"
         return position
