@@ -7,6 +7,9 @@ InProgress
 The end-to-end extraction, role-gap and model-generation workflow is
 operational. Completion remains open for the general correction workflow,
 diagnostic CLI, final acceptance verification and documentation reconciliation.
+The current stabilisation work additionally verifies anchor-relative Team
+Instructions extraction against newer FM26 captures before requirement 007B
+consumes the resulting tactic evidence.
 
 ## Objective
 
@@ -40,7 +43,13 @@ requirement.
    It may be retained in `ScreenshotDerivedTacticDefinition` and used transiently
    to link the same slot across phases, but it must not become a player assignment
    in the reusable football object model. Player assignments require a separate,
-   explicit squad-assignment action.
+   explicit squad-assignment action. Duplicate or imperfect displayed-player OCR
+   must not by itself invalidate the reusable tactic definition.
+9. FMSAT owns tactic identity. The legacy/template formation label displayed by
+   Football Manager is not tactic identity and is not required extraction
+   evidence. The generated football object model derives its phase formation
+   names from the user-owned tactic name as `<tactic name> IP` and
+   `<tactic name> OOP`.
 
 ## Canonical vocabulary
 
@@ -79,199 +88,76 @@ from those fixtures.
 
 ## Formation extraction
 
-1. Extend the existing tactic parser while preserving Phase 2 tactic-name
-   extraction and public behavior.
-2. Extract the displayed formation name and mentality from the Formation
-   screenshot and retain them as tactic-level metadata; missing values must
-   produce explicit review issues rather than placeholders presented as data.
+1. Extend the existing tactic parser while preserving Phase 2 tactic identity
+   and public behavior.
+2. Extract mentality from the Formation screenshot when available. Do not
+   require or validate Football Manager's legacy/template formation label;
+   FMSAT's user-owned tactic name is authoritative identity.
 3. Use screen-specific parsers with shared reusable components where useful.
 4. Locate the tactic window from the stable `Squad > Tactics Planner`
    breadcrumb, then apply normalized configurable pitch regions inside that
    detected reference frame. Desktop resolution, Steam window position and
-   outer screenshot cropping must not change the resulting pitch coordinates.
-   Retain the complete Formation capture as its reference frame and select a
-   calibrated pitch-region profile for FM's compact two-pitch layout or wide
-   planner-with-squad layout; an interior contour must not truncate a pitch.
-5. Detect player or role tiles using computer vision before applying focused
-   OCR where practical; do not infer the formation from unrestricted whole-pitch
-   text order.
-6. Extract the visible role abbreviation and displayed player name when
-   available and calculate component-level confidence. The FM26 Tactics Planner
-   Both view does not expose a separate duty: retain duty as `null` unless it is
-   explicitly observed from another source, and do not report its expected
-   absence on this screen as an extraction failure.
-7. Store tile centres as coordinates normalized between zero and one.
-8. Classify coordinates into canonical position codes using configurable pitch
-   zones that distinguish depth, width, centre and half-space variants without
-   hardcoding one formation.
-9. Preserve phase-specific positions because a slot may move between In
-   Possession and Out of Possession.
-10. Link slots across phases by displayed player, shirt number when available,
-   relative ordering and spatial proximity in descending order of reliability.
-11. Retain unmatched phase slots and create an issue when a cross-phase link is
-   uncertain; never silently manufacture a match.
+   unrelated surrounding UI must not determine tactical geometry.
+5. Formation extraction must remain player-agnostic. Displayed player names may
+   assist transient extraction diagnostics/linking but are not reusable tactic
+   assignments and duplicate OCR names must not make the tactic invalid.
 
-## Role knowledge gaps
+## Team Instructions extraction
 
-1. After extracting and normalizing formation roles, compare every detected
-   role and position pairing with the validated role knowledge base defined by
-   requirement 010.
-2. Represent a missing role definition as an explicit knowledge gap attached to
-   the relevant tactic slot; do not discard the slot or invent role semantics.
-3. Prompt the user for a Football Manager role-profile screenshot for each
-   distinct missing role and position pairing, without requesting the same
-   evidence once per duplicated tactic slot.
-4. Tell the role-profile workflow which position, role name and abbreviation
-   were observed on the tactic screen so it can validate the submitted evidence.
-5. A missing role definition may be saved in a structured tactic draft but must
-   remain visible as an unresolved issue until the definition is supplied or the
-   detected role is corrected.
+1. Locate `Team Instructions` as the primary modal breadcrumb/location anchor.
+2. Locate the visible `In Possession` and `Out of Possession` tab labels and use
+   their row/spacing plus the active underline as local scale, orientation and
+   phase evidence wherever available.
+3. Apply normalized instruction-card regions inside that local reference frame,
+   not directly against whole-screen coordinates.
+4. The same extraction must work when the Team Instructions modal appears
+   inside a larger FM screenshot and when the supplied capture is already
+   tightly cropped around the modal.
+5. Whole-screen percentage panel estimation is a legacy fallback only when
+   stronger local anchors cannot be established; it must not override valid
+   local anchor evidence.
+6. Failure to determine the active underline or a canonical instruction value
+   must remain explicit review evidence rather than silently inventing a value.
 
-## Team-instruction extraction
+## OCR geometry stability
 
-1. Parse the labelled cards in the In Possession and Out of Possession screens.
-2. Locate the modal using the `Squad > Tactics Planner > Team Instructions`
-   breadcrumb. Determine the active phase from the horizontal position of the
-   underline beneath In Possession or Out of Possession, and report a mismatch
-   when it disagrees with the requested capture type.
-3. For each configured category, detect its region relative to the modal,
-   extract the selected value,
-   normalize it through aliases, retain original OCR text and confidence, and
-   report missing or ambiguous values.
-4. Support at least the supplied In Possession categories: passing directness,
-   tempo, time wasting, attacking transition, attacking width, play for set
-   pieces, creative freedom, build-up strategy, goal kicks, goalkeeper
-   distribution, supporting runs, dribbling, progress through, pass reception,
-   patience, shots from distance, crossing style and goalkeeper distribution
-   speed.
-5. Support at least the supplied Out of Possession categories: line of
-   engagement, defensive line, trigger press, defensive transition, tackling,
-   cross engagement, pressing trap, short goalkeeper distribution and defensive
-   line behaviour.
-6. Do not use values from sample tactics as defaults.
-7. If automatic anchor or panel detection fails, retain an explicit unresolved
-   layout issue so a later review workflow can ask the user to mark or adjust
-   the reference region; never silently revert to treating a whole desktop
-   screenshot as the instruction panel.
+1. Retain normalized historical observations for OCR/reference geometry by
+   compatible layout/profile and zone.
+2. Classify new geometry transparently using robust historical statistics
+   (median and median absolute deviation) rather than silently accepting drift.
+3. Preserve anomalous observations for diagnosis but never allow anomalous or
+   unvalidated observations to train the accepted baseline.
+4. Regression tests must lock the accepted configured OCR zones so accidental
+   coordinate movement is visible in the test suite.
+5. Geometry history must distinguish incompatible reference frames/layout
+   profiles rather than mixing them into one distribution.
 
-## Review and correction
+## Current verification evidence
 
-1. Enable **Review Structured Tactic** after all three required tactic captures
-   are stored.
-2. Add a PySide6 review workflow without replacing the existing main window.
-3. Present Formation, In Possession, Out of Possession, Instructions and Issues
-   views, or an equivalently clear organization.
-4. Display slots on a simple pitch at their normalized coordinates with player,
-   position, role, duty, confidence and validation state.
-5. Allow position, role, duty and linked player to be corrected using controlled
-   values from canonical configuration.
-6. Display instructions with phase, category, detected value, confidence and
-   status, and allow configured-value correction.
-7. List unknown aliases, missing or duplicate slots, unrecognized instruction
-   values, low confidence, uncertain links and incomplete coverage as issues.
-8. Highlight low-confidence component values rather than relying on a single
-   tactic-level confidence.
-9. Provide **Save Draft** and **Confirm Structured Tactic** actions.
-10. Allow incomplete drafts to be saved. Block confirmation for serious
-    unresolved errors and require acknowledgement for permitted warnings.
-11. Provide a direct action from each missing-role issue to submit and review a
-    role-profile screenshot as defined by requirement 010.
+Implementation and regression coverage for the current stabilisation includes:
 
-## Validation
+- `core/parser/tacticLayout.py` — local Team Instructions anchoring and legacy
+  fallback behaviour;
+- `core/ocrZoneHistory.py` — robust drift classification;
+- `database/ocrZoneHistory.py` — append-only observation persistence and
+  baseline eligibility;
+- `config/tacticExtraction.yaml` — accepted normalized extraction geometry;
+- `tests/test_tacticLayoutAnchor.py` — cropped/current instruction-reference
+  regression cases;
+- `tests/test_ocrZoneHistory.py` — history, anomaly and configured-zone
+  regression coverage; and
+- `documentation/ocrZoneGeometry.md` — geometry/reference-frame model and
+  diagnostic workflow.
 
-Validation must be independent of the UI and classify findings as error,
-warning or information. At minimum validate:
-
-1. one visible goalkeeper and eleven total slots for a complete first-team phase;
-2. unique stable slot identifiers;
-3. recognized position, role and duty codes;
-4. role compatibility with the selected position;
-5. normalized coordinates between zero and one;
-6. required instruction categories having a value or explicit unresolved issue;
-7. source imports belonging to the correct tactic; and
-8. Formation, In Possession and Out of Possession data not being mixed.
-
-## Persistence and compatibility
-
-1. Extend the SQLAlchemy schema without deleting or recreating existing user
-   databases.
-2. Store one current structured definition per tactic while retaining historical
-   screenshot imports.
-3. Allow one re-imported phase to replace or supersede only that phase's current
-   extracted data.
-4. Persist source import links, extracted values, manual corrections, validation
-   state, issues, draft state and confirmation state.
-5. Distinguish extracted, manually corrected, confirmed and unresolved data.
-6. Existing Phase 2 databases must open safely and acquire missing tables using
-   the smallest maintainable schema-upgrade strategy.
-7. Preserve all Phase 2 tactic, squad, relationship, screenshot and integrated
-   `.fmf` parser workflows and public commands.
-
-## Services, diagnostics and logging
-
-1. Keep extraction, validation, persistence and UI orchestration separate; Qt
-   must not perform OCR or direct SQLAlchemy queries.
-2. Use shared application services and a repository/database boundary for both
-   desktop and command-line workflows.
-3. Provide diagnostic commands to extract, show and validate a structured tactic
-   where practical, including JSON output for machine-readable inspection.
-4. Do not break existing `fmsat parser ...` commands or the repository's
-   `app function --argument` CLI convention.
-5. Log parser selection, configured regions, tile and category counts,
-   normalization failures, confidence warnings, validation results, persistence
-   updates and stage durations without logging image data.
-
-## Acceptance criteria
-
-1. A tactic with all three screenshots produces a reviewable structured draft.
-2. The displayed formation name and mentality are captured from the Formation
-   screenshot and survive structured persistence and model loading.
-3. Eleven phase-specific slots are extracted where visible, each with normalized
-   coordinates, position, role, duty, source and component confidence.
-4. Supported team-instruction cards produce canonical values with source and
-   confidence.
-5. Unknown and uncertain values become explicit issues rather than guesses.
-6. The user can correct slots and instructions, save a draft and later reload it.
-7. Serious unresolved validation errors block confirmation.
-8. Confirmed structured tactics and manual corrections survive restart.
-9. Re-extracting one phase leaves other phases and historical imports intact.
-10. Existing Phase 2 databases and workflows continue to work without data loss.
-11. Automated tests cover vocabulary, pitch zones, formation extraction,
-   instruction extraction, phase linking, persistence, services and review
-   behavior without requiring live OCR downloads.
-12. Diagnostic output is available through the established CLI architecture.
-13. Ruff, Black and the complete applicable automated test suite pass.
-14. User and architecture documentation accurately describe the delivered
-   workflow, schema upgrade, configuration, limitations and future consumers.
-15. A tactic containing a role absent from the knowledge base prompts once for
-   suitable evidence and can resolve the issue after a verified role profile is
-   confirmed.
-
-## Out of scope
-
-- Player-role suitability or attribute weighting.
-- Best-position, starter, backup or squad-depth recommendations.
-- Recruitment priorities, transfer filters or tactical advice.
-- Match analysis, result analysis or report generation.
-- Football Manager UI automation, save-file reading or game modification.
-
-## Delivery notes
-
-- Implement incrementally: vocabulary and domain model, normalization and
-  validation, persistence, extraction, services and CLI, review UI, then
-  documentation.
-- Prefer small controlled crops or synthetic fixtures over personal
-  full-resolution screenshots.
-- Reuse requirement 005's formation-row palette and role-icon component in the
-  structured review UI when that component is implemented.
+The current acceptance gate is to run the full suite and regenerate the latest
+Formation/In Possession/Out Of Possession reference captures, confirming that
+systematic one-card instruction displacement and player-name validation noise
+are absent before requirement 007B begins.
 
 ## Change history
 
-- 2026-08-13: disabled template-generated tactic facts and required unresolved
-  issues for absent evidence.
-- 2026-08-13: implemented configurable Formation tile detection, focused OCR,
-  pitch-zone normalization, evidence-ranked phase linking and selected-only
-  instruction extraction.
-- 2026-08-14: added breadcrumb-relative tactic-window and Team Instructions
-  modal detection, including active-tab underline validation and modal-local
-  instruction grids.
+- 2026-08-16: clarified that FM's legacy/template formation label is not tactic
+  identity; phase formation names derive from the FMSAT tactic name.
+- 2026-08-16: recorded anchor-relative Team Instructions extraction,
+  historical OCR geometry drift protection and player-agnostic tactic evidence
+  as current requirement-006 stabilisation work.
