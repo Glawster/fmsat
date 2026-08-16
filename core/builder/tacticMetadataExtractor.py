@@ -14,20 +14,20 @@ from fmsat.core.textCleanup import ocrTextClean
 
 @dataclass(frozen=True, slots=True)
 class TacticMetadataExtractResult:
-    """Formation metadata and any evidence that could not be captured."""
+    """Tactic metadata and any evidence that could not be captured."""
 
     metadata: dict[str, str]
     issues: tuple[str, ...]
 
 
 class TacticMetadataExtractor:
-    """Read formation name and mentality from the saved Formation screen."""
+    """Read tactic-level metadata from the saved Formation screen.
 
-    _FORMATION_PATTERN = re.compile(
-        r"(?<!\d)([1-5](?:\s*[-\u2013\u2014]\s*[1-5]){2,4}"
-        r"(?:\s+(?:DM|AM|WIDE|NARROW)){0,4})(?!\d)",
-        re.IGNORECASE,
-    )
+    The formation/template label displayed by Football Manager is deliberately
+    ignored. FMSAT owns tactic identity, and the two object-model formations are
+    derived from that identity as ``<tactic name> IP`` and ``<tactic name> OOP``.
+    """
+
     _MENTALITIES = (
         "Very Defensive",
         "Cautious",
@@ -44,7 +44,7 @@ class TacticMetadataExtractor:
     ## metadata
 
     def metadataExtract(self, imageFilename: str) -> TacticMetadataExtractResult:
-        """Return metadata recognized from one persisted screenshot file."""
+        """Return tactic-level metadata recognized from one persisted screenshot."""
 
         imagePath = Path(imageFilename).expanduser()
         if not imagePath.is_file():
@@ -68,47 +68,18 @@ class TacticMetadataExtractor:
         fragments = [ocrTextClean(result.text) for result in results if result.text.strip()]
         metadata: dict[str, str] = {}
 
-        formationName = self._formationNameExtract(fragments)
-        if formationName:
-            metadata["formationName"] = formationName
-
         mentality = self._mentalityExtract(fragments)
         if mentality:
             metadata["mentality"] = mentality
 
-        missing = []
-        if not formationName:
-            missing.append("formation name")
-        if not mentality:
-            missing.append("mentality")
         issues = (
-            (f"Formation screenshot did not expose {self._listJoin(missing)}",)
-            if missing
+            ("Formation screenshot did not expose mentality",)
+            if not mentality
             else ()
         )
         return TacticMetadataExtractResult(metadata, issues)
 
     ## parsing
-
-    @classmethod
-    def _formationNameExtract(cls, fragments: list[str]) -> str:
-        """Select the most descriptive formation notation recognized by OCR."""
-
-        candidates: list[str] = []
-        for fragment in fragments:
-            for match in cls._FORMATION_PATTERN.finditer(fragment):
-                value = re.sub(r"\s*[-\u2013\u2014]\s*", "-", match.group(1))
-                words = value.split()
-                suffixes = {
-                    "dm": "DM",
-                    "am": "AM",
-                    "wide": "Wide",
-                    "narrow": "Narrow",
-                }
-                candidates.append(
-                    " ".join(words[:1] + [suffixes[word.casefold()] for word in words[1:]])
-                )
-        return max(candidates, key=lambda value: (len(value.split()), len(value)), default="")
 
     @classmethod
     def _mentalityExtract(cls, fragments: list[str]) -> str:
@@ -119,11 +90,3 @@ class TacticMetadataExtractor:
             if any(pattern.search(fragment) for fragment in fragments):
                 return mentality.casefold().replace(" ", "")
         return ""
-
-    @staticmethod
-    def _listJoin(values: list[str]) -> str:
-        """Render one or two missing field labels naturally."""
-
-        if len(values) < 2:
-            return values[0] if values else "metadata"
-        return " and ".join(values)
