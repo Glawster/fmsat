@@ -36,6 +36,7 @@ class SquadDetailView(QWidget):
 
     backRequested = Signal()
     modelSaveRequested = Signal(object)
+    modelRegenerateRequested = Signal(str)
     tacticSelected = Signal(str, str)
 
     def __init__(
@@ -74,15 +75,12 @@ class SquadDetailView(QWidget):
         self.rootLayout.addWidget(self._tabsCreate(), 1)
         footer = QHBoxLayout()
         footer.addStretch()
-        if self.model.squad.regenerationRequired:
-            self.regenerateButton = QPushButton("Regenerate Squad Model")
-            self.regenerateButton.setToolTip(
-                "Rebuild the squad model from the newer saved squad screenshots."
-            )
-            self.regenerateButton.clicked.connect(self._regenerateRequest)
-            footer.addWidget(self.regenerateButton)
-        else:
-            self.regenerateButton = None
+        self.regenerateButton = QPushButton("Regenerate Squad Model")
+        self.regenerateButton.setToolTip(
+            "Re-read the saved squad screenshots with the current parser and rebuild the squad model."
+        )
+        self.regenerateButton.clicked.connect(self._regenerateRequest)
+        footer.addWidget(self.regenerateButton)
         self.saveButton = QPushButton("Save Squad Model")
         self.saveButton.setEnabled(False)
         self.saveButton.clicked.connect(self._saveRequest)
@@ -169,12 +167,11 @@ class SquadDetailView(QWidget):
         self.modelSaveRequested.emit(model)
 
     def _regenerateRequest(self) -> None:
-        """Regenerate from saved evidence while keeping the UI visibly responsive."""
+        """Re-read retained screenshots even when the current model is not stale."""
 
-        if self.model is None or not self.model.squad.regenerationRequired:
+        if self.model is None:
             return
-        if self.regenerateButton is not None:
-            self.regenerateButton.setEnabled(False)
+        self.regenerateButton.setEnabled(False)
 
         logger.doing(f"requesting squad model regeneration for {self.squadName}")
         progress = self._regenerationProgressCreate()
@@ -182,13 +179,10 @@ class SquadDetailView(QWidget):
         progress.show()
         QApplication.processEvents()
         try:
-            logger.info("squad regeneration UI handing model to persistence service")
-            self.modelSaveRequested.emit(self.model.squad)
-            logger.done(f"squad regeneration UI completed for {self.squadName}")
+            self.modelRegenerateRequested.emit(self.squadName)
         finally:
             progress.close()
-            if self.regenerateButton is not None:
-                self.regenerateButton.setEnabled(True)
+            self.regenerateButton.setEnabled(True)
 
     def _regenerationProgressCreate(self) -> QProgressDialog:
         """Create a visible indeterminate progress dialog for squad regeneration."""
@@ -435,37 +429,44 @@ class SquadDetailView(QWidget):
         }
         if position in direct:
             return direct[position]
-        for prefix, label in (
-            ("DM", "DM"),
-            ("AM", "AM"),
-            ("WB", "WB"),
-            ("D", "D"),
-            ("M", "M"),
-        ):
-            if position.startswith(prefix) and position[-1:] in {"L", "C", "R"}:
-                return f"{label}({position[-1]})"
-        return position
-
-    ## utilities
+        sideMap = {
+            "DCL": "D(CL)",
+            "DCR": "D(CR)",
+            "DMCL": "DM(CL)",
+            "DMCR": "DM(CR)",
+            "MCL": "M(CL)",
+            "MCR": "M(CR)",
+            "AMCL": "AM(CL)",
+            "AMCR": "AM(CR)",
+            "STCL": "ST(CL)",
+            "STCR": "ST(CR)",
+        }
+        return sideMap.get(position, position)
 
     @staticmethod
     def _factCardCreate(label: str, value: str) -> QFrame:
         card = QFrame()
         card.setObjectName("factCard")
         layout = QVBoxLayout(card)
-        key = QLabel(label)
-        key.setObjectName("factKey")
-        layout.addWidget(key)
-        fact = QLabel(value)
-        fact.setObjectName("factValue")
-        fact.setWordWrap(True)
-        layout.addWidget(fact)
+        layout.setContentsMargins(12, 9, 12, 9)
+        layout.setSpacing(2)
+        labelWidget = QLabel(label)
+        labelWidget.setObjectName("factLabel")
+        valueWidget = QLabel(value)
+        valueWidget.setObjectName("factValue")
+        valueWidget.setWordWrap(True)
+        layout.addWidget(labelWidget)
+        layout.addWidget(valueWidget)
         return card
 
-    def _layoutClear(self, layout: QLayout) -> None:
+    @staticmethod
+    def _layoutClear(layout: QLayout) -> None:
         while layout.count():
             item = layout.takeAt(0)
-            if item.widget() is not None:
-                item.widget().deleteLater()
-            if item.layout() is not None:
-                self._layoutClear(item.layout())
+            childLayout = item.layout()
+            childWidget = item.widget()
+            if childLayout is not None:
+                SquadDetailView._layoutClear(childLayout)
+                childLayout.deleteLater()
+            if childWidget is not None:
+                childWidget.deleteLater()
