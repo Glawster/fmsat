@@ -148,22 +148,14 @@ class TacticScreenshotExtractor:
                 definition = ScreenshotDerivedTacticDefinition(
                     confirmed=False,
                     complete=False,
-                    tacticMetadata={
-                        "source": "storedScreenshots",
-                        **metadata,
-                    },
+                    tacticMetadata={"source": "storedScreenshots", **metadata},
                 )
                 tactic.structuredDefinition = definition
             else:
                 definition = tactic.structuredDefinition
                 definition.confirmed = False
                 definition.complete = False
-                definition.tacticMetadata = {
-                    "source": "storedScreenshots",
-                    **metadata,
-                }
-                # Clear persisted child rows and flush orphan deletions before
-                # re-adding replacement rows with the same unique keys.
+                definition.tacticMetadata = {"source": "storedScreenshots", **metadata}
                 definition.slots.clear()
                 definition.instructions.clear()
                 definition.issues.clear()
@@ -171,10 +163,7 @@ class TacticScreenshotExtractor:
 
             for message in metadataIssues:
                 definition.issues.append(
-                    StructuredTacticIssue(
-                        code="metadataExtractionIncomplete",
-                        message=message,
-                    )
+                    StructuredTacticIssue(code="metadataExtractionIncomplete", message=message)
                 )
             self._formationBuild(definition, byType, diagnosticPaths)
             logger.value("extracted formation slots", len(definition.slots))
@@ -278,6 +267,13 @@ class TacticScreenshotExtractor:
                 validationState=slot.validationState.value,
             ))
         for issue in result.issues:
+            # Player names/numbers shown by FM are incidental screenshot
+            # evidence, not tactic identity. Duplicate player OCR must never
+            # invalidate a tactic or require review; spatial slot linkage is
+            # the player-agnostic evidence used by the tactic model.
+            if issue.code == "ambiguousPhaseLink":
+                logger.info(f"ignoring player-specific phase-link evidence: {issue.message}")
+                continue
             self._issueAdd(definition, issue.code, issue.message, issue.observedText)
 
     def _instructionsBuild(
@@ -351,7 +347,6 @@ class TacticScreenshotExtractor:
             "missingFormationSlots",
             "formationTileOcrFailed",
             "unresolvedPosition",
-            "ambiguousPhaseLink",
             "uncertainPhaseLink",
             "unmatchedPhaseSlot",
             "missingInstructionEvidence",
