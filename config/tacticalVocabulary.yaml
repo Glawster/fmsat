@@ -1,111 +1,94 @@
 version: 1
 
 duties:
-  DEFEND: [defend, def, d]
-  SUPPORT: [support, sup, s]
-  ATTACK: [attack, att, a]
+  DEFEND: [defend, def]
+  SUPPORT: [support, sup]
+  ATTACK: [attack, att]
   AUTOMATIC: [automatic, auto]
   NONE: [none]
 
-roleIndicators:
-  movesInside: [moves inside]
-  goalThreat: [goal threat]
-  staysWide: [stays wide]
-  creativeThreat: [creative threat]
-  expressive: [expressive]
-  findsSpaceBetweenLines: [finds space between lines]
-  movesUpToST: [moves up to st]
-  runsIntoChannels: [runs into channels]
-  dropsOffIntoSpace: [drops off into space]
-  linksPlay: [links play]
-  playsOnLastLine: [plays on last line]
-  movesBackToCB: [moves back to cb]
-  movesBackToAMC: [moves back to amc]
-  holdsPosition: [holds position]
-  careful: [careful]
-
 positions:
-  GK: [goalkeeper]
-  DR: [right defender, right back, d (r)]
-  DCR: [right centre back]
-  DC: [centre back, central defender, d (c), d(c)]
-  DCL: [left centre back]
-  DL: [left defender, left back, d (l)]
-  WBR: [right wing back, wb (r)]
-  DMCR: [right defensive midfielder]
-  DM: [defensive midfielder, dm (c)]
-  DMCL: [left defensive midfielder]
-  WBL: [left wing back, wb (l)]
-  MR: [right midfielder, m (r)]
-  MCR: [right central midfielder]
-  MC: [central midfielder, m (c)]
-  MCL: [left central midfielder]
-  ML: [left midfielder, m (l)]
-  AMR: [right attacking midfielder, am (r)]
-  AMCR: [right central attacking midfielder]
-  AMC: [attacking midfielder, am (c), am(c)]
-  AMCL: [left central attacking midfielder]
-  AML: [left attacking midfielder, am (l)]
-  STCR: [right striker]
-  STC: [striker, centre forward, st (c), st(c)]
-  STCL: [left striker]
+  GK: [gk, goalkeeper]
+  DR: [dr, d r, right back]
+  DCR: [dcr, dc r, right centre back, right center back]
+  DC: [dc, centre back, center back]
+  DCL: [dcl, dc l, left centre back, left center back]
+  DL: [dl, d l, left back]
+  WBR: [wbr, wb r, right wing back]
+  DMCR: [dmcr, dmc r, right defensive midfield, right defensive midfielder]
+  DM: [dm, dmc, defensive midfield, defensive midfielder]
+  DMCL: [dmcl, dmc l, left defensive midfield, left defensive midfielder]
+  WBL: [wbl, wb l, left wing back]
+  MR: [mr, m r, right midfield, right midfielder]
+  MCR: [mcr, mc r, right central midfield, right central midfielder]
+  MC: [mc, central midfield, central midfielder]
+  MCL: [mcl, mc l, left central midfield, left central midfielder]
+  ML: [ml, m l, left midfield, left midfielder]
+  AMR: [amr, am r, right attacking midfield, right attacking midfielder]
+  AMCR: [amcr, amc r, right attacking central midfield, right attacking central midfielder]
+  AMC: [amc, attacking midfield centre, attacking midfield center, attacking midfielder centre, attacking midfielder center]
+  AMCL: [amcl, amc l, left attacking central midfield, left attacking central midfielder]
+  AML: [aml, am l, left attacking midfield, left attacking midfielder]
+  STCR: [stcr, stc r, right striker]
+  STC: [stc, st c, striker, centre forward position, center forward position]
+  STCL: [stcl, stc l, left striker]
 
 roles:
-  ballPlayingGoalkeeper:
-    roleID: 1
-    displayName: Ball-Playing Goalkeeper
-    abbreviations: [BPGK, BGK]
-    aliases: [ball playing goalkeeper]
-    positions: [GK]
-    duties: [DEFEND, SUPPORT]
   sweeperKeeper:
-    roleID: 2
+    roleID: 1
     displayName: Sweeper Keeper
     abbreviations: [SK]
     aliases: [sweeper keeper]
     positions: [GK]
     duties: [DEFEND, SUPPORT, ATTACK]
+  ballPlayingGoalkeeper:
+    roleID: 2
+    displayName: Ball-Playing Goalkeeper
+    abbreviations: [BGK]
+    aliases: [ball playing goalkeeper, ball-playing goalkeeper]
+    positions: [GK]
+    duties: [DEFEND, SUPPORT]
   fullBack:
     roleID: 3
     displayName: Full-Back
     abbreviations: [FB]
-    aliases: [full back]
+    aliases: [full back, full-back]
     positions: [DR, DL]
     duties: [DEFEND, SUPPORT, ATTACK, AUTOMATIC]
   wingBack:
     roleID: 4
     displayName: Wing-Back
     abbreviations: [WB]
-    aliases: [wing back]
+    aliases: [wing back, wing-back]
     positions: [DR, DL, WBR, WBL]
     duties: [DEFEND, SUPPORT, ATTACK, AUTOMATIC]
   centreBack:
     roleID: 5
     displayName: Centre-Back
     abbreviations: [CB]
-    aliases: [centre back, center back]
+    aliases: [centre back, center back, centre-back, center-back]
     positions: [DCR, DC, DCL]
-    duties: [DEFEND]
+    duties: [DEFEND, STOPPER, COVER]
   ballPlayingCentreBack:
     roleID: 6
     displayName: Ball-Playing Centre-Back
     abbreviations: [BCB]
-    aliases: [ball playing centre back]
+    aliases: [ball playing centre back, ball-playing centre-back, ball playing center back, ball-playing center-back]
     positions: [DCR, DC, DCL]
-    duties: [DEFEND]
+    duties: [DEFEND, STOPPER, COVER]
   deepLyingPlaymaker:
     roleID: 7
     displayName: Deep-Lying Playmaker
     abbreviations: [DLP]
-    aliases: [deep lying playmaker]
+    aliases: [deep lying playmaker, deep-lying playmaker]
     positions: [DMCR, DM, DMCL, MCR, MC, MCL]
     duties: [DEFEND, SUPPORT]
   boxToBoxMidfielder:
     roleID: 8
     displayName: Box-to-Box Midfielder
     abbreviations: [BBM]
-    aliases: [box to box midfielder]
-    positions: [DMCR, DM, DMCL, MCR, MC, MCL]
+    aliases: [box to box midfielder, box-to-box midfielder]
+    positions: [MCR, MC, MCL]
     duties: [SUPPORT]
   defensiveMidfielder:
     roleID: 9
@@ -193,16 +176,16 @@ instructions:
     attackingTransition: [hold shape, {counter: [counter-attack]}]
     attackingWidth: [very narrow, narrow, standard, wide, wider, much wider, very wide]
     playForSetPieces: ['false', {'true': [keep ball in play]}]
-    creativeFreedom: [be more disciplined, balanced, be more expressive]
+    creativeFreedom: [be more disciplined, balanced, {be more expressive: [more expressive, more express]}]
     buildUpStrategy: [play out of defence, {bypass press: [play through press]}]
     goalKicks: [short, mixed, long]
     goalkeeperDistribution: [centre backs, full backs, flanks, playmaker, target forward]
-    supportingRuns: [underlap left, underlap right, overlap left, overlap right, balanced]
+    supportingRuns: [underlap left, underlap right, overlap left, overlap right, {both flanks: [both flanks]}, balanced]
     dribbling: [dribble less, balanced, {run at defence: [encourage]}]
-    progressThrough: [left, centre, right]
+    progressThrough: [left, centre, right, {both flanks: [both flanks]}]
     passReception: [{to feet: [pass to feet]}, {into space: [pass into space]}]
-    patience: [work ball into box]
-    shotsFromDistance: [shoot on sight, balanced, encourage]
+    patience: [{work ball into box: [work ball into box]}, standard]
+    shotsFromDistance: [shoot on sight, balanced, {discourage: [discourage]}, encourage]
     crossingStyle: [{low: [low crosses]}, mixed, balanced, {floated: [floated crosses]}, {whipped: [whipped crosses, whipped cro]}]
     goalkeeperDistributionSpeed: [slow pace down, balanced, {distribute quickly: [distribute qui]}]
   outOfPossession:
@@ -215,3 +198,10 @@ instructions:
     pressingTrap: [{outside: [trap outside]}, balanced, {inside: [trap inside]}]
     shortGoalkeeperDistribution: [{'false': ['no']}, {'true': ['yes']}]
     defensiveLineBehaviour: [drop off more, step up more]
+
+roleIndicators:
+  movesInside: [moves inside, move inside]
+  staysWider: [stays wider, stay wider]
+  getsFurtherForward: [gets further forward, get further forward]
+  holdsPosition: [holds position, hold position]
+  roamsFromPosition: [roams from position, roam from position]
