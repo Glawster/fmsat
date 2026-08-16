@@ -33,6 +33,7 @@ class TacticDetailView(QWidget):
     assignmentRequested = Signal(str)
     importToModelRequested = Signal(str)
     modelEditRequested = Signal(str)
+    renameRequested = Signal(str, str)
 
     def __init__(
         self,
@@ -96,9 +97,16 @@ class TacticDetailView(QWidget):
         eyebrow = QLabel(f"Tactic Workspace  ·  {self.sourceLabel}")
         eyebrow.setObjectName("eyebrow")
         heading.addWidget(eyebrow)
+        titleRow = QHBoxLayout()
         self.titleLabel = QLabel(self.tacticName or "Tactic")
         self.titleLabel.setObjectName("pageTitle")
-        heading.addWidget(self.titleLabel)
+        titleRow.addWidget(self.titleLabel)
+        self.renameButton = QPushButton("Rename")
+        self.renameButton.setObjectName("quietButton")
+        self.renameButton.clicked.connect(self._renameBegin)
+        titleRow.addWidget(self.renameButton)
+        titleRow.addStretch()
+        heading.addLayout(titleRow)
         header.addLayout(heading, 1)
         if self.model.revisions:
             revisions = QComboBox()
@@ -114,6 +122,19 @@ class TacticDetailView(QWidget):
         )
         header.addWidget(self.assignmentButton)
         return header
+
+    def _renameBegin(self) -> None:
+        """Ask the owning window for a rename UI while keeping persistence outside the view."""
+
+        oldName = self.tacticName
+        owner = self.window()
+        renameAction = getattr(owner, "tacticRename", None)
+        if callable(renameAction):
+            renameAction(oldName)
+            return
+        # The signal keeps the view independently testable and allows another
+        # host to provide its own rename workflow.
+        self.renameRequested.emit(oldName, "")
 
     def _contentRefresh(self) -> None:
         """Rebuild all top-level sections after the active model changes."""
