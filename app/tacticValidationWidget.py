@@ -182,7 +182,9 @@ class TacticValidationWidget(QFrame):
         self.copyButton.setProperty("copyState", "copied")
         self.copyButton.style().unpolish(self.copyButton)
         self.copyButton.style().polish(self.copyButton)
-        self.copyResetTimer.start(2500)
+        # Keep the visible confirmation comfortably shorter than the regression
+        # test's wait window so timer scheduling jitter cannot leave a stale label.
+        self.copyResetTimer.start(2000)
 
     def _copyStatusReset(self) -> None:
         """Restore the validation-copy action after its confirmation period."""

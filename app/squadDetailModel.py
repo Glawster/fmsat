@@ -82,9 +82,10 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
             key=_rolePositionSortKey,
         )
     )
+    catalogueSource = assessment.allRoles or assessment.roles
     visibleCatalogue = tuple(
         role
-        for role in assessment.allRoles
+        for role in catalogueSource
         if not role.roleCode.startswith("capturedRole")
     )
 
@@ -98,7 +99,8 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
             current = bestRoles.get(key)
             proposed = (score, role.displayName)
             if current is None or proposed[0] > current[0] or (
-                proposed[0] == current[0] and proposed[1].casefold() < current[1].casefold()
+                proposed[0] == current[0]
+                and proposed[1].casefold() < current[1].casefold()
             ):
                 bestRoles[key] = proposed
 
@@ -190,12 +192,11 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
                     if bestFit is not None
                     else player.unavailableReason or "Required data is unavailable"
                 ),
-                alternatives=(
-                    ", ".join(role[2] for role in alternatives)
-                    or "Unavailable"
-                ),
+                alternatives=", ".join(role[2] for role in alternatives)
+                or "Unavailable",
             )
         )
+
     findings = tuple(
         AnalysisFindingDisplay(category, finding.title, finding.explanation)
         for category, group in (
@@ -235,7 +236,12 @@ def _rolePositionSortKey(role) -> tuple[int, int, str, str]:
 
 
 def _positionSortKey(position: str) -> tuple[int, int]:
-    compact = position.upper().replace(" ", "").replace("(", "").replace(")", "")
+    compact = (
+        position.upper()
+        .replace(" ", "")
+        .replace("(", "")
+        .replace(")", "")
+    )
     if compact == "GK":
         line = 0
     elif compact.startswith("WB") or (
@@ -252,5 +258,13 @@ def _positionSortKey(position: str) -> tuple[int, int]:
         line = 5
     else:
         line = 6
-    side = 0 if compact.endswith("L") else 1 if compact.endswith("C") else 2 if compact.endswith("R") else 3
+    side = (
+        0
+        if compact.endswith("L")
+        else 1
+        if compact.endswith("C")
+        else 2
+        if compact.endswith("R")
+        else 3
+    )
     return line, side

@@ -44,7 +44,9 @@ def testExtractorPersistsOnlyObservedValuesFromSavedScreenshots(tmp_path) -> Non
         ScreenType.TACTIC_OUT_OF_POSSESSION,
     ):
         imagePath = (
-            formationPath if screenType is ScreenType.TACTIC_FORMATION else tmp_path / "x.png"
+            formationPath
+            if screenType is ScreenType.TACTIC_FORMATION
+            else tmp_path / "x.png"
         )
         database.tacticImportSave(str(imagePath), screenType, "High Press")
 
@@ -81,9 +83,7 @@ def testExtractorPersistsOnlyObservedValuesFromSavedScreenshots(tmp_path) -> Non
         assert "layoutAnchorUnavailable" in issueCodes
         assert "instructionImageUnavailable" in issueCodes
         assert "templateExtraction" not in issueCodes
-        assert tactic.structuredDefinition.tacticMetadata["formationName"] == (
-            "4-2-3-1 DM AM Wide"
-        )
+        assert "formationName" not in tactic.structuredDefinition.tacticMetadata
         assert tactic.structuredDefinition.tacticMetadata["mentality"] == "positive"
 
 
@@ -110,7 +110,11 @@ def testExtractorCanReplaceExistingStructuredRows(tmp_path) -> None:
         ScreenType.TACTIC_IN_POSSESSION,
         ScreenType.TACTIC_OUT_OF_POSSESSION,
     ):
-        database.tacticImportSave(f"/captures/{screenType.value}.png", screenType, "High Press")
+        database.tacticImportSave(
+            f"/captures/{screenType.value}.png",
+            screenType,
+            "High Press",
+        )
 
     extractor = TacticScreenshotExtractor(database.engine, FakeOcr())
     first = extractor.tacticExtract("High Press")
