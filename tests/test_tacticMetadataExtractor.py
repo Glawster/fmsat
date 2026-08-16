@@ -25,8 +25,8 @@ def _imageWrite(path) -> None:
     assert cv2.imwrite(str(path), np.zeros((40, 80, 3), dtype=np.uint8))
 
 
-def testMetadataExtractReadsFormationAndMentality(tmp_path) -> None:
-    """The displayed formation notation and mentality should be canonicalized."""
+def testMetadataExtractIgnoresLegacyFormationLabelAndReadsMentality(tmp_path) -> None:
+    """FM's template formation label is not tactic identity; mentality remains metadata."""
 
     imagePath = tmp_path / "formation.png"
     _imageWrite(imagePath)
@@ -36,15 +36,12 @@ def testMetadataExtractReadsFormationAndMentality(tmp_path) -> None:
 
     result = extractor.metadataExtract(str(imagePath))
 
-    assert result.metadata == {
-        "formationName": "4-2-3-1 DM AM Wide",
-        "mentality": "positive",
-    }
+    assert result.metadata == {"mentality": "positive"}
     assert result.issues == ()
 
 
-def testMetadataExtractReportsFieldsMissingFromRecognizedText(tmp_path) -> None:
-    """Unreadable metadata should remain absent and produce review evidence."""
+def testMetadataExtractReportsMissingMentalityOnly(tmp_path) -> None:
+    """The legacy formation label is not required evidence."""
 
     imagePath = tmp_path / "formation.png"
     _imageWrite(imagePath)
@@ -53,7 +50,7 @@ def testMetadataExtractReportsFieldsMissingFromRecognizedText(tmp_path) -> None:
     result = extractor.metadataExtract(str(imagePath))
 
     assert result.metadata == {}
-    assert "formation name and mentality" in result.issues[0]
+    assert result.issues == ("Formation screenshot did not expose mentality",)
 
 
 def testMetadataExtractHandlesUnavailableScreenshot(tmp_path) -> None:
