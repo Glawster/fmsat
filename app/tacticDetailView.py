@@ -9,8 +9,10 @@ from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QLayout,
+    QMessageBox,
     QPushButton,
     QTabWidget,
     QVBoxLayout,
@@ -22,6 +24,7 @@ from fmsat.app.tacticDetailPrototype import tacticDetailPrototype
 from fmsat.app.tacticDetailTabs import AnalysisTab, InstructionsTab, OverviewTab, ShapeTab
 from fmsat.app.tacticPitchWidget import PitchWidget
 from fmsat.app.tacticValidationWidget import BuildResult
+from fmsat.database.tacticNaming import TacticRenameError, tacticRename
 
 __all__ = ["DisplaySlot", "PitchWidget", "TacticDetailView"]
 
@@ -124,17 +127,33 @@ class TacticDetailView(QWidget):
         return header
 
     def _renameBegin(self) -> None:
-        """Ask the owning window for a rename UI while keeping persistence outside the view."""
+        """Rename the persisted tactic identity without regenerating evidence."""
 
         oldName = self.tacticName
-        owner = self.window()
-        renameAction = getattr(owner, "tacticRename", None)
-        if callable(renameAction):
-            renameAction(oldName)
+        newName, accepted = QInputDialog.getText(
+            self,
+            "Rename tactic",
+            "Tactic name:",
+            text=oldName,
+        )
+        if not accepted or newName.strip() == oldName:
             return
-        # The signal keeps the view independently testable and allows another
-        # host to provide its own rename workflow.
-        self.renameRequested.emit(oldName, "")
+        owner = self.window()
+        database = getattr(owner, "database", None)
+        if database is None or not hasattr(database, "engine"):
+            self.renameRequested.emit(oldName, newName.strip())
+            return
+        try:
+            savedName = tacticRename(database.engine, oldName, newName)
+        except TacticRenameError as exc:
+            QMessageBox.warning(self, "Cannot rename tactic", str(exc))
+            return
+        self.tacticName = savedName
+        self.titleLabel.setText(savedName)
+        self.renameRequested.emit(oldName, savedName)
+        dataChanged = getattr(owner, "dataChanged", None)
+        if dataChanged is not None and hasattr(dataChanged, "emit"):
+            dataChanged.emit()
 
     def _contentRefresh(self) -> None:
         """Rebuild all top-level sections after the active model changes."""
