@@ -1,6 +1,7 @@
 QWidget#tacticDetailView, QWidget#squadDetailView { background: #f7f7f5; color: #101f2e; }
 QLabel#eyebrow, QLabel#factKey { color: #239b78; font-size: 13px; font-weight: 700; letter-spacing: 1px; }
-QLabel#pageTitle { color: #101f2e; font-size: 28px; font-weight: 700; }
+QLabel#workspaceHeading { color: #239b78; font-size: 15px; font-weight: 700; letter-spacing: 1px; }
+QLabel#pageTitle { color: #101f2e; font-size: 28px; font-weight: 700; min-height: 34px; }
 QLabel#factValue { color: #f0f0f0; font-size: 14px; font-weight: 600; }
 QLabel#cardTitle, QLabel#emptyTitle { color: #f5f8fb; font-size: 17px; font-weight: 700; }
 QLabel#mutedText { color: #8fa3b8; }
@@ -26,15 +27,13 @@ QFrame#incompleteBanner { background: #3a2714; border: 1px solid #8f5b2f; border
 QLabel#incompleteBannerTitle { color: #ffd29a; font-size: 14px; font-weight: 700; }
 QLabel#incompleteBannerText { color: #f4d9b5; }
 QFrame#factCard { min-height: 58px; }
-QPushButton, QToolButton#playerFilterButton { background: #31b98f; color: #061510; border: 1px solid #31b98f; border-radius: 7px; padding: 9px 15px; font-weight: 700; }
-QPushButton:hover, QToolButton#playerFilterButton:hover { background: #56d6b0; border-color: #56d6b0; color: #061510; }
-QPushButton:disabled, QToolButton#playerFilterButton:disabled { background: #9bbbad; border-color: #9bbbad; color: #52645d; }
-QPushButton#quietButton, QPushButton#secondaryButton { background: #31b98f; color: #061510; border: 1px solid #31b98f; }
-QPushButton#quietButton:hover, QPushButton#secondaryButton:hover { background: #56d6b0; border-color: #56d6b0; color: #061510; }
+QWidget#tacticDetailView QPushButton, QWidget#squadDetailView QPushButton, QToolButton#playerFilterButton { background: #31b98f; color: #061510; border: 1px solid #31b98f; border-radius: 7px; padding: 9px 15px; font-weight: 700; }
+QWidget#tacticDetailView QPushButton:hover, QWidget#squadDetailView QPushButton:hover, QToolButton#playerFilterButton:hover { background: #56d6b0; border-color: #56d6b0; color: #061510; }
+QWidget#tacticDetailView QPushButton:disabled, QWidget#squadDetailView QPushButton:disabled, QToolButton#playerFilterButton:disabled { background: #9bbbad; border-color: #9bbbad; color: #52645d; }
 QPushButton#secondaryButton[copyState="copied"] { background: #56d6b0; color: #061510; border-color: #56d6b0; }
-QComboBox { background: #31b98f; color: #061510; border: 1px solid #31b98f; border-radius: 7px; padding: 8px 12px; font-weight: 700; }
-QComboBox:hover { background: #56d6b0; border-color: #56d6b0; }
-QComboBox:disabled { background: #9bbbad; border-color: #9bbbad; color: #52645d; }
+QWidget#tacticDetailView QComboBox, QWidget#squadDetailView QComboBox { background: #31b98f; color: #061510; border: 1px solid #31b98f; border-radius: 7px; padding: 8px 12px; font-weight: 700; }
+QWidget#tacticDetailView QComboBox:hover, QWidget#squadDetailView QComboBox:hover { background: #56d6b0; border-color: #56d6b0; }
+QWidget#tacticDetailView QComboBox:disabled, QWidget#squadDetailView QComboBox:disabled { background: #9bbbad; border-color: #9bbbad; color: #52645d; }
 QComboBox QAbstractItemView { background: #101f2e; color: #f5f8fb; border: 1px solid #30465a; selection-background-color: #163b38; selection-color: #75e0bf; }
 QMenu#playerFilterMenu { background: #101f2e; color: #f5f8fb; border: 1px solid #30465a; padding: 7px; }
 QMenu#playerFilterMenu QCheckBox { color: #f5f8fb; spacing: 9px; padding: 7px 12px; min-width: 170px; }
@@ -51,10 +50,7 @@ QTableWidget#roleDepthAnalysisTable, QTableWidget#playerRoleAnalysisTable, QTabl
     border: 1px solid #30465a; gridline-color: #263b4e; selection-background-color: #163b38;
     selection-color: #75e0bf;
 }
-QTableWidget#roleCandidateTable, QTableWidget#playerRoleAnalysisTable, QTableWidget#squadFindingsTable {
-    qproperty-wordWrap: false;
-    qproperty-textElideMode: ElideRight;
-}
+QTableWidget#roleCandidateTable, QTableWidget#playerRoleAnalysisTable, QTableWidget#squadFindingsTable { qproperty-wordWrap: false; qproperty-textElideMode: ElideRight; }
 QTableWidget#squadPlayersTable QWidget#qt_scrollarea_viewport,
 QTableWidget#roleAssessmentTable QWidget#qt_scrollarea_viewport,
 QTableWidget#roleCandidateTable QWidget#qt_scrollarea_viewport,
@@ -65,9 +61,7 @@ QTableCornerButton::section { background: #132536; border: 0; border-right: 1px 
 QTableWidget#squadPlayersTable::item, QTableWidget#roleAssessmentTable::item, QTableWidget#roleDepthAnalysisTable::item { padding: 5px; }
 QTableWidget#roleCandidateTable::item, QTableWidget#playerRoleAnalysisTable::item, QTableWidget#squadFindingsTable::item { padding: 2px 5px; }
 QTableWidget#squadPlayersTable::item:selected, QTableWidget#roleAssessmentTable::item:selected, QTableWidget#roleCandidateTable::item:selected,
-QTableWidget#roleDepthAnalysisTable::item:selected, QTableWidget#playerRoleAnalysisTable::item:selected, QTableWidget#squadFindingsTable::item:selected {
-    background: #163b38; color: #75e0bf;
-}
+QTableWidget#roleDepthAnalysisTable::item:selected, QTableWidget#playerRoleAnalysisTable::item:selected, QTableWidget#squadFindingsTable::item:selected { background: #163b38; color: #75e0bf; }
 QHeaderView { background: #101f2e; }
 QHeaderView::section { background: #132536; color: #d9e5ef; border: 0; border-right: 1px solid #30465a; padding: 6px; font-weight: 700; }
 QTabWidget::pane { border: 0; background: transparent; }
