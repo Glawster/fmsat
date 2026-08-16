@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from importlib.resources import files
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
@@ -92,38 +92,43 @@ class TacticDetailView(QWidget):
 
     def _headerCreate(self) -> QHBoxLayout:
         header = QHBoxLayout()
+        header.setSpacing(14)
         back = QPushButton("←  FMSAT Workspace")
         back.setObjectName("quietButton")
         back.clicked.connect(self.backRequested.emit)
-        header.addWidget(back)
+        header.addWidget(back, 0, Qt.AlignmentFlag.AlignVCenter)
+
         heading = QVBoxLayout()
-        eyebrow = QLabel(f"Tactic Workspace  ·  {self.sourceLabel}")
-        eyebrow.setObjectName("eyebrow")
-        heading.addWidget(eyebrow)
+        heading.setSpacing(3)
         titleRow = QHBoxLayout()
+        titleRow.setSpacing(10)
         self.titleLabel = QLabel(self.tacticName or "Tactic")
         self.titleLabel.setObjectName("pageTitle")
         titleRow.addWidget(self.titleLabel)
         self.renameButton = QPushButton("Rename")
         self.renameButton.setObjectName("quietButton")
         self.renameButton.clicked.connect(self._renameBegin)
-        titleRow.addWidget(self.renameButton)
+        titleRow.addWidget(self.renameButton, 0, Qt.AlignmentFlag.AlignVCenter)
         titleRow.addStretch()
         heading.addLayout(titleRow)
+        eyebrow = QLabel(f"Tactic Workspace  ·  {self.sourceLabel}")
+        eyebrow.setObjectName("eyebrow")
+        heading.addWidget(eyebrow)
         header.addLayout(heading, 1)
+
         if self.model.revisions:
             revisions = QComboBox()
             revisions.setObjectName("revisionPicker")
             revisions.addItems(self.model.revisions)
-            header.addWidget(revisions)
+            header.addWidget(revisions, 0, Qt.AlignmentFlag.AlignVCenter)
         compare = QPushButton("Compare")
         compare.setObjectName("secondaryButton")
-        header.addWidget(compare)
+        header.addWidget(compare, 0, Qt.AlignmentFlag.AlignVCenter)
         self.assignmentButton = QPushButton("Assign Squad")
         self.assignmentButton.clicked.connect(
             lambda: self.assignmentRequested.emit(self.tacticName)
         )
-        header.addWidget(self.assignmentButton)
+        header.addWidget(self.assignmentButton, 0, Qt.AlignmentFlag.AlignVCenter)
         return header
 
     def _renameBegin(self) -> None:
@@ -219,5 +224,5 @@ class TacticDetailView(QWidget):
             childLayout = item.layout()
             if childWidget is not None:
                 childWidget.deleteLater()
-            if childLayout is not None:
+            elif childLayout is not None:
                 self._layoutClear(childLayout)
