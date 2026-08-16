@@ -1,4 +1,4 @@
-# deployed from Glawster/organiseMyProjects release 0.3 -- do not edit directly
+# deployed from Glawster/organiseMyProjects release 0.4 -- do not edit directly
 """
 guiNamingLinter.py - GUI Code Quality Linter
 
@@ -17,21 +17,21 @@ import re
 
 ## constants
 
-domainActionPattern = r"^_?[a-z]+[A-Z][a-zA-Z0-9]*$"
+DOMAIN_ACTION_PATTERN = r"^_?[a-z]+[A-Z][a-zA-Z0-9]*$"
 
-functionNameExceptions = {
+FUNCTION_NAME_EXCEPTIONS = {
     "__init__",
     "__repr__",
     "__str__",
     "main",
     # AST visitor callback names must match ast.NodeVisitor conventions.
-    "visitAssign",
-    "visitClassDef",
-    "visitExpr",
-    "visitFunctionDef",
+    "visit_Assign",
+    "visit_ClassDef",
+    "visit_Expr",
+    "visit_FunctionDef",
 }
 
-loggingMethods = {
+LOGGING_METHODS = {
     "action",
     "debug",
     "doing",
@@ -42,7 +42,7 @@ loggingMethods = {
     "warning",
 }
 
-namingRules = {
+NAMING_RULES = {
     "Button": r"^btn[A-Z]\w+",
     "Entry": r"^entry[A-Z]\w+",
     "Label": r"^lbl[A-Z]\w+",
@@ -57,7 +57,7 @@ namingRules = {
     "Class": r"^[A-Z][a-zA-Z0-9]*$",
 }
 
-qtWidgetTypes = {
+QT_WIDGET_TYPES = {
     "QCheckBox",
     "QComboBox",
     "QDoubleSpinBox",
@@ -91,10 +91,10 @@ qtWidgetTypes = {
     "QWidget",
 }
 
-classNameExceptions = {"iCloudSyncFrame"}
-classNamePatterns = [r"^iCloud[A-Z]\w*"]
+CLASS_NAME_EXCEPTIONS = {"iCloudSyncFrame"}
+CLASS_NAME_PATTERNS = [r"^iCloud[A-Z]\w*"]
 
-widgetClasses = set(namingRules.keys()) - {"Handler", "Constant", "Class"}
+WIDGET_CLASSES = set(NAMING_RULES.keys()) - {"Handler", "Constant", "Class"}
 
 
 ## framework
@@ -156,7 +156,7 @@ class GuiNamingVisitor(ast.NodeVisitor):
 
     ## ast visitor callbacks
 
-    def visitAssign(self, node):
+    def visit_Assign(self, node):
         # Handle both simple names (varName = ...) and attributes (self.varName = ...)
         if len(node.targets) > 0:
             target = node.targets[0]
@@ -172,39 +172,39 @@ class GuiNamingVisitor(ast.NodeVisitor):
                 self.widgetCheckConstantName(varName, node, target)
                 self.widgetCheckName(varName, node)
 
-        self.genericVisit(node)
+        self.generic_visit(node)
 
-    def visitClassDef(self, node):
-        isExplicitlyAllowed = node.name in classNameExceptions
+    def visit_ClassDef(self, node):
+        isExplicitlyAllowed = node.name in CLASS_NAME_EXCEPTIONS
         isPatternAllowed = any(
-            re.match(pattern, node.name) for pattern in classNamePatterns
+            re.match(pattern, node.name) for pattern in CLASS_NAME_PATTERNS
         )
 
         if not (isExplicitlyAllowed or isPatternAllowed):
-            if not re.match(namingRules["Class"], node.name):
+            if not re.match(NAMING_RULES["Class"], node.name):
                 self.violations.append((node.name, "Class", node.lineno))
 
-        self.genericVisit(node)
+        self.generic_visit(node)
 
-    def visitExpr(self, node):
+    def visit_Expr(self, node):
         self.loggingCheckExpression(node)
         self.spellingCheckExpression(node)
-        self.genericVisit(node)
+        self.generic_visit(node)
 
-    def visitFunctionDef(self, node):
+    def visit_FunctionDef(self, node):
         """Check function spacing and domainAction naming."""
         self.functionCheckName(node)
         self.functionCheckSpacing(node)
-        self.genericVisit(node)
+        self.generic_visit(node)
 
     ## function
 
     def functionCheckName(self, node) -> None:
         """Check function names use the domainAction pattern."""
-        if node.name in functionNameExceptions:
+        if node.name in FUNCTION_NAME_EXCEPTIONS:
             return
 
-        if not re.match(domainActionPattern, node.name):
+        if not re.match(DOMAIN_ACTION_PATTERN, node.name):
             self.violations.append(
                 (node.name, "Function name (domainAction)", node.lineno)
             )
@@ -261,7 +261,7 @@ class GuiNamingVisitor(ast.NodeVisitor):
         if not isLoggerCall:
             return
 
-        if func.attr not in loggingMethods:
+        if func.attr not in LOGGING_METHODS:
             return
 
         if not node.value.args:
@@ -353,7 +353,7 @@ class GuiNamingVisitor(ast.NodeVisitor):
         if varName.startswith("__") and varName.endswith("__"):
             return
 
-        if not re.match(namingRules["Constant"], varName):
+        if not re.match(NAMING_RULES["Constant"], varName):
             self.violations.append((varName, "Constant", node.lineno))
 
     def widgetCheckHorizontalVerticalName(self, varName: str, node, target) -> None:
@@ -385,15 +385,15 @@ class GuiNamingVisitor(ast.NodeVisitor):
         if not widgetType:
             return
 
-        if self.framework == "tkinter" and widgetType in widgetClasses:
-            pattern = namingRules[widgetType]
+        if self.framework == "tkinter" and widgetType in WIDGET_CLASSES:
+            pattern = NAMING_RULES[widgetType]
             if not re.match(pattern, varName):
                 self.violations.append((varName, widgetType, node.lineno))
 
         elif self.framework == "qt" and widgetType == "QSpacerItem":
             self.widgetCheckQtSpacerName(varName, node)
 
-        elif self.framework == "qt" and widgetType in qtWidgetTypes:
+        elif self.framework == "qt" and widgetType in QT_WIDGET_TYPES:
             if not nameIsSnakeCase(varName):
                 self.violations.append(
                     (varName, f"Qt {widgetType} (snake_case)", node.lineno)

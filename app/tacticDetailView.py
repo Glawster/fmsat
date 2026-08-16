@@ -9,8 +9,10 @@ from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QLayout,
+    QMessageBox,
     QPushButton,
     QTabWidget,
     QVBoxLayout,
@@ -22,6 +24,7 @@ from fmsat.app.tacticDetailPrototype import tacticDetailPrototype
 from fmsat.app.tacticDetailTabs import AnalysisTab, InstructionsTab, OverviewTab, ShapeTab
 from fmsat.app.tacticPitchWidget import PitchWidget
 from fmsat.app.tacticValidationWidget import BuildResult
+from fmsat.database.tacticNaming import TacticRenameError, tacticRename
 
 __all__ = ["DisplaySlot", "PitchWidget", "TacticDetailView"]
 
@@ -33,6 +36,7 @@ class TacticDetailView(QWidget):
     assignmentRequested = Signal(str)
     importToModelRequested = Signal(str)
     modelEditRequested = Signal(str)
+    renameRequested = Signal(str, str)
 
     def __init__(
         self,
@@ -96,9 +100,16 @@ class TacticDetailView(QWidget):
         eyebrow = QLabel(f"Tactic Workspace  ·  {self.sourceLabel}")
         eyebrow.setObjectName("eyebrow")
         heading.addWidget(eyebrow)
+        titleRow = QHBoxLayout()
         self.titleLabel = QLabel(self.tacticName or "Tactic")
         self.titleLabel.setObjectName("pageTitle")
-        heading.addWidget(self.titleLabel)
+        titleRow.addWidget(self.titleLabel)
+        self.renameButton = QPushButton("Rename")
+        self.renameButton.setObjectName("quietButton")
+        self.renameButton.clicked.connect(self._renameBegin)
+        titleRow.addWidget(self.renameButton)
+        titleRow.addStretch()
+        heading.addLayout(titleRow)
         header.addLayout(heading, 1)
         if self.model.revisions:
             revisions = QComboBox()
@@ -114,6 +125,35 @@ class TacticDetailView(QWidget):
         )
         header.addWidget(self.assignmentButton)
         return header
+
+    def _renameBegin(self) -> None:
+        """Rename the persisted tactic identity without regenerating evidence."""
+
+        oldName = self.tacticName
+        newName, accepted = QInputDialog.getText(
+            self,
+            "Rename tactic",
+            "Tactic name:",
+            text=oldName,
+        )
+        if not accepted or newName.strip() == oldName:
+            return
+        owner = self.window()
+        database = getattr(owner, "database", None)
+        if database is None or not hasattr(database, "engine"):
+            self.renameRequested.emit(oldName, newName.strip())
+            return
+        try:
+            savedName = tacticRename(database.engine, oldName, newName)
+        except TacticRenameError as exc:
+            QMessageBox.warning(self, "Cannot rename tactic", str(exc))
+            return
+        self.tacticName = savedName
+        self.titleLabel.setText(savedName)
+        self.renameRequested.emit(oldName, savedName)
+        dataChanged = getattr(owner, "dataChanged", None)
+        if dataChanged is not None and hasattr(dataChanged, "emit"):
+            dataChanged.emit()
 
     def _contentRefresh(self) -> None:
         """Rebuild all top-level sections after the active model changes."""
