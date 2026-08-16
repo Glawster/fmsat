@@ -12,30 +12,8 @@ def testBundledVocabularyContainsRequiredTacticalContract() -> None:
 
     assert vocabulary.version == 1
     assert set(vocabulary.positions.values()) == {
-        "GK",
-        "DR",
-        "DCR",
-        "DC",
-        "DCL",
-        "DL",
-        "WBR",
-        "DMCR",
-        "DM",
-        "DMCL",
-        "WBL",
-        "MR",
-        "MCR",
-        "MC",
-        "MCL",
-        "ML",
-        "AMR",
-        "AMCR",
-        "AMC",
-        "AMCL",
-        "AML",
-        "STCR",
-        "STC",
-        "STCL",
+        "GK", "DR", "DCR", "DC", "DCL", "DL", "WBR", "DMCR", "DM", "DMCL", "WBL",
+        "MR", "MCR", "MC", "MCL", "ML", "AMR", "AMCR", "AMC", "AMCL", "AML", "STCR", "STC", "STCL",
     }
     assert vocabulary.roles["insideForward"].positions == ("AMR", "AML")
     assert "tempo" in vocabulary.instructions["inPossession"]
@@ -64,35 +42,29 @@ def testVocabularyNormalizesAliasesAndPreservesObservedText() -> None:
 def testInstructionVocabularyNormalizesFm26DisplayedAliases() -> None:
     vocabulary = TacticVocabulary()
 
-    assert vocabulary.instructionNormalize(
-        "inPossession", "attackingTransition", "Counter-Attack"
-    ).value == "counter"
-    assert vocabulary.instructionNormalize(
-        "outOfPossession", "tackling", "Standard"
-    ).value == "balanced"
-    assert vocabulary.instructionNormalize(
-        "outOfPossession", "shortGoalkeeperDistribution", "No"
-    ).value == "false"
+    assert vocabulary.instructionNormalize("inPossession", "attackingTransition", "Counter-Attack").value == "counter"
+    assert vocabulary.instructionNormalize("outOfPossession", "tackling", "Standard").value == "balanced"
+    assert vocabulary.instructionNormalize("outOfPossession", "shortGoalkeeperDistribution", "No").value == "false"
+
+
+def testInstructionVocabularyNormalizesCurrentFm26DisplayedValues() -> None:
+    vocabulary = TacticVocabulary()
+
+    assert vocabulary.instructionNormalize("inPossession", "creativeFreedom", "More Express..").value == "be more expressive"
+    assert vocabulary.instructionNormalize("inPossession", "supportingRuns", "Both Flanks").value == "both flanks"
+    assert vocabulary.instructionNormalize("inPossession", "progressThrough", "Both Flanks").value == "both flanks"
+    assert vocabulary.instructionNormalize("inPossession", "patience", "Standard").value == "standard"
+    assert vocabulary.instructionNormalize("inPossession", "shotsFromDistance", "Discourage").value == "discourage"
 
 
 def testInstructionVocabularyNormalizesUniqueDisplayedEllipsis() -> None:
     vocabulary = TacticVocabulary()
 
-    assert vocabulary.instructionNormalize(
-        "inPossession", "playForSetPieces", "Keep Ball in Pl..."
-    ).value == "true"
-    assert vocabulary.instructionNormalize(
-        "inPossession", "passReception", "Pass Into Spa…"
-    ).value == "into space"
-    assert vocabulary.instructionNormalize(
-        "inPossession", "goalkeeperDistributionSpeed", "Distribute Qui..."
-    ).value == "distribute quickly"
-    assert vocabulary.instructionNormalize(
-        "inPossession", "crossingStyle", "Whipped Cro"
-    ).value == "whipped"
-    assert vocabulary.instructionNormalize(
-        "inPossession", "goalkeeperDistributionSpeed", "Distribute Qui"
-    ).value == "distribute quickly"
+    assert vocabulary.instructionNormalize("inPossession", "playForSetPieces", "Keep Ball in Pl...").value == "true"
+    assert vocabulary.instructionNormalize("inPossession", "passReception", "Pass Into Spa…").value == "into space"
+    assert vocabulary.instructionNormalize("inPossession", "goalkeeperDistributionSpeed", "Distribute Qui...").value == "distribute quickly"
+    assert vocabulary.instructionNormalize("inPossession", "crossingStyle", "Whipped Cro").value == "whipped"
+    assert vocabulary.instructionNormalize("inPossession", "goalkeeperDistributionSpeed", "Distribute Qui").value == "distribute quickly"
 
 
 def testRoleAbbreviationNormalizesToStableNamedIdentity() -> None:
@@ -119,15 +91,7 @@ def testUnknownVocabularyDoesNotInventMeaning() -> None:
 
 def testCapturedRoleDefinitionExtendsLiveOcrVocabulary() -> None:
     vocabulary = TacticVocabulary()
-    vocabulary.capturedRolesAdd((
-        SimpleNamespace(
-            roleID=20,
-            roleCode=None,
-            displayName="Advanced Wing-Back",
-            abbreviations=("AWB",),
-            positions=("WBL", "WBR"),
-        ),
-    ))
+    vocabulary.capturedRolesAdd((SimpleNamespace(roleID=20, roleCode=None, displayName="Advanced Wing-Back", abbreviations=("AWB",), positions=("WBL", "WBR")),))
 
     value = vocabulary.roleNormalize("AWB")
 
@@ -137,33 +101,12 @@ def testCapturedRoleDefinitionExtendsLiveOcrVocabulary() -> None:
 
 def testRoleProfileEvidenceSeparatesKeyAttributesFromPlayerValues() -> None:
     evidence = RoleProfileEvidence(
-        position="MC",
-        roleName="Advanced Playmaker",
-        abbreviation="AP",
+        position="MC", roleName="Advanced Playmaker", abbreviation="AP",
         behaviours=("findsSpaceBetweenLines", "expressive"),
-        keyAttributes=(
-            "offTheBall",
-            "passing",
-            "vision",
-            "decisions",
-            "firstTouch",
-            "technique",
-            "teamwork",
-            "composure",
-        ),
+        keyAttributes=("offTheBall", "passing", "vision", "decisions", "firstTouch", "technique", "teamwork", "composure"),
         playerInstructions=("takeMoreRisks",),
-        displayedPlayerAttributes={
-            "offTheBall": 13,
-            "passing": 14,
-            "vision": 14,
-            "decisions": 13,
-            "firstTouch": 14,
-            "technique": 14,
-            "teamwork": 12,
-            "composure": 14,
-        },
-        suitabilityStars=3.5,
-        sourceImport="fm26-role-profile.png",
+        displayedPlayerAttributes={"offTheBall": 13, "passing": 14, "vision": 14, "decisions": 13, "firstTouch": 14, "technique": 14, "teamwork": 12, "composure": 14},
+        suitabilityStars=3.5, sourceImport="fm26-role-profile.png",
     )
 
     assert evidence.keyAttributes[0] == "offTheBall"
@@ -173,11 +116,7 @@ def testRoleProfileEvidenceSeparatesKeyAttributesFromPlayerValues() -> None:
 
 def testRoleProfileEvidenceRejectsImpossibleDisplayedAttribute() -> None:
     with pytest.raises(ValueError, match="between 1 and 20"):
-        RoleProfileEvidence(
-            position="MC",
-            roleName="Advanced Playmaker",
-            displayedPlayerAttributes={"passing": 21},
-        )
+        RoleProfileEvidence(position="MC", roleName="Advanced Playmaker", displayedPlayerAttributes={"passing": 21})
 
 
 def testVocabularyRejectsUnknownRolePosition(tmp_path: Path) -> None:
