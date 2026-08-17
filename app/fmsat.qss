@@ -1,6 +1,5 @@
 QWidget#tacticDetailView, QWidget#squadDetailView { background: #f7f7f5; color: #101f2e; }
-QLabel#eyebrow, QLabel#factKey { color: #239b78; font-size: 13px; font-weight: 700; letter-spacing: 1px; }
-QLabel#factLabel { color: #8fa3b8; font-size: 12px; font-weight: 700; letter-spacing: 1px; }
+QLabel#eyebrow, QLabel#factKey, QLabel#factLabel { color: #239b78; font-size: 13px; font-weight: 700; letter-spacing: 1px; }
 QLabel#workspaceHeading { color: #239b78; font-size: 15px; font-weight: 700; letter-spacing: 1px; }
 QLabel#pageTitle { color: #101f2e; font-size: 28px; font-weight: 700; min-height: 34px; }
 QLabel#factValue { color: #f0f0f0; font-size: 14px; font-weight: 600; }
