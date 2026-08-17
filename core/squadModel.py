@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 
 from fmsat.core.config import AttributeDefinition, Configuration
 from fmsat.core.images import ImagePreprocessor, PreprocessingOptions, imageLoad
@@ -190,7 +191,7 @@ class SquadModelService:
                 len(filenames),
                 filename,
             )
-            processed = preprocessor.process(imageLoad(filename))
+            processed = preprocessor.process(imageLoad(Path(filename)))
             players = parser.parse(processed)
             if not players:
                 raise ValueError(f"No player rows could be regenerated from {filename}")
