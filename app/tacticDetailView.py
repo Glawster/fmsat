@@ -7,10 +7,8 @@ from importlib.resources import files
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QComboBox,
-    QFrame,
     QHBoxLayout,
     QInputDialog,
-    QLabel,
     QLayout,
     QMessageBox,
     QPushButton,
@@ -24,6 +22,7 @@ from fmsat.app.tacticDetailPrototype import tacticDetailPrototype
 from fmsat.app.tacticDetailTabs import AnalysisTab, InstructionsTab, OverviewTab, ShapeTab
 from fmsat.app.tacticPitchWidget import PitchWidget
 from fmsat.app.tacticValidationWidget import BuildResult
+from fmsat.app.workspaceWidgets import FactCard, WorkspaceHeader
 from fmsat.database.tacticNaming import TacticRenameError, tacticRename
 
 __all__ = ["DisplaySlot", "PitchWidget", "TacticDetailView"]
@@ -38,7 +37,13 @@ class TacticDetailView(QWidget):
     modelEditRequested = Signal(str)
     renameRequested = Signal(str, str)
 
-    def __init__(self, parent: QWidget | None = None, *, model: TacticDetailModel | None = None, validation: BuildResult | None = None) -> None:
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+        *,
+        model: TacticDetailModel | None = None,
+        validation: BuildResult | None = None,
+    ) -> None:
         super().__init__(parent)
         self.model = model or tacticDetailPrototype()
         self.validation = validation
@@ -51,8 +56,16 @@ class TacticDetailView(QWidget):
         self.rootLayout.setSpacing(16)
         self._contentRefresh()
 
-    def tacticShow(self, tacticName: str, model: TacticDetailModel | None = None, *, sourceLabel: str | None = None, validation: BuildResult | None = None) -> None:
+    def tacticShow(
+        self,
+        tacticName: str,
+        model: TacticDetailModel | None = None,
+        *,
+        sourceLabel: str | None = None,
+        validation: BuildResult | None = None,
+    ) -> None:
         """Refresh the workspace for the selected stored tactic identity."""
+
         if model is not None:
             self.model = model
         if sourceLabel is not None:
@@ -64,55 +77,65 @@ class TacticDetailView(QWidget):
     ## layout
 
     def _factsCreate(self) -> QHBoxLayout:
+        """Create the shared workspace fact-card row."""
+
         facts = QHBoxLayout()
         facts.setSpacing(10)
-        for label, value in (("FORMATION", self.model.formation), ("MENTALITY", self.model.mentality), ("STATUS", self.model.status), ("ASSIGNED SQUADS", self.model.assignedSquads), ("UPDATED", self.model.updated)):
-            facts.addWidget(self._factCardCreate(label, value), 1)
+        for label, value in (
+            ("FORMATION", self.model.formation),
+            ("MENTALITY", self.model.mentality),
+            ("STATUS", self.model.status),
+            ("ASSIGNED SQUADS", self.model.assignedSquads),
+            ("UPDATED", self.model.updated),
+        ):
+            facts.addWidget(FactCard(label, value, self), 1)
         return facts
 
     def _headerCreate(self) -> QHBoxLayout:
-        header = QHBoxLayout()
-        header.setSpacing(18)
-        back = QPushButton("←  FMSAT Workspace")
-        back.setObjectName("quietButton")
-        back.clicked.connect(self.backRequested.emit)
-        header.addWidget(back, 0, Qt.AlignmentFlag.AlignVCenter)
+        """Create the tactic header using the shared workspace header component."""
 
-        heading = QVBoxLayout()
-        heading.setSpacing(2)
-        workspace = QLabel(f"Tactic Workspace  ·  {self.sourceLabel}")
-        workspace.setObjectName("workspaceHeading")
-        heading.addWidget(workspace)
-        titleRow = QHBoxLayout()
-        titleRow.setSpacing(12)
-        self.titleLabel = QLabel(self.tacticName or "Tactic")
-        self.titleLabel.setObjectName("pageTitle")
-        titleRow.addWidget(self.titleLabel, 0, Qt.AlignmentFlag.AlignVCenter)
         self.renameButton = QPushButton("Rename")
         self.renameButton.setObjectName("quietButton")
         self.renameButton.clicked.connect(self._renameBegin)
-        titleRow.addWidget(self.renameButton, 0, Qt.AlignmentFlag.AlignVCenter)
-        titleRow.addStretch()
-        heading.addLayout(titleRow)
-        header.addLayout(heading, 1)
 
+        trailingActions: list[QWidget] = []
         if self.model.revisions:
             revisions = QComboBox()
             revisions.setObjectName("revisionPicker")
             revisions.addItems(self.model.revisions)
-            header.addWidget(revisions, 0, Qt.AlignmentFlag.AlignVCenter)
+            trailingActions.append(revisions)
+
         compare = QPushButton("Compare")
         compare.setObjectName("secondaryButton")
-        header.addWidget(compare, 0, Qt.AlignmentFlag.AlignVCenter)
+        trailingActions.append(compare)
+
         self.assignmentButton = QPushButton("Assign Squad")
-        self.assignmentButton.clicked.connect(lambda: self.assignmentRequested.emit(self.tacticName))
-        header.addWidget(self.assignmentButton, 0, Qt.AlignmentFlag.AlignVCenter)
-        return header
+        self.assignmentButton.clicked.connect(
+            lambda: self.assignmentRequested.emit(self.tacticName)
+        )
+        trailingActions.append(self.assignmentButton)
+
+        header = WorkspaceHeader(
+            workspace="Tactic",
+            context=self.sourceLabel,
+            title=self.tacticName or "Tactic",
+            backRequested=self.backRequested.emit,
+            titleActions=(self.renameButton,),
+            trailingActions=trailingActions,
+        )
+        self.titleLabel = header.titleLabel
+        return header.layout
 
     def _renameBegin(self) -> None:
         """Rename the persisted tactic identity without regenerating evidence."""
+
         oldName = self.tacticName
-        newName, accepted = QInputDialog.getText(self, "Rename tactic", "Tactic name:", text=oldName)
+        newName, accepted = QInputDialog.getText(
+            self,
+            "Rename tactic",
+            "Tactic name:",
+            text=oldName,
+        )
         if not accepted or newName.strip() == oldName:
             return
         owner = self.window()
@@ -134,6 +157,7 @@ class TacticDetailView(QWidget):
 
     def _contentRefresh(self) -> None:
         """Rebuild all top-level sections after the active model changes."""
+
         self._layoutClear(self.rootLayout)
         self.rootLayout.addLayout(self._headerCreate())
         self.rootLayout.addLayout(self._factsCreate())
@@ -142,14 +166,19 @@ class TacticDetailView(QWidget):
 
     def _footerCreate(self) -> QHBoxLayout:
         """Create bottom-row actions for tactic maintenance workflows."""
+
         footer = QHBoxLayout()
         footer.addStretch()
         editButton = QPushButton("Edit Model")
         editButton.setObjectName("secondaryButton")
-        editButton.clicked.connect(lambda: self.modelEditRequested.emit(self.tacticName))
+        editButton.clicked.connect(
+            lambda: self.modelEditRequested.emit(self.tacticName)
+        )
         footer.addWidget(editButton)
         self.importToModelButton = QPushButton("Regenerate Model")
-        self.importToModelButton.clicked.connect(lambda: self.importToModelRequested.emit(self.tacticName))
+        self.importToModelButton.clicked.connect(
+            lambda: self.importToModelRequested.emit(self.tacticName)
+        )
         footer.addWidget(self.importToModelButton)
         return footer
 
@@ -171,6 +200,7 @@ class TacticDetailView(QWidget):
 
     def _layoutClear(self, layout: QLayout) -> None:
         """Delete all child widgets/layouts from one Qt layout container."""
+
         while layout.count():
             item = layout.takeAt(0)
             childWidget = item.widget()
