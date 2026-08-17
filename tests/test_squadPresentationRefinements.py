@@ -91,7 +91,7 @@ def testSquadViewBuildsExactlyElevenDepthRowsFromLinkedTacticSlots(qtbot) -> Non
         "DM": _role("DM", "DM", "DMCR"),
         "IF": _role("IF", "IF", "AML, AMR"),
         "CHF": _role("CHF", "CHF", "STC"),
-        "SK": _role("SK", "SK", "GK"),
+        "SK": _role("SK", "SK", "GK, AMC"),
         "BGK": _role("BGK", "BGK", "GK"),
     }
     inRoles = (
@@ -185,6 +185,46 @@ def testRoleCandidateKeepsSelectedFitSeparateFromBestRoleAndUsesCompactEvidence(
     assert tab.playerPicker.maximumWidth() == 320
 
 
+def testPlayerPickerDisplaysAndSortsNamesBySurname(qtbot) -> None:  # type: ignore[no-untyped-def]
+    candidates = tuple(
+        CandidateDisplay(
+            name=name,
+            positions="D (C)",
+            score="60.0",
+            bestRole="Centre-Back",
+            breakdown="tackling: 12 × 5 = 60/100",
+            available=True,
+        )
+        for name in ("Georgia Stanway", "Ada Player", "N. Eizagirre")
+    )
+    role = RoleDisplay(
+        roleCode="centreBack",
+        displayName="Centre-Back",
+        abbreviation="CB",
+        positions="DC",
+        phases="Out Of Possession",
+        coverage="Available",
+        candidates=candidates,
+    )
+    tab = SquadRolesTab((role,))
+    qtbot.addWidget(tab)
+
+    assert [tab.playerPicker.itemText(index) for index in range(tab.playerPicker.count())] == [
+        "Select a player…",
+        "Eizagirre, N.",
+        "Player, Ada",
+        "Stanway, Georgia",
+    ]
+    assert [tab.playerPicker.itemData(index) for index in range(1, tab.playerPicker.count())] == [
+        "N. Eizagirre",
+        "Ada Player",
+        "Georgia Stanway",
+    ]
+
+    tab.playerPicker.setCurrentIndex(2)
+    assert tab.playerRoleTable.rowCount() == 1
+
+
 def testAnalysisBreakdownAndEvidenceRowsStayCompact(qtbot) -> None:  # type: ignore[no-untyped-def]
     model = SquadDetailModel(
         squad=_squad(),
@@ -260,5 +300,7 @@ def testUnassignedSquadPickerListsSystemTacticsAndPersistsSelection(qtbot) -> No
         "Control",
         "High Press",
     ]
+    assert view.tacticPicker.styleSheet() == ""
+    assert view.tacticPicker.view().styleSheet() == ""
     view.tacticPicker.setCurrentText("High Press")
     assert window.database.applied == [("First Team", "High Press")]  # type: ignore[attr-defined]
