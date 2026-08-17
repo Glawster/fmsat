@@ -15,7 +15,8 @@ from .tacticFormation import (
     PitchZoneClassifier,
     TacticFormationExtractor,
 )
-from .tacticLayout import TacticLayoutAnchor, TacticLayoutResult
+from .tacticLayoutFm26 import TacticLayoutAnchor
+from .tacticLayout import TacticLayoutResult
 from .tacticInstructions import InstructionExtractResult, TacticInstructionExtractor
 from .tacticModels import (
     FormationSlot,
