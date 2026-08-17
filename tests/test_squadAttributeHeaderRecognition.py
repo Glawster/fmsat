@@ -76,6 +76,27 @@ def testSplitFirstTouchSurvivesInterleavedOcrFragment() -> None:
     assert header.text == "First Touch"
 
 
+def testMissingFirstTouchHeaderIsInferredBetweenFinishingAndHeading() -> None:
+    """FM's stable column order keeps First Touch available if OCR drops its heading."""
+
+    parser = SquadAttributesParser(
+        FakeOcr([]),
+        {},
+        (AttributeDefinition("first_touch", "Fir", 1),),
+    )
+    results = [
+        _result("Finishing", 100),
+        _result("Heading", 200),
+    ]
+
+    header = parser._attributeHeaderFind(results, "first_touch", 20, 10, 0)
+
+    assert header is not None
+    assert header.text == "First Touch (inferred)"
+    assert header.center is not None
+    assert header.center[0] == 150
+
+
 def testPlayerNameCleanupDropsTrailingOcrPunctuation() -> None:
     parser = SquadAttributesParser(FakeOcr([]), {}, ())
 
