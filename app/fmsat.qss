@@ -1,6 +1,5 @@
 QWidget#tacticDetailView, QWidget#squadDetailView { background: #f7f7f5; color: #101f2e; }
-QLabel#eyebrow, QLabel#factKey { color: #239b78; font-size: 13px; font-weight: 700; letter-spacing: 1px; }
-QLabel#factLabel { color: #8fa3b8; font-size: 12px; font-weight: 700; letter-spacing: 1px; }
+QLabel#eyebrow, QLabel#factKey, QLabel#factLabel { color: #239b78; font-size: 13px; font-weight: 700; letter-spacing: 1px; }
 QLabel#workspaceHeading { color: #239b78; font-size: 15px; font-weight: 700; letter-spacing: 1px; }
 QLabel#pageTitle { color: #101f2e; font-size: 28px; font-weight: 700; min-height: 34px; }
 QLabel#factValue { color: #f0f0f0; font-size: 14px; font-weight: 600; }
@@ -35,7 +34,9 @@ QPushButton#secondaryButton[copyState="copied"] { background: #56d6b0; color: #0
 QWidget#tacticDetailView QComboBox, QWidget#squadDetailView QComboBox { background: #31b98f; color: #061510; border: 1px solid #31b98f; border-radius: 7px; padding: 8px 12px; font-weight: 700; }
 QWidget#tacticDetailView QComboBox:hover, QWidget#squadDetailView QComboBox:hover { background: #56d6b0; border-color: #56d6b0; }
 QWidget#tacticDetailView QComboBox:disabled, QWidget#squadDetailView QComboBox:disabled { background: #9bbbad; border-color: #9bbbad; color: #52645d; }
-QComboBox QAbstractItemView { background: #101f2e; color: #f5f8fb; border: 1px solid #30465a; selection-background-color: #163b38; selection-color: #75e0bf; }
+QComboBox QAbstractItemView { background: #101f2e; color: #f5f8fb; border: 1px solid #30465a; selection-background-color: #31b98f; selection-color: #061510; }
+QComboBox QAbstractItemView::item { color: #f5f8fb; background: #101f2e; padding: 6px; }
+QComboBox QAbstractItemView::item:selected { color: #061510; background: #31b98f; }
 QMenu#playerFilterMenu { background: #101f2e; color: #f5f8fb; border: 1px solid #30465a; padding: 7px; }
 QMenu#playerFilterMenu QCheckBox { color: #f5f8fb; spacing: 9px; padding: 7px 12px; min-width: 170px; }
 QDialog { background: #08131f; color: #e8eef5; }
