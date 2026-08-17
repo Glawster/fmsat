@@ -7,8 +7,8 @@ from importlib.resources import files
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QComboBox,
+    QDialog,
     QHBoxLayout,
-    QInputDialog,
     QLayout,
     QMessageBox,
     QPushButton,
@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from fmsat.app.adminWidgets import AdminTextEditDialog
 from fmsat.app.tacticDetailModel import DisplaySlot, TacticDetailModel
 from fmsat.app.tacticDetailPrototype import tacticDetailPrototype
 from fmsat.app.tacticDetailTabs import AnalysisTab, InstructionsTab, OverviewTab, ShapeTab
@@ -130,18 +131,22 @@ class TacticDetailView(QWidget):
         """Rename the persisted tactic identity without regenerating evidence."""
 
         oldName = self.tacticName
-        newName, accepted = QInputDialog.getText(
-            self,
-            "Rename tactic",
-            "Tactic name:",
-            text=oldName,
+        dialog = AdminTextEditDialog(
+            title="Rename tactic",
+            label="Tactic name:",
+            value=oldName,
+            parent=self,
         )
-        if not accepted or newName.strip() == oldName:
+        if dialog.exec() != QDialog.DialogCode.Accepted:
             return
+        newName = dialog.value()
+        if not newName or newName == oldName:
+            return
+
         owner = self.window()
         database = getattr(owner, "database", None)
         if database is None or not hasattr(database, "engine"):
-            self.renameRequested.emit(oldName, newName.strip())
+            self.renameRequested.emit(oldName, newName)
             return
         try:
             savedName = tacticRename(database.engine, oldName, newName)
