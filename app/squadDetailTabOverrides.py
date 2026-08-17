@@ -100,6 +100,24 @@ def _columnsLeftAlign(table: QTableWidget, columns: tuple[int, ...]) -> None:
                 item.setTextAlignment(alignment)
 
 
+def _playerNameDisplay(name: str) -> str:
+    """Render player names as surname, given names for compact picker browsing."""
+
+    parts = name.split()
+    if len(parts) < 2:
+        return name
+    return f"{parts[-1]}, {' '.join(parts[:-1])}"
+
+
+def _playerNameSortKey(name: str) -> tuple[str, str]:
+    """Sort picker names by surname while keeping the original identity stable."""
+
+    parts = name.split()
+    if len(parts) < 2:
+        return (name.casefold(), "")
+    return (parts[-1].casefold(), " ".join(parts[:-1]).casefold())
+
+
 def _positionUnits(positions: str) -> set[str]:
     """Return broad FM positional units from compact natural-position text."""
 
@@ -221,9 +239,9 @@ class SquadRolesTab(BaseSquadRolesTab):
         self.playerPicker = QComboBox(self)
         self.playerPicker.setObjectName("rolePlayerPicker")
         self.playerPicker.setMaximumWidth(320)
-        self.playerPicker.addItem("Select a player…")
-        for name in sorted(self._allPlayerNames(), key=str.casefold):
-            self.playerPicker.addItem(name)
+        self.playerPicker.addItem("Select a player…", "")
+        for name in sorted(self._allPlayerNames(), key=_playerNameSortKey):
+            self.playerPicker.addItem(_playerNameDisplay(name), name)
 
         self.playerRoleTable = QTableWidget(0, 4, self)
         self.playerRoleTable.setObjectName("playerRoleAnalysisTable")
@@ -250,7 +268,7 @@ class SquadRolesTab(BaseSquadRolesTab):
             root.addLayout(playerControls)
             root.addWidget(self.playerRoleTable)
 
-        self.playerPicker.currentTextChanged.connect(self._playerRolesShow)
+        self.playerPicker.currentIndexChanged.connect(self._playerPickerChanged)
         self.candidateTable.cellClicked.connect(self._candidatePlayerSelect)
         self._allCandidatesShow()
         self._rowsCompact()
@@ -342,13 +360,17 @@ class SquadRolesTab(BaseSquadRolesTab):
     def _candidatePlayerSelect(self, row: int, _column: int) -> None:
         item = self.candidateTable.item(row, 0)
         if item is not None:
-            index = self.playerPicker.findText(item.text())
+            index = self.playerPicker.findData(item.text())
             if index >= 0:
                 self.playerPicker.setCurrentIndex(index)
 
+    def _playerPickerChanged(self, index: int) -> None:
+        playerName = str(self.playerPicker.itemData(index) or "")
+        self._playerRolesShow(playerName)
+
     def _playerRolesShow(self, playerName: str) -> None:
         rows = []
-        if playerName and playerName != "Select a player…":
+        if playerName:
             for role in self.roles:
                 candidate = next(
                     (item for item in role.candidates if item.name == playerName),
