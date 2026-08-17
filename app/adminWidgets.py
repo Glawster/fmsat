@@ -4,7 +4,16 @@ from __future__ import annotations
 
 from importlib.resources import files
 
-from PySide6.QtWidgets import QDialog, QHeaderView, QTableWidget, QWidget
+from PySide6.QtWidgets import (
+    QDialog,
+    QDialogButtonBox,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QTableWidget,
+    QVBoxLayout,
+    QWidget,
+)
 
 
 class AdminEditDialog(QDialog):
@@ -18,6 +27,54 @@ class AdminEditDialog(QDialog):
         )
         self.setMinimumSize(900, 600)
         self.resize(1200, 760)
+
+
+class AdminTextEditDialog(QDialog):
+    """Standard compact admin frame for editing one long text value."""
+
+    def __init__(
+        self,
+        *,
+        title: str,
+        label: str,
+        value: str,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.setObjectName("adminTextEditDialog")
+        self.setStyleSheet(
+            files("fmsat.app").joinpath("fmsat.qss").read_text(encoding="utf-8")
+        )
+        self.setWindowTitle(title)
+        self.setMinimumWidth(720)
+        self.resize(760, 150)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 14, 16, 14)
+        layout.setSpacing(10)
+
+        prompt = QLabel(label, self)
+        prompt.setObjectName("adminFieldLabel")
+        layout.addWidget(prompt)
+
+        self.editor = QLineEdit(value, self)
+        self.editor.setObjectName("adminTextEditor")
+        self.editor.selectAll()
+        layout.addWidget(self.editor)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok
+            | QDialogButtonBox.StandardButton.Cancel,
+            parent=self,
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def value(self) -> str:
+        """Return the edited value without surrounding whitespace."""
+
+        return self.editor.text().strip()
 
 
 def adminTableConfigure(
