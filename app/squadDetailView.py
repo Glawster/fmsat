@@ -7,7 +7,6 @@ from importlib.resources import files
 
 from fmsat.core.logUtils import getLogger
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -118,35 +117,11 @@ class SquadDetailView(QWidget):
         for tacticName in availableTactics:
             if tacticName != current:
                 self.tacticPicker.addItem(tacticName)
-        self._tacticPickerPaletteApply()
         self.tacticPicker.currentTextChanged.connect(self._tacticChange)
         self.tacticPicker.setEnabled(bool(availableTactics))
         tacticControl.addWidget(self.tacticPicker)
         header.addLayout(tacticControl)
         return header
-
-    def _tacticPickerPaletteApply(self) -> None:
-        """Apply the shared FMSAT workspace dropdown popup contract."""
-
-        view = self.tacticPicker.view()
-        palette = view.palette()
-        palette.setColor(QPalette.ColorRole.Base, QColor("#101f2e"))
-        palette.setColor(QPalette.ColorRole.AlternateBase, QColor("#101f2e"))
-        palette.setColor(QPalette.ColorRole.Text, QColor("#d9e5ef"))
-        palette.setColor(QPalette.ColorRole.WindowText, QColor("#d9e5ef"))
-        palette.setColor(QPalette.ColorRole.Highlight, QColor("#56d6b0"))
-        palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#061510"))
-        view.setPalette(palette)
-        view.setAutoFillBackground(True)
-        view.setSpacing(0)
-        view.setStyleSheet(
-            "QAbstractItemView { background: #101f2e; color: #d9e5ef; "
-            "selection-background-color: #56d6b0; selection-color: #061510; } "
-            "QAbstractItemView::item { background: #101f2e; color: #d9e5ef; "
-            "min-height: 30px; padding: 5px 8px; } "
-            "QAbstractItemView::item:hover, QAbstractItemView::item:selected { "
-            "background: #56d6b0; color: #061510; }"
-        )
 
     def _factsCreate(self) -> QHBoxLayout:
         assert self.model is not None
