@@ -26,20 +26,8 @@ def testCanonicalTruncatedHeadersRecogniseConcentrationAndOffTheBall() -> None:
         _result("Off The ...", 200),
     ]
 
-    concentration = parser._attributeHeaderFind(
-        results,
-        "concentration",
-        20,
-        10,
-        0,
-    )
-    offTheBall = parser._attributeHeaderFind(
-        results,
-        "off_the_ball",
-        20,
-        10,
-        0,
-    )
+    concentration = parser._attributeHeaderFind(results, "concentration", 20, 10, 0)
+    offTheBall = parser._attributeHeaderFind(results, "off_the_ball", 20, 10, 0)
 
     assert concentration is not None
     assert concentration.text == "Concen..."
@@ -60,18 +48,39 @@ def testSplitFirstTouchHeaderUsesCombinedColumnCentre() -> None:
         _result("Touch", 145, halfWidth=19),
     ]
 
-    header = parser._attributeHeaderFind(
-        results,
-        "first_touch",
-        20,
-        10,
-        0,
-    )
+    header = parser._attributeHeaderFind(results, "first_touch", 20, 10, 0)
 
     assert header is not None
     assert header.text == "First Touch"
     assert header.center is not None
     assert 120 < header.center[0] < 130
+
+
+def testSplitFirstTouchSurvivesInterleavedOcrFragment() -> None:
+    """A neighbouring OCR fragment must not prevent the First Touch column being found."""
+
+    parser = SquadAttributesParser(
+        FakeOcr([]),
+        {},
+        (AttributeDefinition("first_touch", "Fir", 1),),
+    )
+    results = [
+        _result("First", 100, halfWidth=18),
+        _result("|", 120, halfWidth=2),
+        _result("Touch", 145, halfWidth=19),
+    ]
+
+    header = parser._attributeHeaderFind(results, "first_touch", 20, 10, 0)
+
+    assert header is not None
+    assert header.text == "First Touch"
+
+
+def testPlayerNameCleanupDropsTrailingOcrPunctuation() -> None:
+    parser = SquadAttributesParser(FakeOcr([]), {}, ())
+
+    assert parser._playerNameTextClean("Georgia Stanway.") == "Georgia Stanway"
+    assert parser._playerNameTextClean("Nerea Eizagirre,") == "Nerea Eizagirre"
 
 
 def testPresentationAbbreviationsAreNotAcceptedAsOcrHeaders() -> None:

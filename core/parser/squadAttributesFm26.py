@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from fmsat.core.ocr import OcrResult
 
 from .squadAttributes import SquadAttributesParser as _BaseSquadAttributesParser
@@ -43,7 +45,7 @@ class SquadAttributesParser(_BaseSquadAttributesParser):
         tolerance: float,
         minimumX: float,
     ) -> OcrResult | None:
-        """Join adjacent OCR fragments such as ``First`` + ``Touch``."""
+        """Join FM headers split by OCR, including ``First`` + ``Touch``."""
 
         expected = self._tokenNormalize(attributeName)
         candidates = sorted(
@@ -57,25 +59,46 @@ class SquadAttributesParser(_BaseSquadAttributesParser):
             ),
             key=lambda result: result.center[0],
         )
+        groups: list[list[OcrResult]] = []
         for width in (2, 3):
-            for start in range(len(candidates) - width + 1):
-                group = candidates[start : start + width]
-                tokens = [self._tokenNormalize(result.text) for result in group]
-                if any(not token for token in tokens):
-                    continue
-                joined = "".join(tokens)
-                if joined != expected and not (
-                    len(joined) >= 3 and expected.startswith(joined)
-                ):
-                    continue
-                left = min(result.bounds[0] for result in group if result.bounds is not None)
-                top = min(result.bounds[1] for result in group if result.bounds is not None)
-                right = max(result.bounds[2] for result in group if result.bounds is not None)
-                bottom = max(result.bounds[3] for result in group if result.bounds is not None)
-                confidence = sum(result.confidence for result in group) / len(group)
-                return OcrResult(
-                    " ".join(result.text for result in group),
-                    confidence,
-                    (left, top, right, bottom),
-                )
+            groups.extend(
+                candidates[start : start + width]
+                for start in range(len(candidates) - width + 1)
+            )
+        # Paddle can interleave a tiny neighbouring-column fragment between the
+        # two words of First Touch. Try every nearby pair as a second pass.
+        groups.extend(
+            [left, right]
+            for index, left in enumerate(candidates)
+            for right in candidates[index + 1 :]
+            if right.center is not None
+            and left.center is not None
+            and 0 < right.center[0] - left.center[0] <= 140
+        )
+        for group in groups:
+            tokens = [self._tokenNormalize(result.text) for result in group]
+            if any(not token for token in tokens):
+                continue
+            joined = "".join(tokens)
+            if joined != expected and not (
+                len(joined) >= 3 and expected.startswith(joined)
+            ):
+                continue
+            left = min(result.bounds[0] for result in group if result.bounds is not None)
+            top = min(result.bounds[1] for result in group if result.bounds is not None)
+            right = max(result.bounds[2] for result in group if result.bounds is not None)
+            bottom = max(result.bounds[3] for result in group if result.bounds is not None)
+            confidence = sum(result.confidence for result in group) / len(group)
+            return OcrResult(
+                " ".join(result.text for result in group),
+                confidence,
+                (left, top, right, bottom),
+            )
         return None
+
+    @staticmethod
+    def _playerNameTextClean(value: str) -> str:
+        """Apply base name cleanup and remove punctuation introduced at the row edge."""
+
+        cleaned = _BaseSquadAttributesParser._playerNameTextClean(value)
+        return re.sub(r"[.,;:]+$", "", cleaned).rstrip()
