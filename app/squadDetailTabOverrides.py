@@ -30,9 +30,18 @@ from fmsat.core.config import AttributeDefinition
 from fmsat.core.squadModel import SquadModel
 
 
-def _breakdownAbbreviate(table: QTableWidget, column: int, attributes: tuple[AttributeDefinition, ...]) -> None:
+def _breakdownAbbreviate(
+    table: QTableWidget,
+    column: int,
+    attributes: tuple[AttributeDefinition, ...],
+) -> None:
     """Render configured attribute abbreviations without changing score evidence."""
-    abbreviations = {attribute.name: attribute.abbreviation for attribute in attributes if attribute.abbreviation.strip()}
+
+    abbreviations = {
+        attribute.name: attribute.abbreviation
+        for attribute in attributes
+        if attribute.abbreviation.strip()
+    }
     if not abbreviations:
         return
     for row in range(table.rowCount()):
@@ -41,14 +50,48 @@ def _breakdownAbbreviate(table: QTableWidget, column: int, attributes: tuple[Att
             continue
         original = item.toolTip() or item.text()
         rendered = original
-        for name, abbreviation in sorted(abbreviations.items(), key=lambda item: len(item[0]), reverse=True):
+        for name, abbreviation in sorted(
+            abbreviations.items(),
+            key=lambda item: len(item[0]),
+            reverse=True,
+        ):
             rendered = rendered.replace(f"{name}:", f"{abbreviation}:")
         item.setText(rendered)
         item.setToolTip(original)
 
 
+def _breakdownCompact(
+    value: str,
+    attributes: tuple[AttributeDefinition, ...],
+) -> str:
+    """Reduce detailed weighted arithmetic to attribute contribution percentages."""
+
+    abbreviations = {
+        attribute.name: attribute.abbreviation
+        for attribute in attributes
+        if attribute.abbreviation.strip()
+    }
+    percentages: list[str] = []
+    for component in value.split(";"):
+        match = re.match(
+            r"\s*([^:]+):.*?=\s*([0-9]+(?:\.[0-9]+)?)/([0-9]+(?:\.[0-9]+)?)\s*$",
+            component,
+        )
+        if match is None:
+            continue
+        name, numeratorText, denominatorText = match.groups()
+        denominator = float(denominatorText)
+        if denominator <= 0:
+            continue
+        abbreviation = abbreviations.get(name.strip(), name.strip())
+        percentage = round(float(numeratorText) * 100 / denominator)
+        percentages.append(f"{abbreviation}: {percentage}%")
+    return ", ".join(percentages) if percentages else value
+
+
 def _columnsLeftAlign(table: QTableWidget, columns: tuple[int, ...]) -> None:
     """Apply the shared table rule that names and positions read left-to-right."""
+
     alignment = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
     for row in range(table.rowCount()):
         for column in columns:
@@ -59,6 +102,7 @@ def _columnsLeftAlign(table: QTableWidget, columns: tuple[int, ...]) -> None:
 
 def _positionUnits(positions: str) -> set[str]:
     """Return broad FM positional units from compact natural-position text."""
+
     compact = re.sub(r"\s+", "", positions.upper())
     units: set[str] = set()
     if "GK" in compact:
@@ -80,6 +124,7 @@ def _positionUnits(positions: str) -> set[str]:
 
 def _roleUnits(positions: str) -> set[str]:
     """Map canonical role positions to the same broad units used for players."""
+
     units: set[str] = set()
     for value in positions.split(","):
         compact = re.sub(r"[^A-Z]", "", value.upper())
@@ -102,6 +147,7 @@ def _roleUnits(positions: str) -> set[str]:
 
 def _candidateEligible(role: RoleDisplay, candidate: CandidateDisplay) -> bool:
     """Keep role browsing position-aware without changing Generic Role Fit scoring."""
+
     required = _roleUnits(role.positions)
     available = _positionUnits(candidate.positions)
     if not required:
@@ -114,7 +160,12 @@ def _candidateEligible(role: RoleDisplay, candidate: CandidateDisplay) -> bool:
 class SquadPlayersTab(BaseSquadPlayersTab):
     """Keep identity columns left aligned while compact data remains centred."""
 
-    def __init__(self, model: SquadModel, attributes: tuple[AttributeDefinition, ...] = (), parent=None) -> None:
+    def __init__(
+        self,
+        model: SquadModel,
+        attributes: tuple[AttributeDefinition, ...] = (),
+        parent=None,
+    ) -> None:
         super().__init__(model, attributes, parent)
         _columnsLeftAlign(self.table, (0, 1))
 
@@ -122,39 +173,63 @@ class SquadPlayersTab(BaseSquadPlayersTab):
 class SquadRolesTab(BaseSquadRolesTab):
     """Provide role-to-player and player-to-role browsing from one assessment surface."""
 
-    def __init__(self, roles: tuple[RoleDisplay, ...], attributes: tuple[AttributeDefinition, ...] = (), parent=None) -> None:
+    def __init__(
+        self,
+        roles: tuple[RoleDisplay, ...],
+        attributes: tuple[AttributeDefinition, ...] = (),
+        parent=None,
+    ) -> None:
         self.attributes = attributes
         super().__init__(roles, parent)
         if not hasattr(self, "candidateTable"):
             return
+
         self.roleTable.clearSelection()
         self.roleTable.setCurrentCell(-1, -1)
         self.roleTable.setMinimumWidth(390)
         self.roleTable.setColumnWidth(2, 210)
         self.candidateTable.setWordWrap(False)
-        self.candidateTable.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
+        self.candidateTable.verticalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Fixed
+        )
         self.candidateTable.verticalHeader().setDefaultSectionSize(28)
         self.roleTable.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
         self.roleTable.verticalHeader().setDefaultSectionSize(28)
         splitter = self.roleTable.parentWidget()
         if splitter is not None and hasattr(splitter, "setSizes"):
             splitter.setSizes([420, 980])
+
         self.clearRoleButton = QPushButton("Show all players / roles", self)
         self.clearRoleButton.setObjectName("secondaryButton")
         self.clearRoleButton.clicked.connect(self._selectionClear)
         root = self.layout()
         if root is not None:
             root.insertWidget(0, self.clearRoleButton, 0, Qt.AlignmentFlag.AlignLeft)
-        self.playerRoleTitle = QLabel("Player role view", self)
-        self.playerRoleTitle.setObjectName("cardTitle")
+
+            titles = QHBoxLayout()
+            self.rolePaneTitle = QLabel("Tactic Roles", self)
+            self.rolePaneTitle.setObjectName("workspaceHeading")
+            self.rolePaneTitle.setMinimumWidth(400)
+            titles.addWidget(self.rolePaneTitle)
+            self.candidatePaneTitle = QLabel("Candidates for Selected Role", self)
+            self.candidatePaneTitle.setObjectName("workspaceHeading")
+            titles.addWidget(self.candidatePaneTitle, 1)
+            root.insertLayout(1, titles)
+
+        self.playerRoleTitle = QLabel("Player Role Assessment", self)
+        self.playerRoleTitle.setObjectName("workspaceHeading")
         self.playerPicker = QComboBox(self)
         self.playerPicker.setObjectName("rolePlayerPicker")
+        self.playerPicker.setMaximumWidth(320)
         self.playerPicker.addItem("Select a player…")
         for name in sorted(self._allPlayerNames(), key=str.casefold):
             self.playerPicker.addItem(name)
+
         self.playerRoleTable = QTableWidget(0, 4, self)
         self.playerRoleTable.setObjectName("playerRoleAnalysisTable")
-        self.playerRoleTable.setHorizontalHeaderLabels(("Role", "Name", "Generic Role Fit", "Calculation breakdown"))
+        self.playerRoleTable.setHorizontalHeaderLabels(
+            ("Role", "Name", "Generic Role Fit", "Calculation breakdown")
+        )
         self.playerRoleTable.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.playerRoleTable.setWordWrap(False)
         playerHeader = self.playerRoleTable.horizontalHeader()
@@ -163,29 +238,51 @@ class SquadRolesTab(BaseSquadRolesTab):
         playerHeader.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         playerHeader.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
         self.playerRoleTable.setMaximumHeight(190)
+
         if root is not None:
-            controls = QHBoxLayout()
-            controls.addWidget(self.playerRoleTitle)
-            controls.addWidget(self.playerPicker, 1)
-            root.addLayout(controls)
+            root.addWidget(self.playerRoleTitle)
+            playerControls = QHBoxLayout()
+            playerLabel = QLabel("Player", self)
+            playerLabel.setObjectName("eyebrow")
+            playerControls.addWidget(playerLabel)
+            playerControls.addWidget(self.playerPicker)
+            playerControls.addStretch()
+            root.addLayout(playerControls)
             root.addWidget(self.playerRoleTable)
+
         self.playerPicker.currentTextChanged.connect(self._playerRolesShow)
         self.candidateTable.cellClicked.connect(self._candidatePlayerSelect)
         self._allCandidatesShow()
         self._rowsCompact()
 
-    def _roleShow(self, currentRow: int, currentColumn: int, previousRow: int, previousColumn: int) -> None:
+    def _roleShow(
+        self,
+        currentRow: int,
+        currentColumn: int,
+        previousRow: int,
+        previousColumn: int,
+    ) -> None:
         if not hasattr(self, "candidateTable"):
             return
         if currentRow < 0:
             self._allCandidatesShow()
             return
         roleItem = self.roleTable.item(currentRow, 0)
-        role = self.rolesByCode.get(str(roleItem.data(Qt.ItemDataRole.UserRole))) if roleItem is not None else None
+        role = (
+            self.rolesByCode.get(str(roleItem.data(Qt.ItemDataRole.UserRole)))
+            if roleItem is not None
+            else None
+        )
         if role is None:
             self._allCandidatesShow()
             return
-        self._candidatesPopulate(tuple(candidate for candidate in role.candidates if _candidateEligible(role, candidate)))
+        self._candidatesPopulate(
+            tuple(
+                candidate
+                for candidate in role.candidates
+                if _candidateEligible(role, candidate)
+            )
+        )
 
     def _selectionClear(self) -> None:
         self.roleTable.clearSelection()
@@ -194,6 +291,7 @@ class SquadRolesTab(BaseSquadRolesTab):
 
     def _allCandidatesShow(self) -> None:
         """Default to one row per player using their best visible eligible role result."""
+
         best: dict[str, CandidateDisplay] = {}
         for role in self.roles:
             for candidate in role.candidates:
@@ -201,21 +299,40 @@ class SquadRolesTab(BaseSquadRolesTab):
                     continue
                 key = candidate.name.casefold()
                 current = best.get(key)
-                if current is None or (candidate.available and (not current.available or float(candidate.score) > float(current.score))):
+                if current is None or (
+                    candidate.available
+                    and (
+                        not current.available
+                        or float(candidate.score) > float(current.score)
+                    )
+                ):
                     best[key] = candidate
-        self._candidatesPopulate(tuple(sorted(best.values(), key=lambda candidate: candidate.name.casefold())))
+        self._candidatesPopulate(
+            tuple(sorted(best.values(), key=lambda candidate: candidate.name.casefold()))
+        )
 
     def _candidatesPopulate(self, candidates: tuple[CandidateDisplay, ...]) -> None:
         self.candidateTable.setSortingEnabled(False)
         self.candidateTable.setRowCount(len(candidates))
         for row, candidate in enumerate(candidates):
-            values = (candidate.name, candidate.positions, candidate.score, candidate.bestRole, candidate.breakdown)
+            values = (
+                candidate.name,
+                candidate.positions,
+                candidate.score,
+                candidate.bestRole,
+                _breakdownCompact(candidate.breakdown, self.attributes),
+            )
             for column, value in enumerate(values):
-                sortValue = float(candidate.score) if column == 2 and candidate.available else -1.0 if column == 2 else value.casefold()
-                self.candidateTable.setItem(row, column, SortableTableWidgetItem(value, sortValue))
-        _breakdownAbbreviate(self.candidateTable, 4, self.attributes)
+                sortValue = (
+                    float(candidate.score)
+                    if column == 2 and candidate.available
+                    else -1.0 if column == 2 else value.casefold()
+                )
+                item = SortableTableWidgetItem(value, sortValue)
+                if column == 4:
+                    item.setToolTip(candidate.breakdown)
+                self.candidateTable.setItem(row, column, item)
         _columnsLeftAlign(self.candidateTable, (0, 1))
-        self._tooltipsApply(self.candidateTable, 4, preserve=True)
         self.candidateTable.setSortingEnabled(True)
         self._rowsCompact()
 
@@ -233,13 +350,29 @@ class SquadRolesTab(BaseSquadRolesTab):
         rows = []
         if playerName and playerName != "Select a player…":
             for role in self.roles:
-                candidate = next((item for item in role.candidates if item.name == playerName), None)
+                candidate = next(
+                    (item for item in role.candidates if item.name == playerName),
+                    None,
+                )
                 if candidate is not None and _candidateEligible(role, candidate):
                     rows.append((role, candidate))
-        rows.sort(key=lambda item: (not item[1].available, -(float(item[1].score) if item[1].available else -1.0), item[0].displayName.casefold()))
+        rows.sort(
+            key=lambda item: (
+                not item[1].available,
+                -(float(item[1].score) if item[1].available else -1.0),
+                item[0].displayName.casefold(),
+            )
+        )
         self.playerRoleTable.setRowCount(len(rows))
         for row, (role, candidate) in enumerate(rows):
-            for column, value in enumerate((role.abbreviation, role.displayName, candidate.score, candidate.breakdown)):
+            for column, value in enumerate(
+                (
+                    role.abbreviation,
+                    role.displayName,
+                    candidate.score,
+                    candidate.breakdown,
+                )
+            ):
                 self.playerRoleTable.setItem(row, column, QTableWidgetItem(value))
         _breakdownAbbreviate(self.playerRoleTable, 3, self.attributes)
         self._tooltipsApply(self.playerRoleTable, 3, preserve=True)
@@ -252,7 +385,12 @@ class SquadRolesTab(BaseSquadRolesTab):
                 table.setRowHeight(row, 28)
 
     @staticmethod
-    def _tooltipsApply(table: QTableWidget, column: int, *, preserve: bool = False) -> None:
+    def _tooltipsApply(
+        table: QTableWidget,
+        column: int,
+        *,
+        preserve: bool = False,
+    ) -> None:
         for row in range(table.rowCount()):
             item = table.item(row, column)
             if item is not None and (not preserve or not item.toolTip()):
@@ -262,7 +400,13 @@ class SquadRolesTab(BaseSquadRolesTab):
 class SquadAnalysisTab(BaseSquadAnalysisTab):
     """Arrange depth and player strengths above full-width squad findings."""
 
-    def __init__(self, model: SquadDetailModel, attributes: tuple[AttributeDefinition, ...] = (), requiredRows: tuple[tuple[str, str], ...] = (), parent=None) -> None:
+    def __init__(
+        self,
+        model: SquadDetailModel,
+        attributes: tuple[AttributeDefinition, ...] = (),
+        requiredRows: tuple[tuple[str, str], ...] = (),
+        parent=None,
+    ) -> None:
         super().__init__(model, parent)
         self._depthExpand(model, requiredRows)
         for table in (self.depthTable, self.playerTable, self.findingsTable):
@@ -274,13 +418,23 @@ class SquadAnalysisTab(BaseSquadAnalysisTab):
         self._dashboardArrange()
         self._rowsCompact()
 
-    def _depthExpand(self, model: SquadDetailModel, requiredRows: tuple[tuple[str, str], ...]) -> None:
+    def _depthExpand(
+        self,
+        model: SquadDetailModel,
+        requiredRows: tuple[tuple[str, str], ...],
+    ) -> None:
         rows = list(requiredRows)
         if not rows:
             for role in model.roles:
-                positions = tuple(value.strip() for value in role.positions.split(",") if value.strip()) or ("",)
+                positions = tuple(
+                    value.strip() for value in role.positions.split(",") if value.strip()
+                ) or ("",)
                 for position in positions:
-                    label = role.abbreviation + (f" · {position}" if position else "") + f" — {role.displayName}"
+                    label = (
+                        role.abbreviation
+                        + (f" · {position}" if position else "")
+                        + f" — {role.displayName}"
+                    )
                     rows.append((label, role.coverage))
         self.depthTable.setRowCount(len(rows))
         for row, (label, coverage) in enumerate(rows):
@@ -302,7 +456,12 @@ class SquadAnalysisTab(BaseSquadAnalysisTab):
         while root.count():
             item = root.takeAt(0)
             widget = item.widget()
-            if widget is not None and widget is not context and widget not in {self.depthTable, self.playerTable, self.findingsTable}:
+            if (
+                widget is not None
+                and widget is not context
+                and widget
+                not in {self.depthTable, self.playerTable, self.findingsTable}
+            ):
                 widget.deleteLater()
         if context is not None:
             context.setParent(self)
@@ -332,7 +491,12 @@ class SquadAnalysisTab(BaseSquadAnalysisTab):
                 table.setRowHeight(row, 28)
 
     @staticmethod
-    def _tooltipsApply(table: QTableWidget, column: int, *, preserve: bool = False) -> None:
+    def _tooltipsApply(
+        table: QTableWidget,
+        column: int,
+        *,
+        preserve: bool = False,
+    ) -> None:
         for row in range(table.rowCount()):
             item = table.item(row, column)
             if item is not None and (not preserve or not item.toolTip()):
