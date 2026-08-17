@@ -152,6 +152,27 @@ def testCapturedRoleAlreadyCanonicalDoesNotDuplicateAlias() -> None:
     assert vocabulary.roleNormalize("FR").value == "freeRole"
 
 
+def testCapturedRoleSurvivesLaterCanonicalRoleIdCollision() -> None:
+    """An old captured role must not become a different packaged role just because IDs collide."""
+
+    vocabulary = TacticVocabulary()
+    vocabulary.capturedRolesAdd((
+        SimpleNamespace(
+            roleID=20,
+            roleCode="freeRole",
+            displayName="Tracking Attacking Midfielder",
+            abbreviations=("TAM",),
+            positions=("AMC",),
+        ),
+    ))
+
+    value = vocabulary.roleNormalize("TAM")
+
+    assert value.value == "capturedRole20"
+    assert vocabulary.roles["capturedRole20"].displayName == "Tracking Attacking Midfielder"
+    assert vocabulary.roles["capturedRole20"].roleID != 20
+
+
 def testRoleProfileEvidenceSeparatesKeyAttributesFromPlayerValues() -> None:
     evidence = RoleProfileEvidence(
         position="MC", roleName="Advanced Playmaker", abbreviation="AP",
