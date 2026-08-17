@@ -2,16 +2,13 @@
 
 ## Status
 
-Active
+InReview
 <!-- Options: Active, Idle, Blocked, InReview -->
 
 ## Objective
 
-Stabilise the evidence required by requirement 007's generic squad analysis so
-Generic Role Fit and squad-depth work can resume on dependable player, role and
-tactic data. The squad-viewer foundation and 007A assessment policy are in
-place; the immediate work is verification of the structured tactic extraction
-used as supporting evidence before starting 007B.
+Close requirement 007A after stabilising the tactic evidence and Generic Role Fit foundation,
+then merge the completed increment to `main` before starting 007B.
 
 ## Governing References
 
@@ -23,101 +20,82 @@ used as supporting evidence before starting 007B.
 - Supporting ADRs: None
 - Milestone / Roadmap: requirement 007 generic analysis increment
 
-## Scope
+## Delivered Scope
 
-- Preserve the completed 007A explicit Generic Role Fit assessment policy.
-- Verify anchor-relative Team Instructions extraction against the current FM26
-  screenshot layouts before consuming tactic evidence in later analysis.
-- Retain historical OCR-zone geometry and classify normal drift separately from
-  anomalous geometry without allowing anomalous observations to train the
-  baseline.
-- Keep tactic extraction player-agnostic: displayed player names are evidence,
-  not reusable tactic assignments or tactic identity.
-- Use the user-owned tactic name as tactic identity and derive the football
-  object-model formation names as `<tactic name> IP` and `<tactic name> OOP`.
-- Support persistent tactic renaming without regenerating screenshot evidence.
-- Resume requirement 007 generic player/role analysis after extraction
-  verification is dependable.
+- Complete explicit Generic Role Fit weights for every canonical tactic role.
+- Preserve `Unavailable` whenever required evidence or assessment policy is incomplete.
+- Calculate and explain Generic Role Fit through transparent weighted contribution traces.
+- Keep tactic extraction player-agnostic and use tactic name as reusable tactic identity.
+- Retain OCR geometry history and anomaly classification.
+- Stabilise FM26 Formation extraction through CB/GK depth with exact role-label evidence.
+- Reconcile OCR-confirmed role definitions with canonical tactical vocabulary.
+- Add currently encountered canonical roles including SS, HB and DDM.
+- Provide role/candidate browsing, player-role assessment and initial role-depth analysis.
+- Use shared QSS styling for normal workspace dropdowns.
+- Sort the player selector by surname and display `Surname, Firstname` while retaining the
+  original player identity internally.
 
 ## Explicit Exclusions
 
-- 007B player-wide role ranking and squad-depth presentation until the current
-  tactic-processing regression is verified.
 - Best XI selection.
 - Tactical Fit and Overall Suitability.
 - Recruitment analysis or recommendations.
+- Competition-level attribute benchmarks until an explicit benchmark evidence model exists.
 - Requirement 009 immutable revision-history and historical-comparison work.
 
-## In-Progress Tasks
+## Completion Tasks
 
 - [x] Complete explicit assessment weights for every canonical tactic role.
-- [x] Enforce complete/valid assessment policy and preserve `Unavailable` for
-  missing required evidence.
-- [x] Add historical OCR-zone geometry observations and median/MAD drift
-  classification with anomaly exclusion from baseline learning.
-- [x] Anchor Team Instructions extraction to visible local evidence rather than
-  whole-screen position wherever possible.
-- [x] Remove displayed player identity from reusable tactic validation/model
-  semantics.
-- [x] Make tactic name user-editable and derive `<name> IP` / `<name> OOP`
-  formation identities.
-- [ ] Run the full automated suite after the latest OMP and extraction changes.
-- [ ] Reprocess the current Formation, In Possession and Out Of Possession
-  screenshots and verify instruction zones/values and active-tab detection.
-- [ ] Start 007B once the preceding verification is clean enough to trust the
-  evidence base.
-
-## Relevant Files & Components
-
-- `config/roleAssessment.yaml`
-- `config/tacticExtraction.yaml`
-- `core/assessment/`
-- `core/parser/tacticLayout.py`
-- `core/ocrZoneHistory.py`
-- `database/ocrZoneHistory.py`
-- `core/builder/tacticBuilder.py`
-- `core/builder/tacticMetadataExtractor.py`
-- `tests/test_roleAssessmentPolicy.py`
-- `tests/test_ocrZoneHistory.py`
-- `tests/test_tacticLayoutAnchor.py`
-- `tests/test_tacticNaming.py`
-- `documentation/ocrZoneGeometry.md`
+- [x] Enforce complete/valid assessment policy and preserve `Unavailable` states.
+- [x] Add historical OCR-zone geometry observations and drift classification.
+- [x] Stabilise Team Instructions and Formation extraction against current FM26 evidence.
+- [x] Verify 11 In Possession and 11 Out Of Possession positions on regeneration.
+- [x] Resolve canonical role gaps encountered by regeneration, including SS, HB and DDM.
+- [x] Add internal OCR-role to tactical-vocabulary consistency checking.
+- [x] Standardise workspace dropdown styling in QSS.
+- [x] Run the full automated pytest suite successfully after the final changes.
+- [x] Update project status/documentation for 007A closure.
+- [ ] Merge the 007A pull request to `main`.
 
 ## Verification Procedures
 
-Run:
+The final local verification completed successfully with:
 
 ```bash
-manageProject --check
 QT_QPA_PLATFORM=offscreen pytest
 ```
 
-Then regenerate a tactic from the current three FM26 reference captures and
-confirm:
+The current FM26 reference tactic was regenerated successfully with:
 
-1. both phases contain 11 positions;
-2. instruction-card overlays align with the visible cards;
-3. active Team Instructions tabs are detected correctly;
-4. canonical instruction values no longer exhibit systematic one-card shift;
-5. displayed player-name ambiguity does not invalidate the reusable tactic;
-6. the football object model uses `<tactic name> IP` and `<tactic name> OOP`.
+1. 11 In Possession positions;
+2. 11 Out Of Possession positions;
+3. canonical instruction normalization;
+4. role definitions resolving through the canonical tactical vocabulary; and
+5. no outstanding SS/HB/DDM knowledge gap expected after the final vocabulary changes.
 
 ## Definition of Done
 
-- `manageProject --check` passes under OMP 0.4.
 - The full automated test suite passes.
-- Current reference screenshots no longer show systematic instruction-zone
-  displacement or player-identity validation failures.
-- 007A remains deterministic, explainable and `Unavailable`-safe.
-- Requirement 007 can proceed to 007B without depending on known-bad tactic
-  extraction evidence.
+- Current reference regeneration produces 11 positions in both phases.
+- Generic Role Fit remains deterministic, explainable and `Unavailable`-safe.
+- Known OCR roles are represented by or checked against `tacticalVocabulary.yaml`.
+- The normal workspace dropdown look and feel is owned by QSS.
+- The 007A branch is merged to `main`.
 
-## Handoff & Unresolved Context
+## Handoff to 007B
 
-007A is the completed assessment-policy foundation. 007B is deliberately paused
-only while the latest tactic extraction is verified. Once verification is
-satisfactory, the next development work is the complete player-role matrix,
-best/alternative roles and required-role depth in the existing Analysis tab.
+007B should begin from the merged 007A baseline. The next work is to refine the existing
+Analysis tab around the complete player-role matrix and required-role depth. A player must
+not be allocated to more than one simultaneous tactical slot when calculating depth.
+
+The intended 007B outcomes are:
+
+- best candidate, backup and uncovered status for each required tactical slot;
+- each player's best and alternative roles;
+- weak positions, role duplication and unused squad strengths; and
+- transparent explanations for every calculated result.
+
+Best XI, Tactical Fit and recruitment analysis remain later increments.
 
 ## Agent Readiness
 
@@ -125,4 +103,5 @@ Run:
 
 ```bash
 manageProject --check
+QT_QPA_PLATFORM=offscreen pytest
 ```
