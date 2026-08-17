@@ -8,15 +8,17 @@ from fmsat.core.config import Configuration, ConfigurationError
 from fmsat.core.parser import TacticVocabulary
 
 
-def testPackagedAssessmentPolicyCoversCanonicalRoleCatalogueExactly() -> None:
-    """Every canonical tactic role must have one explicit, valid weight policy."""
+def testPackagedAssessmentPolicyCoversEveryAssessableCanonicalRole() -> None:
+    """Every assessable tactic role must have one explicit, valid weight policy."""
 
     configuration = Configuration()
     weights = configuration.roleAssessmentWeights()
     vocabulary = TacticVocabulary()
     knownAttributes = {attribute.name for attribute in configuration.attributes}
 
-    assert set(weights) == set(vocabulary.roles)
+    assert set(weights).issubset(set(vocabulary.roles))
+    assert "trackingAttackingMidfielder" in vocabulary.roles
+    assert "trackingAttackingMidfielder" not in weights
     assert all(roleWeights for roleWeights in weights.values())
     assert all(
         attribute in knownAttributes and 1 <= weight <= 5
@@ -26,7 +28,7 @@ def testPackagedAssessmentPolicyCoversCanonicalRoleCatalogueExactly() -> None:
 
 
 def testAssessmentPolicyRejectsMissingCanonicalRole() -> None:
-    """A missing role policy must fail rather than leave scoring partially available."""
+    """A missing assessable role policy must fail rather than leave scoring partially available."""
 
     configuration = Configuration()
     roleAssessment = deepcopy(configuration.roleAssessment)
@@ -40,7 +42,7 @@ def testAssessmentPolicyRejectsMissingCanonicalRole() -> None:
 
 
 def testAssessmentPolicyRejectsUnknownRole() -> None:
-    """Assessment policy must not silently drift beyond the canonical role catalogue."""
+    """Assessment policy must not silently drift beyond the tactical role catalogue."""
 
     configuration = Configuration()
     roleAssessment = deepcopy(configuration.roleAssessment)
