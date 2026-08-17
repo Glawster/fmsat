@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from importlib.resources import files
-
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -16,21 +14,86 @@ from PySide6.QtWidgets import (
 )
 
 
+_ADMIN_STYLE = """
+QDialog#adminEditDialog, QDialog#adminTextEditDialog {
+    background: #ffffff;
+    color: #202020;
+}
+QDialog#adminEditDialog QLabel, QDialog#adminTextEditDialog QLabel {
+    color: #202020;
+    background: transparent;
+}
+QDialog#adminEditDialog QTabWidget::pane {
+    background: #ffffff;
+    border: 1px solid #b8b8b8;
+}
+QDialog#adminEditDialog QTabBar::tab {
+    background: #eeeeee;
+    color: #202020;
+    border: 1px solid #b8b8b8;
+    padding: 5px 10px;
+}
+QDialog#adminEditDialog QTabBar::tab:selected {
+    background: #ffffff;
+}
+QDialog#adminEditDialog QTableWidget {
+    background: #ffffff;
+    alternate-background-color: #f7f7f7;
+    color: #202020;
+    gridline-color: #cccccc;
+    selection-background-color: #d9e9ff;
+    selection-color: #202020;
+}
+QDialog#adminEditDialog QTableWidget QWidget#qt_scrollarea_viewport {
+    background: #ffffff;
+}
+QDialog#adminEditDialog QHeaderView::section {
+    background: #f0f0f0;
+    color: #202020;
+    border: 0;
+    border-right: 1px solid #c8c8c8;
+    border-bottom: 1px solid #c8c8c8;
+    padding: 5px;
+}
+QDialog#adminEditDialog QTableCornerButton::section {
+    background: #f0f0f0;
+    border: 0;
+    border-right: 1px solid #c8c8c8;
+    border-bottom: 1px solid #c8c8c8;
+}
+QDialog#adminTextEditDialog QLineEdit {
+    background: #ffffff;
+    color: #202020;
+    border: 1px solid #a9a9a9;
+    border-radius: 2px;
+    padding: 6px;
+}
+QDialog#adminEditDialog QPushButton, QDialog#adminTextEditDialog QPushButton {
+    background: #eeeeee;
+    color: #202020;
+    border: 1px solid #a9a9a9;
+    border-radius: 2px;
+    padding: 6px 12px;
+}
+QDialog#adminEditDialog QPushButton:hover, QDialog#adminTextEditDialog QPushButton:hover {
+    background: #e2e2e2;
+}
+"""
+
+
 class AdminEditDialog(QDialog):
-    """Provide the standard frame used by model/data editing dialogs."""
+    """Provide the standard light frame used by model/data editing dialogs."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("adminEditDialog")
-        self.setStyleSheet(
-            files("fmsat.app").joinpath("fmsat.qss").read_text(encoding="utf-8")
-        )
+        self.setStyleSheet(_ADMIN_STYLE)
         self.setMinimumSize(900, 600)
         self.resize(1200, 760)
 
 
 class AdminTextEditDialog(QDialog):
-    """Standard compact admin frame for editing one long text value."""
+    """Standard light admin frame for editing one long text value."""
 
     def __init__(
         self,
@@ -42,9 +105,7 @@ class AdminTextEditDialog(QDialog):
     ) -> None:
         super().__init__(parent)
         self.setObjectName("adminTextEditDialog")
-        self.setStyleSheet(
-            files("fmsat.app").joinpath("fmsat.qss").read_text(encoding="utf-8")
-        )
+        self.setStyleSheet(_ADMIN_STYLE)
         self.setWindowTitle(title)
         self.setMinimumWidth(720)
         self.resize(760, 150)
