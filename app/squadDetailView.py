@@ -82,7 +82,8 @@ class SquadDetailView(QWidget):
         )
         self.regenerateButton.clicked.connect(self._regenerateRequest)
         footer.addWidget(self.regenerateButton)
-        self.saveButton = QPushButton("Save Squad Model")
+        self.saveButton = QPushButton("Save Player Changes")
+        self.saveButton.setToolTip("Save edits made in the Players tab to the squad model.")
         self.saveButton.setEnabled(False)
         self.saveButton.clicked.connect(self._saveRequest)
         footer.addWidget(self.saveButton)
@@ -104,6 +105,11 @@ class SquadDetailView(QWidget):
         heading.addWidget(title)
         header.addLayout(heading, 1)
 
+        tacticControl = QVBoxLayout()
+        tacticControl.setSpacing(3)
+        tacticLabel = QLabel("APPLY TACTIC")
+        tacticLabel.setObjectName("factKey")
+        tacticControl.addWidget(tacticLabel)
         self.tacticPicker = QComboBox()
         self.tacticPicker.setObjectName("squadTacticPicker")
         availableTactics = self._systemTactics()
@@ -118,7 +124,8 @@ class SquadDetailView(QWidget):
                 self.tacticPicker.addItem(tacticName)
         self.tacticPicker.currentTextChanged.connect(self._tacticChange)
         self.tacticPicker.setEnabled(bool(availableTactics))
-        header.addWidget(self.tacticPicker)
+        tacticControl.addWidget(self.tacticPicker)
+        header.addLayout(tacticControl)
         return header
 
     def _factsCreate(self) -> QHBoxLayout:
@@ -180,12 +187,7 @@ class SquadDetailView(QWidget):
         progress.show()
         QApplication.processEvents()
         try:
-            # Keep the signal as the public UI event for tests and future controllers.
             self.modelRegenerateRequested.emit(self.squadName)
-
-            # The main workspace currently owns the squad model service directly.
-            # Force the existing public save path into its regeneration branch so
-            # the button works for both stale and current models.
             window = self.window()
             service = getattr(window, "squadModelService", None)
             if service is None:
@@ -399,23 +401,18 @@ class SquadDetailView(QWidget):
         rows: list[tuple[str, str]] = []
         for key in order:
             entry = slots[key]
-            roleFacts = (
-                entry["roles"] if isinstance(entry["roles"], list) else []
-            )
+            roleFacts = entry["roles"] if isinstance(entry["roles"], list) else []
             uniqueLabels = list(dict.fromkeys(fact[1] for fact in roleFacts))
             roleText = (
                 uniqueLabels[0]
                 if len(uniqueLabels) == 1
                 else " / ".join(
-                    f"{phase} {label}"
-                    for phase, label, _coverage in roleFacts
+                    f"{phase} {label}" for phase, label, _coverage in roleFacts
                 )
             )
             positionText = self._positionDisplay(str(entry["position"]))
             label = f"{roleText} · {positionText}" if positionText else roleText
-            uniqueCoverage = list(
-                dict.fromkeys(fact[2] for fact in roleFacts)
-            )
+            uniqueCoverage = list(dict.fromkeys(fact[2] for fact in roleFacts))
             coverageText = (
                 uniqueCoverage[0]
                 if len(uniqueCoverage) == 1
@@ -426,10 +423,7 @@ class SquadDetailView(QWidget):
             )
             rows.append((label, coverageText))
 
-        if (
-            self.model.requiredPositionCount
-            and len(rows) != self.model.requiredPositionCount
-        ):
+        if self.model.requiredPositionCount and len(rows) != self.model.requiredPositionCount:
             logger.warning(
                 "squad analysis slot count mismatch tactic=%r expected=%d actual=%d",
                 self.model.tacticName,
