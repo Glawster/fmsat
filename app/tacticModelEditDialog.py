@@ -6,7 +6,6 @@ from copy import deepcopy
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QDialog,
     QDialogButtonBox,
     QLabel,
     QMessageBox,
@@ -17,10 +16,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from fmsat.app.adminWidgets import AdminEditDialog, adminTableConfigure
 from fmsat.tactics.tactic import Tactic
 
 
-class TacticModelEditDialog(QDialog):
+class TacticModelEditDialog(AdminEditDialog):
     """Edit observed role-level tactic facts without rewriting screenshots."""
 
     def __init__(self, tactic: Tactic, parent: QWidget | None = None) -> None:
@@ -28,21 +28,27 @@ class TacticModelEditDialog(QDialog):
         self.sourceTactic = tactic
         self.editedTactic: Tactic | None = None
         self.setWindowTitle("Edit Tactic Model")
-        self.resize(980, 640)
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 14, 16, 14)
+        layout.setSpacing(10)
+
         explanation = QLabel(
             "Correct the current object model below. Role is the assessment identity; "
             "position remains its tactic context. Saving retains the source screenshots "
             "and marks them as superseded."
         )
+        explanation.setObjectName("adminHelpText")
         explanation.setWordWrap(True)
         layout.addWidget(explanation)
+
         tabs = QTabWidget(self)
+        tabs.setObjectName("adminTabs")
         self.rolesTable = self._rolesTableCreate()
         self.instructionsTable = self._instructionsTableCreate()
         tabs.addTab(self.rolesTable, "Roles")
         tabs.addTab(self.instructionsTable, "Instructions")
-        layout.addWidget(tabs)
+        layout.addWidget(tabs, 1)
+
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Save
             | QDialogButtonBox.StandardButton.Cancel
@@ -60,6 +66,7 @@ class TacticModelEditDialog(QDialog):
             )
         )
         table = QTableWidget(rows, 7, self)
+        table.setObjectName("adminModelTable")
         table.setHorizontalHeaderLabels(
             ("Phase", "Slot", "Position", "Canonical role", "Duty", "X", "Y")
         )
@@ -84,7 +91,10 @@ class TacticModelEditDialog(QDialog):
                         item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                     table.setItem(row, column, item)
                 row += 1
-        table.resizeColumnsToContents()
+
+        # Slot, Position and Duty are short identifiers; the descriptive phase,
+        # role and coordinate fields share the remaining frame width.
+        adminTableConfigure(table, compactColumns=(1, 2, 4))
         return table
 
     def _instructionsTableCreate(self) -> QTableWidget:
@@ -100,6 +110,7 @@ class TacticModelEditDialog(QDialog):
             )
         ]
         table = QTableWidget(len(items), 3, self)
+        table.setObjectName("adminModelTable")
         table.setHorizontalHeaderLabels(("Phase", "Instruction", "Selected value"))
         for row, values in enumerate(items):
             for column, value in enumerate(values):
@@ -107,7 +118,7 @@ class TacticModelEditDialog(QDialog):
                 if column < 2:
                     item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 table.setItem(row, column, item)
-        table.resizeColumnsToContents()
+        adminTableConfigure(table)
         return table
 
     def _modelAccept(self) -> None:
