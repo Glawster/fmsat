@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QFrame,
     QHeaderView,
@@ -15,9 +16,11 @@ from PySide6.QtWidgets import (
 from fmsat.app.squadDetailModel import RoleDisplay, SquadDetailModel
 from fmsat.app.squadDetailTabs import (
     SquadAnalysisTab as BaseSquadAnalysisTab,
+    SquadPlayersTab as BaseSquadPlayersTab,
     SquadRolesTab as BaseSquadRolesTab,
 )
 from fmsat.core.config import AttributeDefinition
+from fmsat.core.squadModel import SquadModel
 
 
 def _breakdownAbbreviate(
@@ -50,6 +53,30 @@ def _breakdownAbbreviate(
         item.setToolTip(original)
 
 
+def _columnsLeftAlign(table: QTableWidget, columns: tuple[int, ...]) -> None:
+    """Apply the shared table rule that names and positions read left-to-right."""
+
+    alignment = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+    for row in range(table.rowCount()):
+        for column in columns:
+            item = table.item(row, column)
+            if item is not None:
+                item.setTextAlignment(alignment)
+
+
+class SquadPlayersTab(BaseSquadPlayersTab):
+    """Keep identity columns left aligned while compact data remains centred."""
+
+    def __init__(
+        self,
+        model: SquadModel,
+        attributes: tuple[AttributeDefinition, ...] = (),
+        parent=None,
+    ) -> None:
+        super().__init__(model, attributes, parent)
+        _columnsLeftAlign(self.table, (0, 1))
+
+
 class SquadRolesTab(BaseSquadRolesTab):
     """Keep role rows compact while retaining descriptive calculation text."""
 
@@ -71,6 +98,7 @@ class SquadRolesTab(BaseSquadRolesTab):
         self.roleTable.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
         self.roleTable.verticalHeader().setDefaultSectionSize(28)
         _breakdownAbbreviate(self.candidateTable, 4, self.attributes)
+        _columnsLeftAlign(self.candidateTable, (0, 1))
         self._tooltipsApply(self.candidateTable, 4, preserve=True)
         self._rowsCompact()
 
@@ -85,6 +113,7 @@ class SquadRolesTab(BaseSquadRolesTab):
         if not hasattr(self, "candidateTable"):
             return
         _breakdownAbbreviate(self.candidateTable, 4, self.attributes)
+        _columnsLeftAlign(self.candidateTable, (0, 1))
         self._tooltipsApply(self.candidateTable, 4, preserve=True)
         self._rowsCompact()
 
@@ -124,6 +153,7 @@ class SquadAnalysisTab(BaseSquadAnalysisTab):
         self._compactTable(self.playerTable)
         self._compactTable(self.findingsTable)
         _breakdownAbbreviate(self.playerTable, 3, attributes)
+        _columnsLeftAlign(self.playerTable, (0,))
         self._tooltipsApply(self.playerTable, 3, preserve=True)
         self._tooltipsApply(self.findingsTable, 2)
         self._horizontalCardsArrange()
