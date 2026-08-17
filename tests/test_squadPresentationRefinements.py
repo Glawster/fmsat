@@ -146,8 +146,8 @@ def testSquadViewBuildsExactlyElevenDepthRowsFromLinkedTacticSlots(qtbot) -> Non
     assert rows[0][0].startswith("IP SK / OOP BGK · GK")
 
 
-def testRoleCandidateKeepsSelectedFitSeparateFromBestRoleAndUsesAbbreviations(qtbot) -> None:  # type: ignore[no-untyped-def]
-    """The selected role score must not overwrite the player's catalogue-wide best role."""
+def testRoleCandidateKeepsSelectedFitSeparateFromBestRoleAndUsesCompactEvidence(qtbot) -> None:  # type: ignore[no-untyped-def]
+    """Comparison rows keep selected fit, best role and concise percentage evidence separate."""
 
     candidate = CandidateDisplay(
         name="Ada Player",
@@ -176,9 +176,13 @@ def testRoleCandidateKeepsSelectedFitSeparateFromBestRoleAndUsesAbbreviations(qt
 
     assert tab.candidateTable.item(0, 2).text() == "61.5"
     assert tab.candidateTable.item(0, 3).text() == "Inside Forward"
-    assert "Cnt:" in tab.candidateTable.item(0, 4).text()
-    assert "OtB:" in tab.candidateTable.item(0, 4).text()
+    assert tab.candidateTable.item(0, 4).text() == "Cnt: 60%, OtB: 70%"
+    assert "36/60" in tab.candidateTable.item(0, 4).toolTip()
     assert tab.candidateTable.rowHeight(0) == 28
+    assert tab.rolePaneTitle.text() == "Tactic Roles"
+    assert tab.candidatePaneTitle.text() == "Candidates for Selected Role"
+    assert tab.playerRoleTitle.text() == "Player Role Assessment"
+    assert tab.playerPicker.maximumWidth() == 320
 
 
 def testAnalysisBreakdownAndEvidenceRowsStayCompact(qtbot) -> None:  # type: ignore[no-untyped-def]
