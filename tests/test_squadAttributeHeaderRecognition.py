@@ -6,8 +6,8 @@ from fmsat.core.parser import SquadAttributesParser
 from fmsat.tests.conftest import FakeOcr
 
 
-def _result(text: str, x: float) -> OcrResult:
-    return OcrResult(text, 0.99, (x - 10, 16, x + 10, 24))
+def _result(text: str, x: float, *, halfWidth: float = 10) -> OcrResult:
+    return OcrResult(text, 0.99, (x - halfWidth, 16, x + halfWidth, 24))
 
 
 def testCanonicalTruncatedHeadersRecogniseConcentrationAndOffTheBall() -> None:
@@ -45,6 +45,33 @@ def testCanonicalTruncatedHeadersRecogniseConcentrationAndOffTheBall() -> None:
     assert concentration.text == "Concen..."
     assert offTheBall is not None
     assert offTheBall.text == "Off The ..."
+
+
+def testSplitFirstTouchHeaderUsesCombinedColumnCentre() -> None:
+    """A split FM header must not anchor First Touch on the word First alone."""
+
+    parser = SquadAttributesParser(
+        FakeOcr([]),
+        {},
+        (AttributeDefinition("first_touch", "Fir", 1),),
+    )
+    results = [
+        _result("First", 100, halfWidth=18),
+        _result("Touch", 145, halfWidth=19),
+    ]
+
+    header = parser._attributeHeaderFind(
+        results,
+        "first_touch",
+        20,
+        10,
+        0,
+    )
+
+    assert header is not None
+    assert header.text == "First Touch"
+    assert header.center is not None
+    assert 120 < header.center[0] < 130
 
 
 def testPresentationAbbreviationsAreNotAcceptedAsOcrHeaders() -> None:
