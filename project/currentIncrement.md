@@ -2,100 +2,107 @@
 
 ## Status
 
-InReview
+Active
 <!-- Options: Active, Idle, Blocked, InReview -->
 
 ## Objective
 
-Close requirement 007A after stabilising the tactic evidence and Generic Role Fit foundation,
-then merge the completed increment to `main` before starting 007B.
+Deliver requirement 007B: turn the completed Generic Role Fit foundation into dependable
+role-depth and player-role analysis in the existing Squad Analysis tab.
+
+The key constraint is that depth represents simultaneous tactical requirements. The same
+player must not be allocated to more than one required slot in the same assignment result.
 
 ## Governing References
 
 - Primary Requirement: `project/requirements/features/007-roleCentricSquadAssessment.md`
 - Supporting Requirements:
   - `project/requirements/features/006-structuredTacticExtraction.md`
-  - `project/requirements/features/009-tacticDetailManagement.md`
   - `project/requirements/features/010-positionAttributeRoleDefinitions.md`
 - Supporting ADRs: None
-- Milestone / Roadmap: requirement 007 generic analysis increment
+- Milestone / Roadmap: requirement 007B role-depth and player-role analysis
 
-## Delivered Scope
+## Scope
 
-- Complete explicit Generic Role Fit weights for every canonical tactic role.
-- Preserve `Unavailable` whenever required evidence or assessment policy is incomplete.
-- Calculate and explain Generic Role Fit through transparent weighted contribution traces.
-- Keep tactic extraction player-agnostic and use tactic name as reusable tactic identity.
-- Retain OCR geometry history and anomaly classification.
-- Stabilise FM26 Formation extraction through CB/GK depth with exact role-label evidence.
-- Reconcile OCR-confirmed role definitions with canonical tactical vocabulary.
-- Add currently encountered canonical roles including SS, HB and DDM.
-- Provide role/candidate browsing, player-role assessment and initial role-depth analysis.
-- Use shared QSS styling for normal workspace dropdowns.
-- Sort the player selector by surname and display `Surname, Firstname` while retaining the
-  original player identity internally.
+- Calculate Generic Role Fit consistently for every available player/role combination where
+  the required evidence exists.
+- Build required-role depth from the tactic's simultaneous slots.
+- Allocate unique players across simultaneous required slots when deriving best candidate and
+  backup depth.
+- Identify each player's best and alternative roles.
+- Identify weak positions, role duplication and unused squad strengths.
+- Keep transparent calculation breakdowns behind every score and finding.
+- Preserve `Unavailable` whenever evidence or assessment policy is incomplete.
+- Present results in the existing Analysis tab before considering later selection or
+  recruitment features.
 
 ## Explicit Exclusions
 
 - Best XI selection.
-- Tactical Fit and Overall Suitability.
+- Tactical Fit and Position Familiarity.
+- Overall Suitability.
 - Recruitment analysis or recommendations.
-- Competition-level attribute benchmarks until an explicit benchmark evidence model exists.
-- Requirement 009 immutable revision-history and historical-comparison work.
+- Competition-level attribute benchmark colouring until an explicit benchmark evidence model
+  exists.
+- Requirement 009 immutable tactic revision-history work.
 
-## Completion Tasks
+## In-Progress Tasks
 
-- [x] Complete explicit assessment weights for every canonical tactic role.
-- [x] Enforce complete/valid assessment policy and preserve `Unavailable` states.
-- [x] Add historical OCR-zone geometry observations and drift classification.
-- [x] Stabilise Team Instructions and Formation extraction against current FM26 evidence.
-- [x] Verify 11 In Possession and 11 Out Of Possession positions on regeneration.
-- [x] Resolve canonical role gaps encountered by regeneration, including SS, HB and DDM.
-- [x] Add internal OCR-role to tactical-vocabulary consistency checking.
-- [x] Standardise workspace dropdown styling in QSS.
-- [x] Run the full automated pytest suite successfully after the final changes.
-- [x] Update project status/documentation for 007A closure.
-- [ ] Merge the 007A pull request to `main`.
+- [ ] Confirm the all-player/all-role matrix is complete and consistently filtered by role
+  positional eligibility.
+- [ ] Implement unique-player assignment across simultaneous required tactical slots.
+- [ ] Produce best candidate, backup and uncovered status for every required slot.
+- [ ] Produce each player's best role and alternative roles from the same Generic Role Fit
+  evidence.
+- [ ] Produce weak-position, role-duplication and unused-strength findings.
+- [ ] Keep calculation traces available for every displayed score/finding.
+- [ ] Add regression coverage for duplicate simultaneous roles and unique-player allocation.
+- [ ] Run the full automated suite and manually review the current reference squad/tactic.
+
+## Relevant Files & Components
+
+- `config/roleAssessment.yaml`
+- `core/squadAssessment.py`
+- `app/squadDetailModel.py`
+- `app/squadDetailTabOverrides.py`
+- `app/squadDetailView.py`
+- `tests/test_squadAssessment.py`
+- `tests/test_squadPresentationRefinements.py`
+- `project/roadmap.md`
 
 ## Verification Procedures
 
-The final local verification completed successfully with:
+Run:
 
 ```bash
+manageProject --check
 QT_QPA_PLATFORM=offscreen pytest
 ```
 
-The current FM26 reference tactic was regenerated successfully with:
+Then review the current reference squad against its assigned tactic and confirm:
 
-1. 11 In Possession positions;
-2. 11 Out Of Possession positions;
-3. canonical instruction normalization;
-4. role definitions resolving through the canonical tactical vocabulary; and
-5. no outstanding SS/HB/DDM knowledge gap expected after the final vocabulary changes.
+1. every required tactical slot is shown;
+2. repeated roles remain separate simultaneous requirements;
+3. one player is never allocated to two simultaneous slots in the same depth result;
+4. backup candidates do not invalidate the primary assignment;
+5. player best/alternative roles use the same Generic Role Fit calculations shown elsewhere;
+6. missing evidence remains `Unavailable`; and
+7. every displayed score/finding has a transparent calculation/evidence explanation.
 
 ## Definition of Done
 
-- The full automated test suite passes.
-- Current reference regeneration produces 11 positions in both phases.
-- Generic Role Fit remains deterministic, explainable and `Unavailable`-safe.
-- Known OCR roles are represented by or checked against `tacticalVocabulary.yaml`.
-- The normal workspace dropdown look and feel is owned by QSS.
-- The 007A branch is merged to `main`.
+- Every required tactical slot has a best candidate, backup or explicit uncovered state.
+- Simultaneous slot allocation uses unique players.
+- Every player has a best/alternative role result where evidence permits.
+- Weak positions, duplication and unused strengths are derived from the same explicit role-fit
+  evidence.
+- No Best XI, Tactical Fit or recruitment judgement is introduced by this increment.
+- The full automated suite passes.
 
-## Handoff to 007B
+## Handoff
 
-007B should begin from the merged 007A baseline. The next work is to refine the existing
-Analysis tab around the complete player-role matrix and required-role depth. A player must
-not be allocated to more than one simultaneous tactical slot when calculating depth.
-
-The intended 007B outcomes are:
-
-- best candidate, backup and uncovered status for each required tactical slot;
-- each player's best and alternative roles;
-- weak positions, role duplication and unused squad strengths; and
-- transparent explanations for every calculated result.
-
-Best XI, Tactical Fit and recruitment analysis remain later increments.
+After 007B is accepted, the next increment can consider tactical modifiers and position
+familiarity before any Overall Suitability, Best XI or recruitment recommendation layer.
 
 ## Agent Readiness
 
