@@ -20,19 +20,29 @@ UI lifecycle, screenshot provenance, OCR validation and cleanup coverage; Ruff
 and `git diff --check` also pass. Screenshot-level selective removal and the
 full player examination UI remain later requirement work.
 
-### Phase 3 — Tactical parser (In Progress)
+### Phase 3 — Structured tactical knowledge (Operational baseline)
 
-Phase 3 turns the captured tactical screens into a current structured tactic,
-then defines the requirements needed to assess players against it:
+The current baseline reads Formation, In Possession and Out Of Possession captures,
+normalizes formation slots, positions, roles and team instructions, persists
+screenshot-derived evidence, builds the football object model and supports factual
+role-definition review. OCR geometry history, regeneration integrity gates and canonical
+role-vocabulary checks protect the evidence consumed by later analysis.
 
-1. read Formation, In Possession and Out of Possession captures;
-2. normalize formation slots, positions, roles, duties and team instructions;
-3. build and persist the reviewable current tactic;
-4. define generic role requirements and attribute weighting;
-5. apply explicit tactic modifiers without changing generic role definitions;
-6. expose deterministic and explainable inputs for role-centric assessment.
+Requirements 006, 009 and 010 retain follow-on work, but no known Phase 3 defect currently
+blocks requirement 007B.
 
-[Requirement 006](requirements/features/006-structuredTacticExtraction.md) owns
-steps 1–3. [Requirement 010](requirements/features/010-positionAttributeRoleDefinitions.md)
-owns steps 4–6. [Requirement 007](requirements/features/007-roleCentricSquadAssessment.md)
-consumes their outputs after these foundations are ready.
+### Phase 4 — Role-centric squad assessment (In Progress)
+
+[Requirement 007](requirements/features/007-roleCentricSquadAssessment.md) is the active
+product increment.
+
+007A is complete and ready to merge: Generic Role Fit policy, all-player role scoring,
+transparent calculation traces, unavailable states, role/candidate browsing, player-role
+assessment and initial role-depth analysis are implemented on top of the stable tactic
+evidence baseline.
+
+007B is next and will refine required-role depth using unique-player assignment across
+simultaneous tactical slots, then surface best/backup/uncovered roles, player best and
+alternative roles, weak positions, role duplication and unused squad strengths.
+
+Best XI, Tactical Fit and recruitment analysis remain later increments.
