@@ -125,11 +125,11 @@ class TacticVocabulary:
     def capturedRolesAdd(self, definitions: Iterable[object]) -> None:
         """Add confirmed user roles using semantic role codes, never numeric IDs.
 
-        Older persisted definitions may contain numeric role IDs that now collide
-        with newer packaged catalogue entries. Those IDs are deliberately ignored
-        when deciding identity. Display name/abbreviation resolve an existing
-        canonical role when possible; otherwise the stored/derived semantic
-        ``roleCode`` becomes the live OCR identity.
+        Older persisted definitions may contain numeric role IDs or an inferred
+        ``roleCode`` that was written while numeric IDs still determined role
+        identity. Display name and abbreviation therefore remain the authority
+        when loading captured evidence. A stale supplied code is ignored when
+        it names an existing role whose aliases do not match the capture.
         """
 
         for definition in definitions:
@@ -153,11 +153,12 @@ class TacticVocabulary:
                 continue
 
             suppliedCode = str(getattr(definition, "roleCode", "") or "").strip()
+            if suppliedCode in self.roles and not any(
+                self.roleNormalize(alias).value == suppliedCode for alias in observedAliases
+            ):
+                suppliedCode = ""
             code = suppliedCode or self.roleCodeCreate(displayName, abbreviations[0])
             if code in self.roles:
-                # A semantic code collision with different aliases is evidence
-                # of an invalid knowledge definition, not a reason to invent a
-                # numbered role identity.
                 existing = self.roles[code]
                 if not any(self.roleNormalize(alias).value == code for alias in observedAliases):
                     raise ConfigurationError(
@@ -165,9 +166,6 @@ class TacticVocabulary:
                     )
                 continue
 
-            # RoleDefinition still exposes the historical numeric field for
-            # compatibility with older callers. Assign a runtime-only surrogate;
-            # no persistence or matching is based on this value.
             usedRoleIDs = {role.roleID for role in self.roles.values()}
             runtimeRoleID = max(usedRoleIDs, default=0) + 1
             self.roles[code] = RoleDefinition(
