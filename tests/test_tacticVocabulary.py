@@ -159,6 +159,25 @@ def testLegacyNumericCollisionDoesNotChangeCapturedRoleIdentity() -> None:
     assert vocabulary.roleNormalize("FR").value == "freeRole"
 
 
+def testStaleCapturedRoleCodeDoesNotOverrideCapturedAliases() -> None:
+    """Captured TAM evidence must win if an old migration incorrectly stored freeRole."""
+
+    vocabulary = TacticVocabulary()
+    vocabulary.capturedRolesAdd((
+        SimpleNamespace(
+            roleID=20,
+            roleCode="freeRole",
+            displayName="Tracking Attacking Midfielder",
+            abbreviations=("TAM",),
+            positions=("AMC",),
+        ),
+    ))
+
+    assert vocabulary.roleNormalize("TAM").value == "trackingAttackingMidfielder"
+    assert vocabulary.roleNormalize("Tracking Attacking Midfielder").value == "trackingAttackingMidfielder"
+    assert vocabulary.roleNormalize("FR").value == "freeRole"
+
+
 def testCapturedRoleAlreadyCanonicalDoesNotDuplicateAlias() -> None:
     """Legacy confirmed roles must defer to a role now supplied canonically."""
 
