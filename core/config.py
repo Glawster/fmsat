@@ -30,6 +30,7 @@ class Configuration:
         self.screens = self._yamlLoad("screens.yaml")
         self.regions = self._yamlLoad("regions.yaml")
         self.tacticExtraction = self._yamlLoad("tacticExtraction.yaml")
+        self.roleAssessment = self._yamlLoad("roleAssessment.yaml")
         attributeData = self._yamlLoad("attributes.yaml")
         rawAttributes = attributeData.get("attributes", {})
         if not isinstance(rawAttributes, dict):
@@ -52,6 +53,63 @@ class Configuration:
         """Return the row confidence threshold as a value between zero and one."""
 
         return float(self.screens.get("validation", {}).get("confidence_threshold", 0.95))
+
+    def roleAssessmentSettings(self) -> dict[str, object]:
+        """Return traceable analysis settings from the packaged policy."""
+
+        keys = (
+            "identity",
+            "weakRoleFitThreshold",
+            "duplicationFitThreshold",
+            "duplicationMinimumPlayers",
+            "unusedStrengthThreshold",
+            "alternativeRoleLimit",
+        )
+        return {key: self.roleAssessment[key] for key in keys}
+
+    def roleAssessmentWeights(self) -> dict[str, dict[str, int]]:
+        """Return complete, validated Generic Role Fit weights by canonical role code."""
+
+        roles = self.roleAssessment.get("roles")
+        if not isinstance(roles, dict):
+            raise ConfigurationError("roleAssessment.yaml must contain a roles mapping")
+
+        vocabulary = self._yamlLoad("tacticalVocabulary.yaml")
+        canonicalRoles = vocabulary.get("roles")
+        if not isinstance(canonicalRoles, dict):
+            raise ConfigurationError("tacticalVocabulary.yaml must contain a roles mapping")
+
+        configuredCodes = {str(roleCode) for roleCode in roles}
+        canonicalCodes = {str(roleCode) for roleCode in canonicalRoles}
+        missingRoles = sorted(canonicalCodes - configuredCodes)
+        unknownRoles = sorted(configuredCodes - canonicalCodes)
+        if missingRoles or unknownRoles:
+            raise ConfigurationError(
+                "Generic Role Fit weights must cover the canonical role catalogue exactly: "
+                f"missing={missingRoles}, unknown={unknownRoles}"
+            )
+
+        knownAttributes = {attribute.name for attribute in self.attributes}
+        result = {}
+        for roleCode in sorted(canonicalCodes):
+            roleData = roles[roleCode]
+            weights = roleData.get("attributeWeights") if isinstance(roleData, dict) else None
+            if not isinstance(weights, dict) or not weights:
+                raise ConfigurationError(f"Role {roleCode} requires attribute weights")
+            unknown = sorted(set(weights) - knownAttributes)
+            invalid = {
+                name: value
+                for name, value in weights.items()
+                if not isinstance(value, int) or not 1 <= value <= 5
+            }
+            if unknown or invalid:
+                raise ConfigurationError(
+                    f"Invalid role weights for {roleCode}: unknown={unknown}, invalid={invalid}"
+                )
+            result[roleCode] = {
+                str(attribute): int(weight) for attribute, weight in weights.items()
+            }
+        return result
 
     def _yamlLoad(self, filename: str) -> dict[str, Any]:
         path = self.directory / filename

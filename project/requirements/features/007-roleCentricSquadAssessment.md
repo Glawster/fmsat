@@ -13,6 +13,25 @@ compare and explain the available players. Keep each role as a long-lived
 planning object on which squad depth and later recruitment workflows can be
 built.
 
+## Current delivery state
+
+The squad-viewer foundation is delivered and the first generic-analysis
+sub-increment, 007A, has established the assessment-policy foundation:
+
+- every canonical tactic role has explicit Generic Role Fit weights;
+- policy validation rejects missing roles, unknown roles, unknown attributes and
+  weights outside the supported range;
+- the Generic Role Fit calculation retains its weighted-attribute trace and
+  returns `Unavailable` rather than fabricating a score when required evidence
+  is missing; and
+- regression tests protect the assessment-policy catalogue.
+
+007B is deliberately paused while requirement 006's current tactic-extraction
+reference-frame regression is verified. This does not change 007's scope. Once
+that supporting evidence is dependable, the next work is the complete
+player-role matrix, best/alternative roles and required-role depth in the
+existing Analysis tab.
+
 ## Dependencies
 
 1. Consume the validated football object-model tactic produced by requirement
@@ -45,6 +64,25 @@ built.
    midfield, attacking midfield and striker units.
 7. Use the shared palette subtly through headers, borders, role icons or badges
    while preserving readability in light and dark themes.
+8. Treat the canonical Football Manager role as the assessment identity. A
+   position is eligibility and presentation context only; the same role used in
+   multiple positions or tactic slots is assessed once.
+9. Allow corrections to squad object-model values from the Players view. Saving
+   a correction makes the edited object model authoritative and marks its
+   retained screenshot evidence as superseded without deleting that evidence.
+10. Display every configured attribute using its configured abbreviation and a
+    consistent compact column width, followed by the player's left-aligned,
+    comma-separated known traits. Attribute headers expose their full names as
+    hover text. Known traits are edited through a searchable, categorized and
+    collapsible checklist using the canonical player-trait vocabulary rather
+    than free-text entry. A selected-only view makes reviewing a player's small
+    active trait set straightforward, while frequently used traits appear first
+    as browse shortcuts without implying that they are selected.
+11. Allow the Players table to be filtered by goalkeeper, defender, defensive
+    midfielder, midfielder, attacking midfielder and attacker units. Filtering
+    changes presentation only and must not remove players from the squad model.
+12. Hide goalkeeper-specific attribute columns in mixed or outfield views and
+    expose them when Goalkeepers is the only selected position filter.
 
 ## Initial delivery increment
 
@@ -59,10 +97,31 @@ built.
    each role without automatically assigning a lineup.
 6. Retain the complete calculation trace required to explain and test each
    available Generic Role Fit result.
+7. Use explicit role assessment weights only. Undefined weights or missing
+   player attributes produce `Unavailable`, never a fabricated zero.
 
 Tactical Fit, Position Familiarity, Overall Suitability, candidate comparison,
 alternative roles and Role Health remain part of this requirement but follow
 the initial increment.
+
+## Generic analysis increment
+
+The next increment after the merged squad-viewer foundation must:
+
+1. define explicit, versioned Generic Role Fit weights for every canonical
+   tactic role;
+2. calculate every available player against the complete role catalogue;
+3. show best candidate, backup candidate and uncovered state for required roles;
+4. show each player's best role and ordered alternative roles using the same
+   scoring context;
+5. identify weak required roles, concentrated role duplication and strong best
+   roles unused by the selected tactic through documented thresholds;
+6. retain and display the complete weighted-attribute calculation trace; and
+7. keep every affected result `Unavailable` when weights or required player
+   attributes are missing.
+
+Present these results in the existing Analysis tab. Best XI, Tactical Fit,
+Overall Suitability and recruitment recommendations remain later increments.
 
 ## Role Cards
 
@@ -101,6 +160,8 @@ Role Workspace.
 5. Make ranking deterministic when candidates have equal scores.
 6. Clearly identify unavailable scores caused by missing attributes or tactical
    data rather than treating them as zero.
+7. Show each player's best calculable role within the selected tactic alongside
+   every role-candidate row; show `Unavailable` when no role can be calculated.
 
 ## Suitability model
 
@@ -207,6 +268,31 @@ invent a modifier when the structured tactic provides no supporting evidence.
 - Youth-development projections.
 - Automated starter selection or lineup changes.
 - Modifying Football Manager or reading its save files.
+
+## Verification and traceability
+
+### 007A — Generic Role Fit policy foundation
+
+- Implementation: `config/roleAssessment.yaml`, role-assessment configuration
+  loading/validation and the existing Generic Role Fit calculation service.
+- Tests: `tests/test_roleAssessmentPolicy.py` plus the existing Generic Role Fit
+  calculation tests.
+- Behaviour: all canonical roles require explicit valid weights; missing weights
+  or required player attributes remain `Unavailable`; complete weighted
+  contributions are retained for explanation.
+- Status: implemented; full branch test-suite verification remains part of the
+  current increment after the OMP 0.4 update.
+
+### Next verification gate
+
+Requirement 006 tactic extraction is being stabilised against the current FM26
+reference captures before 007B consumes that evidence. See
+`project/currentIncrement.md` and `documentation/ocrZoneGeometry.md`.
+
+## Change history
+
+- 2026-08-16: recorded completion of the 007A assessment-policy foundation and
+  explicit pause before 007B while structured tactic extraction is verified.
 
 ## Future foundation
 

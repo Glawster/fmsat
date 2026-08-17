@@ -64,6 +64,8 @@ def main() -> int:
         preprocessor = ImagePreprocessor(
             PreprocessingOptions.fromMapping(config.screens.get("preprocessing", {}))
         )
+        # Screenshot OCR matches Football Manager's canonical attribute headings.
+        # FMSAT abbreviations remain presentation-only labels in the Players tab.
         squadParser = SquadAttributesParser(ocr, config.regions, config.attributes)
         tacticParser = TacticParser(ocr, config.regions)
         tacticVocabulary = TacticVocabulary()
@@ -78,6 +80,23 @@ def main() -> int:
         database = Database(dataPaths.database)
         database.initialize()
         logger.done("database initialized")
+        roleKnowledgeService = RoleKnowledgeService(
+            dataPaths.directory / "knowledge" / "roles",
+            tacticVocabulary,
+            {attribute.name for attribute in config.attributes},
+            config.roleAssessmentWeights(),
+            config.roleAssessmentSettings(),
+        )
+        roleVocabularyGaps = tacticVocabulary.canonicalRoleDefinitionGaps(
+            roleKnowledgeService.definitionsList()
+        )
+        if roleVocabularyGaps:
+            logger.warning(
+                "OCR-confirmed role definitions absent from tacticalVocabulary.yaml: %s",
+                ", ".join(roleVocabularyGaps),
+            )
+        else:
+            logger.info("OCR-confirmed role definitions are represented in tacticalVocabulary.yaml")
         window = MainWindow(
             service,
             database,
@@ -85,11 +104,7 @@ def main() -> int:
             PlayerValidator(config.confidenceThreshold()),
             TacticScreenshotPlanner.fromMapping(config.screens.get("workflow", {})),
             ScreenshotStore(dataPaths.screenshots),
-            RoleKnowledgeService(
-                dataPaths.directory / "knowledge" / "roles",
-                tacticVocabulary,
-                {attribute.name for attribute in config.attributes},
-            ),
+            roleKnowledgeService,
             tacticVocabulary,
         )
     except (ConfigurationError, DatabaseError, OSError, PersistentDataError) as exc:

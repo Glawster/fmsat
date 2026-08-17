@@ -5,9 +5,10 @@
 InProgress
 
 The model-backed tactic viewer, regeneration, freshness, validation and
-diagnostic baseline is delivered and accepted for current use. Immutable
-revision history, historical selection and structured comparison remain open
-and do not block requirement 007.
+diagnostic baseline is delivered and accepted for current use. Tactic identity
+is now user-editable from the detail workflow. Immutable revision history,
+historical selection and structured comparison remain open and do not block
+requirement 007.
 
 ## Objective
 
@@ -37,11 +38,18 @@ model. It makes the screenshot-derived data and object model older than the
 latest evidence until the user regenerates the model. The existing model remains
 viewable, but the UI must identify it as requiring regeneration.
 
+The FMSAT tactic name is user-owned identity, not OCR-derived formation/template
+metadata. Renaming a tactic must update its persisted identity and linked
+object-model identity without modifying or regenerating immutable screenshot
+evidence. The two phase formation names are derived as `<tactic name> IP` and
+`<tactic name> OOP` when the football object model is built.
+
 ## Navigation and layout
 
 1. Opening a tactic from the welcome screen or tactic list must open its
    dedicated tactic screen.
-2. Show the tactic's saved name prominently.
+2. Show the tactic's saved name prominently and provide an explicit rename
+   action with save/cancel behaviour. Reject empty or duplicate tactic names.
 3. Provide four tabs in this order: **Overview**, **Shape**, **Instructions**
    and **Analysis**.
 4. Preserve the selected tactic and refresh the screen when its current revision
@@ -234,6 +242,9 @@ instructions:
    screenshot-derived generation or source identity used to build it.
 8. Do not require image OCR merely to open or redraw an existing football object
    model.
+9. Allow a user to correct tactic object-model values at role level. Saving a
+   correction marks the supporting screenshots as superseded while retaining
+   them and their extraction provenance.
 
 ## Version history
 
@@ -275,6 +286,8 @@ instructions:
 7. Do not replace the current football object model when regeneration produces
    incomplete or unresolved evidence. Retain the attempted extraction and its
    issues for review while continuing to display the existing saved model.
+8. Renaming a tactic must preserve screenshot imports and evidence provenance;
+   it changes FMSAT identity, not source evidence.
 
 ## Acceptance criteria
 
@@ -299,8 +312,8 @@ instructions:
    conclusions as imported data.
 9. Assigned squads and player mappings are persisted independently of OCR.
 10. A changed screenshot import marks the current model as requiring
-   regeneration; regeneration creates a new immutable revision only when the
-   screenshot-derived data changed.
+    regeneration; regeneration creates a new immutable revision only when the
+    screenshot-derived data changed.
 11. Earlier revisions remain inspectable and two revisions can be compared using
     structured factual changes.
 12. Existing tactics without a football object model remain accessible with a
@@ -334,6 +347,10 @@ instructions:
 23. While OCR is running and its duration cannot be predicted, the progress bar
     uses an animated indeterminate state rather than appearing stalled at a fixed
     percentage; determinate stage progress resumes when extraction returns.
+24. Renaming a tactic through the detail workflow persists the new unique,
+    non-empty name without regenerating or replacing screenshot evidence and the
+    refreshed object model uses `<new name> IP` and `<new name> OOP` formation
+    identities.
 
 ## Out of scope
 
@@ -345,6 +362,21 @@ instructions:
 - Set-piece routine detail, opposition instructions or individual player
   instructions beyond reserving them for later requirements.
 - Football Manager automation or using screenshots as the runtime tactic model.
+
+## Verification and traceability
+
+### Tactic rename
+
+- Implementation: tactic-detail rename UI/application service and tactic naming
+  persistence; `core/builder/tacticBuilder.py` derives phase formation names
+  from the authoritative tactic identity.
+- Tests: `tests/test_tacticNaming.py` plus tactic-builder coverage.
+- Source evidence: unchanged by rename.
+
+## Change history
+
+- 2026-08-16: recorded user-owned tactic renaming and derived `<name> IP` /
+  `<name> OOP` phase formation identities.
 
 ## Delivery notes
 

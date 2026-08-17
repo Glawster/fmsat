@@ -83,8 +83,34 @@ class TacticVocabulary:
                 self._aliasAdd(values, alias, code, "roles")
         return self._normalize(observedText, values)
 
+    def canonicalRoleDefinitionGaps(
+        self,
+        definitions: Iterable[object],
+    ) -> tuple[str, ...]:
+        """Return OCR-confirmed role definitions absent from tacticalVocabulary.yaml."""
+
+        gaps: set[str] = set()
+        for definition in definitions:
+            displayName = str(getattr(definition, "displayName", "")).strip()
+            abbreviations = tuple(
+                str(value).strip()
+                for value in getattr(definition, "abbreviations", ())
+                if str(value).strip()
+            )
+            aliases = tuple(value for value in (displayName, *abbreviations) if value)
+            if aliases and not any(self.roleNormalize(alias).resolved for alias in aliases):
+                gaps.add(displayName or "/".join(abbreviations))
+        return tuple(sorted(gaps, key=str.casefold))
+
     def capturedRolesAdd(self, definitions: Iterable[object]) -> None:
-        """Add confirmed user role definitions to the live OCR vocabulary."""
+        """Add confirmed user role definitions to the live OCR vocabulary.
+
+        A persisted role definition may pre-date a role becoming part of the
+        packaged canonical catalogue. In that case its display name or
+        abbreviation already resolves canonically and it must not be added as a
+        second live role identity, otherwise roleNormalize would encounter a
+        duplicate alias such as ``Free Role``.
+        """
 
         for definition in definitions:
             roleID = getattr(definition, "roleID", None)
@@ -99,6 +125,11 @@ class TacticVocabulary:
             displayName = str(getattr(definition, "displayName", code))
             if not abbreviations:
                 continue
+
+            observedAliases = (displayName, *tuple(str(value) for value in abbreviations))
+            if any(self.roleNormalize(alias).resolved for alias in observedAliases):
+                continue
+
             self.roles[code] = RoleDefinition(
                 code=code,
                 roleID=roleID,

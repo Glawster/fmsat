@@ -7,13 +7,21 @@ anchors:
   tabBandYMax: 0.24
   instructionTabSplit: 0.18
   underlineBrightness: 170
+  # Team Instructions is the location anchor. The two phase labels provide a
+  # local scale/orientation anchor, so the modal can be recovered regardless of
+  # its desktop position or whether the screenshot has already been cropped.
+  instructionAnchorLeftGap: 0.08
+  instructionAnchorTopGap: 0.18
+  instructionAnchorTabX: 0.022
+  instructionAnchorTabY: 0.105
+  instructionAnchorTabSeparation: 0.13
   # Whole-screen OCR frequently misses the small modal breadcrumb. Retry only
   # this stable upper-centre area at higher resolution.
   instructionBreadcrumbRegion: {x: 0.15, y: 0.12, width: 0.70, height: 0.24}
   instructionBreadcrumbScale: 3.0
-  # FM modal borders are sometimes visually broken by the skin. Once the
-  # breadcrumb is observed, these phase-specific proportions provide a safe
-  # fallback reference panel for the two known card grids.
+  # Legacy safety fallback only. Normal instruction extraction is anchored from
+  # Team Instructions + the two phase labels and must not depend on these
+  # whole-screen proportions.
   instructionPanelFallback:
     inPossession: {x: 0.205, topOffset: 0.025, width: 0.590, height: 0.680}
     outOfPossession: {x: 0.205, topOffset: 0.025, width: 0.590, height: 0.490}
@@ -22,14 +30,9 @@ anchors:
 # Formation capture. These values are data rather than parser constants so a
 # skin or resolution-specific profile can replace them after fixture calibration.
 phaseRegions:
-  # FM26 Planner "Both" view, normalized to the tactic-window capture. These
-  # are deliberately independent of the window's position on the desktop.
   inPossession: {x: 0.024, y: 0.218, width: 0.271, height: 0.550}
   outOfPossession: {x: 0.317, y: 0.218, width: 0.271, height: 0.550}
 
-# FM switches between a wide planner with the squad table on the right and a
-# compact planner where the two pitches fill the window. Both are observed
-# capture layouts and retain their own normalized pitch rectangles.
 phaseRegionProfiles:
   - name: compactTwoPitch
     maximumAspectRatio: 1.80
@@ -48,18 +51,25 @@ tileDetection:
   minimumWidth: 0.06
   maximumWidth: 0.32
   minimumHeight: 0.025
-  maximumHeight: 0.16
-  minimumAspectRatio: 1.45
+  # Actual FM26 role labels are shallow rectangles. Larger contours are player
+  # cards, goal-box chrome or other Planner UI and must never become role tiles.
+  maximumHeight: 0.08
+  # Role labels are strongly horizontal. Circular player-state icons can have
+  # similar saturation and size but are much squarer, so exclude them by shape.
+  minimumAspectRatio: 2.50
   minimumInteriorSaturation: 70
   minimumInteriorValue: 82
   goalkeeperXMin: 0.35
   goalkeeperXMax: 0.65
   goalkeeperYMin: 0.86
   goalkeeperMinimumInteriorSaturation: 15
-  # The eye/dropdown control and the phase-name badge share the role-tile
-  # colour and geometry but occupy stable non-player areas at the left edge.
   excludedRegions:
-    - {x: 0.00, y: 0.00, width: 0.20, height: 0.10}
+    # The calibrated pitch top can still clip the phase tabs into the crop.
+    # Reject that shallow chrome band across the full pitch width.
+    - {x: 0.00, y: 0.00, width: 1.00, height: 0.055}
+    # Eye/dropdown control at the upper-left of each pitch.
+    - {x: 0.00, y: 0.00, width: 0.20, height: 0.16}
+    # Phase-name badge at the lower-left of each pitch.
     - {x: 0.00, y: 0.90, width: 0.25, height: 0.10}
 
 linking:
@@ -67,7 +77,6 @@ linking:
   ambiguityMargin: 0.05
   orderWeight: 0.08
 
-# Pitch y increases from the attacking goal towards the defending goal.
 pitchZones:
   bands:
     - yMin: 0.00
@@ -114,17 +123,12 @@ pitchZones:
         - {xMin: 0.00, xMax: 1.01, code: GK}
 
 selection:
-  # The FM26 Team Instructions overview modal displays exactly one current
-  # value per card.  The displayed value is therefore the selection evidence;
-  # card colour is not a reliable selected/unselected discriminator.
   mode: displayedValue
   minimumSaturation: 45
   minimumScore: 0.25
   minimumMargin: 0.12
   padding: 5
 
-# Each crop contains one labelled instruction card. OCR geometry plus coloured
-# selection evidence determines which displayed value, if any, is persisted.
 instructionRegions:
   inPossession:
     passingDirectness: {x: 0.212, y: 0.275, width: 0.088, height: 0.171}
@@ -156,9 +160,6 @@ instructionRegions:
     shortGoalkeeperDistribution: {x: 0.309, y: 0.561, width: 0.088, height: 0.171}
     defensiveLineBehaviour: {x: 0.407, y: 0.561, width: 0.088, height: 0.171}
 
-# Regions normalized to the detected Team Instructions modal. The six-column
-# grid remains stable when the desktop resolution, Steam position or outer
-# tactic-window crop changes.
 instructionPanelRegions:
   inPossession:
     passingDirectness: {x: 0.012, y: 0.172, width: 0.149, height: 0.252}

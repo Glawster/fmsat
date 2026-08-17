@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# deployed from Glawster/organiseMyProjects release 0.3 -- do not edit directly
+# deployed from Glawster/organiseMyProjects release 0.4 -- do not edit directly
 """CLI entry point for the GUI Naming Linter."""
 
 import argparse

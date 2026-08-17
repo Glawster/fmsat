@@ -184,6 +184,83 @@ roles:
     aliases: [advanced playmaker]
     positions: [MCR, MC, MCL, AMCR, AMC, AMCL]
     duties: [SUPPORT, ATTACK]
+  freeRole:
+    roleID: 20
+    displayName: Free Role
+    abbreviations: [FR]
+    aliases: [free role]
+    positions: [AMC]
+    duties: []
+  secondStriker:
+    roleID: 21
+    displayName: Second Striker
+    abbreviations: [SS]
+    aliases: [second striker]
+    positions: [AMC]
+    duties: []
+  channelMidfielder:
+    roleID: 22
+    displayName: Channel Midfielder
+    abbreviations: [CHM]
+    aliases: [channel midfielder]
+    positions: [AMC]
+    duties: []
+  playmakingWinger:
+    roleID: 23
+    displayName: Playmaking Winger
+    abbreviations: [PW]
+    aliases: [playmaking winger]
+    positions: [AMR, AML]
+    duties: []
+  wideForward:
+    roleID: 24
+    displayName: Wide Forward
+    abbreviations: [WF]
+    aliases: [wide forward]
+    positions: [AMR, AML]
+    duties: []
+  insideWinger:
+    roleID: 25
+    displayName: Inside Winger
+    abbreviations: [IW]
+    aliases: [inside winger]
+    positions: [AMR, AML]
+    duties: []
+  deepLyingForward:
+    roleID: 26
+    displayName: Deep-Lying Forward
+    abbreviations: [DLF]
+    aliases: [deep lying forward]
+    positions: [STC]
+    duties: []
+  poacher:
+    roleID: 27
+    displayName: Poacher
+    abbreviations: [P]
+    aliases: [poacher]
+    positions: [STC]
+    duties: []
+  falseNine:
+    roleID: 28
+    displayName: False Nine
+    abbreviations: [F9]
+    aliases: [false nine]
+    positions: [STC]
+    duties: []
+  halfBack:
+    roleID: 29
+    displayName: Half-Back
+    abbreviations: [HB]
+    aliases: [half back]
+    positions: [DMCR, DM, DMCL]
+    duties: []
+  deepDefensiveMidfielder:
+    roleID: 30
+    displayName: Deep Defensive Midfielder
+    abbreviations: [DDM]
+    aliases: [deep defensive midfielder]
+    positions: [DMCR, DM, DMCL]
+    duties: []
 
 instructions:
   inPossession:
@@ -193,16 +270,16 @@ instructions:
     attackingTransition: [hold shape, {counter: [counter-attack]}]
     attackingWidth: [very narrow, narrow, standard, wide, wider, much wider, very wide]
     playForSetPieces: ['false', {'true': [keep ball in play]}]
-    creativeFreedom: [be more disciplined, balanced, be more expressive]
+    creativeFreedom: [be more disciplined, balanced, {be more expressive: [more expressive, more express, 'more express..']}]
     buildUpStrategy: [play out of defence, {bypass press: [play through press]}]
     goalKicks: [short, mixed, long]
     goalkeeperDistribution: [centre backs, full backs, flanks, playmaker, target forward]
-    supportingRuns: [underlap left, underlap right, overlap left, overlap right, balanced]
+    supportingRuns: [underlap left, underlap right, overlap left, overlap right, both flanks, balanced]
     dribbling: [dribble less, balanced, {run at defence: [encourage]}]
-    progressThrough: [left, centre, right]
+    progressThrough: [left, centre, right, both flanks]
     passReception: [{to feet: [pass to feet]}, {into space: [pass into space]}]
-    patience: [work ball into box]
-    shotsFromDistance: [shoot on sight, balanced, encourage]
+    patience: [{work ball into box: [work ball into box, 'work ball into...', 'work ball into..']}, standard]
+    shotsFromDistance: [shoot on sight, balanced, discourage, encourage]
     crossingStyle: [{low: [low crosses]}, mixed, balanced, {floated: [floated crosses]}, {whipped: [whipped crosses, whipped cro]}]
     goalkeeperDistributionSpeed: [slow pace down, balanced, {distribute quickly: [distribute qui]}]
   outOfPossession:

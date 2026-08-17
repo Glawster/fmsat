@@ -13,7 +13,7 @@ from fmsat.tactics.position import Position
 from fmsat.tactics.positionIdentity import PositionIdentity
 from fmsat.tactics.tactic import Tactic
 
-_TACTIC_VOCABULARY = TacticVocabulary()
+tacticVocabulary = TacticVocabulary()
 
 
 def tacticDetailModelBuild(
@@ -175,8 +175,6 @@ def _formationLabelResolve(tacticName: str, metadata: dict[str, str], fallback: 
     if fallback.strip() and fallback not in {"inPossession", "outOfPossession"}:
         return fallback.strip()
 
-    # When no explicit formation value is stored, extract common leading
-    # shape notation from the tactic name (for example "3-4-2-1 High Press").
     match = re.match(r"\s*(\d(?:-\d){2,5})\b", tacticName)
     if match is not None:
         return match.group(1)
@@ -239,13 +237,12 @@ def _shapeNameResolve(metadata: dict[str, str], key: str, fallback: str) -> str:
 def _roleAbbreviation(role: str) -> str:
     """Return short role code for pitch labels from configured role vocabulary."""
 
-    normalized = _TACTIC_VOCABULARY.roleNormalize(role)
+    normalized = tacticVocabulary.roleNormalize(role)
     if normalized.resolved:
-        definition = _TACTIC_VOCABULARY.roles.get(normalized.value)
+        definition = tacticVocabulary.roles.get(normalized.value)
         if definition is not None and definition.abbreviations:
             return definition.abbreviations[0]
 
-    # For unresolved custom roles, keep labels compact with an acronym fallback.
     words = _camelWords(role)
     if not words:
         return role
@@ -321,9 +318,11 @@ def _slotsBuild(formation: Formation) -> tuple[DisplaySlot, ...]:
             slots.append(
                 DisplaySlot(
                     slotId=position.slotId or f"{slotIndex:02d}",
-                    position=position.identity.value,
+                    position=position.canonicalPosition or position.identity.value,
                     role=(
-                        position.roleProfile.name
+                        _roleAbbreviation(position.canonicalRole)
+                        if position.canonicalRole
+                        else position.roleProfile.name
                         if position.role.identity is RoleIdentity.UNRESOLVED
                         or (
                             position.duty is None

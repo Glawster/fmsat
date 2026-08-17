@@ -38,11 +38,15 @@ class ManagementWindow(QMainWindow):
         screenshotStore: ScreenshotStore,
         parent: QWidget | None = None,
         tacticApply: Callable[[str], None] | None = None,
+        tacticShow: Callable[[str], None] | None = None,
+        squadShow: Callable[[str], None] | None = None,
     ) -> None:
         super().__init__(parent, Qt.WindowType.Window)
         self.database = database
         self.screenshotStore = screenshotStore
         self.tacticApply = tacticApply
+        self.tacticShow = tacticShow
+        self.squadShow = squadShow
         self.screenshotWindows: list[ScreenshotWindow] = []
         self.setWindowTitle("FMSAT Data Management")
         self.resize(1100, 760)
@@ -259,6 +263,8 @@ class ManagementWindow(QMainWindow):
         self.tacticDeleteButton.setEnabled(tacticCount > 0)
         self.squadDeleteButton.setEnabled(squadCount > 0)
         self.squadCleanButton.setEnabled(squadCount > 0)
+        self.tacticShowButton.setEnabled(self.tacticTable.currentRow() >= 0)
+        self.squadShowButton.setEnabled(self.squadTable.currentRow() >= 0)
 
     def _squadsClean(self) -> None:
         names = self._selectedNames(self.squadTable, 1)
@@ -290,6 +296,22 @@ class ManagementWindow(QMainWindow):
         if row >= 0 and self.tacticApply is not None:
             self.tacticApply(self.tacticTable.item(row, 2).text())
 
+    def _tacticViewShow(self) -> None:
+        """Open the selected tactic in the main tactic viewer."""
+
+        row = self.tacticTable.currentRow()
+        if row >= 0 and self.tacticShow is not None:
+            self.tacticShow(self.tacticTable.item(row, 2).text())
+            self.hide()
+
+    def _squadViewShow(self) -> None:
+        """Open the selected squad in the main squad viewer."""
+
+        row = self.squadTable.currentRow()
+        if row >= 0 and self.squadShow is not None:
+            self.squadShow(self.squadTable.item(row, 1).text())
+            self.hide()
+
     @staticmethod
     def _selectedNames(table: QTableWidget, nameColumn: int) -> list[str]:
         return [
@@ -310,6 +332,7 @@ class ManagementWindow(QMainWindow):
         self.squadTable.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.squadTable.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.squadTable.itemSelectionChanged.connect(self._playersRefresh)
+        self.squadTable.itemSelectionChanged.connect(self._selectionRefresh)
         self.squadTable.itemChanged.connect(self._selectionRefresh)
         layout.addWidget(self.squadTable, 1)
         buttonLayout, self.squadDeleteButton = self._buttonsCreate(
@@ -323,6 +346,10 @@ class ManagementWindow(QMainWindow):
         self.squadCleanButton.setEnabled(False)
         self.squadCleanButton.clicked.connect(self._squadsClean)
         buttonLayout.insertWidget(buttonLayout.count() - 1, self.squadCleanButton)
+        self.squadShowButton = QPushButton("Show Squad View")
+        self.squadShowButton.setEnabled(False)
+        self.squadShowButton.clicked.connect(self._squadViewShow)
+        buttonLayout.insertWidget(buttonLayout.count() - 1, self.squadShowButton)
         layout.addLayout(buttonLayout)
         self.playerTable = QTableWidget(0, 6)
         self.playerTable.setHorizontalHeaderLabels(
@@ -352,6 +379,8 @@ class ManagementWindow(QMainWindow):
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
         self.tacticTable.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.tacticTable.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.tacticTable.itemSelectionChanged.connect(self._selectionRefresh)
         self.tacticTable.itemChanged.connect(self._selectionRefresh)
         layout.addWidget(self.tacticTable)
         self.tacticSelection = QPushButton("0 selected")
@@ -365,6 +394,10 @@ class ManagementWindow(QMainWindow):
             applyButton = QPushButton("Apply Tactic to Squad")
             applyButton.clicked.connect(self._tacticApply)
             buttonLayout.insertWidget(buttonLayout.count() - 1, applyButton)
+        self.tacticShowButton = QPushButton("Show Tactic View")
+        self.tacticShowButton.setEnabled(False)
+        self.tacticShowButton.clicked.connect(self._tacticViewShow)
+        buttonLayout.insertWidget(buttonLayout.count() - 1, self.tacticShowButton)
         layout.addLayout(buttonLayout)
         return tab
 

@@ -1,17 +1,18 @@
 # Development status
 
-Last updated: 2026-08-14
+Last updated: 2026-08-17
 
 ## Current delivery point
 
-The working tactic and role-definition workflow establishes the boundary between
-Phase 3 tactical knowledge and Phase 4 squad assessment.
+The structured tactic evidence and 007A Generic Role Fit foundation are now stable enough
+to close this increment and move role-centric squad analysis forward.
 
-The application can now import the three supported tactic screenshots, extract
-observed formation and instruction evidence, resolve missing factual role
-definitions through user review, generate the football object model and redraw
-that model in the tactic viewer. Players visible in a tactic screenshot remain
-source evidence and are not treated as tactic assignments.
+FMSAT can import the supported tactic screenshots, extract and validate 11 In Possession
+and 11 Out Of Possession slots, normalize canonical tactic roles and instructions, retain
+unresolved evidence rather than guessing, build the football object model, and regenerate
+from retained screenshots. Canonical tactic vocabulary now includes the roles encountered
+in the current FM26 reference tactic, including SS, HB and DDM, and startup performs an
+internal cross-check between OCR-confirmed role definitions and tactical vocabulary.
 
 ## Completed requirements
 
@@ -33,59 +34,89 @@ The end-to-end workflow is operational:
 - screenshot-derived persistence and football object-model generation;
 - missing-role detection and user-assisted factual role acquisition;
 - freshness detection, diagnostics and safe retention of an existing model when
-  regeneration fails.
+  regeneration fails;
+- FM26 formation recovery through the full pitch, including CB and GK rows;
+- rejection of formation candidates without role-label evidence; and
+- vocabulary reconciliation for roles already known by FMSAT.
 
-Requirement 006 remains `InProgress` until its remaining correction, diagnostic
-CLI, acceptance-test and documentation criteria are either delivered or
-explicitly deferred.
+OCR geometry history remains part of the operational baseline. See
+[OCR zone geometry history](ocrZoneGeometry.md).
+
+Requirement 006 remains `InProgress` for its remaining correction, diagnostic CLI and
+acceptance/documentation criteria, but no known tactic-extraction defect currently blocks
+requirement 007B.
 
 ### Requirement 009 — Tactic detail management
 
-The tactic viewer baseline is delivered and accepted for current use. It
-provides model-backed Overview, Shape, Instructions and Analysis views,
-validation diagnostics, regeneration and squad assignment without reopening
-screenshots during normal viewing.
+The tactic viewer baseline is delivered and accepted for current use. It provides
+model-backed Overview, Shape, Instructions and Analysis views, validation diagnostics,
+regeneration and squad assignment without reopening screenshots during normal viewing.
 
-Requirement 009 remains `InProgress` for immutable revision history, historical
-revision selection and structured comparison. These items do not block the
-squad-viewer work.
+Requirement 009 remains `InProgress` for immutable revision history, historical revision
+selection and structured comparison. These items do not block squad assessment.
 
 ### Requirement 010 — Position, attribute and role definitions
 
-The evidence-driven role-definition workflow is operational. Confirmed user
-definitions can resolve tactic knowledge gaps without converting displayed
-player ratings into role policy.
+The evidence-driven role-definition workflow is operational. Confirmed user definitions can
+resolve tactic knowledge gaps without converting displayed player ratings into role policy.
+The canonical vocabulary and Generic Role Fit policy now cover all currently supported
+canonical tactic roles, and confirmed OCR role definitions are checked against that catalogue
+at startup.
 
-Requirement 010 remains `InProgress` for the assessment layer: the complete
-attribute and position knowledge graph, role requirement profiles, tactical
-modifiers, scoring policy, version identity and calculation traces.
+Requirement 010 remains `InProgress` for the broader knowledge graph, tactical modifiers and
+future competition-level benchmark policy.
 
-## Active next requirement
+## Requirement 007 — Role-centric squad assessment
 
-### Requirement 007 — Role-centric squad assessment
+### 007A — Generic Role Fit foundation
 
-Requirement 007 is now `InProgress`. Its first delivery is a squad viewer in the
-same visual family as the tactic viewer. It will combine a selected stored squad,
-a selected tactic revision and a known scoring configuration without mixing
-those independent sources.
+007A is complete and ready to merge to `main`.
 
-The first increment will provide squad Overview, Players and Roles views,
-generic role-fit calculations, transparent unavailable states and initial role
-coverage. Tactical fit, overall suitability, comparisons, alternatives and Role
-Health will follow through the same UI-independent assessment services.
+Delivered:
+
+- explicit Generic Role Fit weights for every canonical tactic role;
+- deterministic all-player role scoring with transparent weighted breakdowns;
+- `Unavailable` states whenever required evidence is missing;
+- role and candidate browsing in the Squad Workspace;
+- player role assessment with surname-sorted `Surname, Firstname` selection;
+- initial required-role depth, best-role and squad-finding presentation;
+- tactic role vocabulary reconciliation, including SS, HB and DDM;
+- stable regeneration of the current FM26 reference tactic with 11 IP and 11 OOP slots;
+- common QSS-owned workspace dropdown styling; and
+- regression coverage for the assessment, OCR and presentation contracts.
+
+The full automated pytest suite passed after the final UI and vocabulary changes.
+
+### 007B — Role-depth and player-role analysis
+
+007B is the next active increment after the 007A merge. It should refine the existing
+Analysis tab rather than introduce Best XI or recruitment work.
+
+Primary objectives:
+
+- complete the all-player/all-role matrix consistently;
+- produce unique-player required-role depth for simultaneous tactical slots;
+- identify each player's best and alternative roles;
+- identify weak positions, role duplication and unused squad strengths;
+- keep every score explainable from explicit evidence; and
+- preserve `Unavailable` where evidence or policy remains incomplete.
+
+Best XI, Tactical Fit, Overall Suitability and recruitment recommendations remain later
+increments.
 
 ## Deferred work
 
 - Requirement 009 immutable tactic revisions and comparison.
-- Requirement 006 general structured-tactic correction and diagnostic CLI.
+- Requirement 006 general structured-tactic correction and diagnostic CLI completion.
 - Requirement 003 and 004 final acceptance and traceability review.
-- Requirement 005 standalone palette and icon completion where the existing
-  shared tactic colours do not yet satisfy its criteria.
+- Requirement 005 standalone palette and icon completion where the shared workspace styling
+  does not yet satisfy its criteria.
+- Competition-level role attribute benchmarks until an explicit evidence/model is defined.
 
 ## Technical debt
 
 - Remove generated egg-info from the repository.
 - Move parser modules into a dedicated package where compatibility permits.
 - Split `MainWindow` into workflow controllers.
-- Replace remaining prototype revision controls with persisted revision data
-  when requirement 009 resumes.
+- Replace remaining prototype revision controls with persisted revision data when
+  requirement 009 resumes.

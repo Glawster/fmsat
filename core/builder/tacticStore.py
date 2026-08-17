@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 
 from fmsat.core.logUtils import getLogger
 from fmsat.database.models import (
@@ -43,7 +44,12 @@ class TacticStore:
 
     ## tactic
 
-    def tacticSave(self, tactic: Tactic) -> TacticStoreResult:
+    def tacticSave(
+        self,
+        tactic: Tactic,
+        *,
+        supersedeEvidence: bool = False,
+    ) -> TacticStoreResult:
         """Create or replace one stored object-model tactic by normalized name."""
 
         cleanName = tactic.name.strip()
@@ -90,6 +96,10 @@ class TacticStore:
             self._formationStore(stored, "inPossession", tactic.inPossession)
             self._formationStore(stored, "outOfPossession", tactic.outOfPossession)
             self._transitionStore(stored, tactic)
+            if supersedeEvidence and sourceTactic is not None:
+                now = datetime.now()
+                for capture in sourceTactic.screenshots:
+                    capture.supersededAt = now
             session.flush()
 
             logger.info(
@@ -141,6 +151,8 @@ class TacticStore:
             ordinal=index,
             positionIdentity=position.identity.value,
             roleIdentity=position.role.identity.value,
+            canonicalPosition=position.canonicalPosition or position.identity.value,
+            canonicalRole=position.canonicalRole,
             roleProfileName=position.roleProfile.name,
             roleProfileDescription=position.roleProfile.description,
             slotId=position.slotId,

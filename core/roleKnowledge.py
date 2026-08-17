@@ -61,10 +61,14 @@ class RoleKnowledgeService:
         directory: Path,
         vocabulary: TacticVocabulary,
         attributeIds: Collection[str],
+        defaultWeights: dict[str, dict[str, int]] | None = None,
+        assessmentSettings: dict[str, object] | None = None,
     ) -> None:
         self.directory = directory.resolve()
         self.vocabulary = vocabulary
         self.attributeIds = frozenset(attributeIds)
+        self.defaultWeights = defaultWeights or {}
+        self.assessmentSettings = assessmentSettings or {}
 
     def definitionExists(self, roleCode: str, phase=None) -> bool:
         """Return whether a confirmed user definition exists for a role and phase."""
@@ -180,15 +184,24 @@ class RoleKnowledgeService:
         try:
             content = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         except (OSError, yaml.YAMLError):
-            return {}
+            return self._defaultWeightsLoad(roleID)
         weights = content.get("attributeWeights") if isinstance(content, dict) else None
         if not isinstance(weights, dict):
-            return {}
+            return self._defaultWeightsLoad(roleID)
         return {
             str(attribute): int(weight)
             for attribute, weight in weights.items()
             if isinstance(weight, int) and 0 <= weight <= 5
         }
+
+    def _defaultWeightsLoad(self, roleID: int) -> dict[str, int]:
+        """Resolve packaged policy through the stable vocabulary role identity."""
+
+        role = next(
+            (candidate for candidate in self.vocabulary.roles.values() if candidate.roleID == roleID),
+            None,
+        )
+        return dict(self.defaultWeights.get(role.code, {})) if role is not None else {}
 
     def importanceLoad(self, roleID: int) -> dict[str, str]:
         """Load explicit assessment importance groups keyed by attribute."""

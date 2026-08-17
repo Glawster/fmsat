@@ -68,6 +68,19 @@ def testKnowledgeGapsDeduplicateRoleAndPositionAcrossTacticSlots() -> None:
     assert gaps[0].slotIds == ("mc-1", "mc-2")
 
 
+def testPackagedWeightsAreUsedWhenNoUserOverrideExists(tmp_path: Path) -> None:
+    """A complete packaged role policy should make known roles assessable by default."""
+
+    service = RoleKnowledgeService(
+        tmp_path,
+        TacticVocabulary(),
+        {"passing", "vision"},
+        {"advancedPlaymaker": {"passing": 5, "vision": 4}},
+    )
+
+    assert service.weightsLoad(19) == {"passing": 5, "vision": 4}
+
+
 def testEvidenceMustMatchExpectedRoleAndPosition(tmp_path: Path) -> None:
     service = _serviceCreate(tmp_path)
     evidence = _advancedPlaymakerEvidence()
@@ -87,7 +100,13 @@ def testEvidenceMustOnlyReferenceKnownAttributes(tmp_path: Path) -> None:
 
 
 def testVerifiedEvidenceCanAdoptANewDetectedRole(tmp_path: Path) -> None:
-    service = _serviceCreate(tmp_path)
+    vocabulary = TacticVocabulary()
+    expectedRoleID = max(role.roleID for role in vocabulary.roles.values()) + 1
+    service = RoleKnowledgeService(
+        tmp_path,
+        vocabulary,
+        {"offTheBall", "passing", "vision", "decisions"},
+    )
     evidence = RoleProfileEvidence(
         position="D (C)",
         roleName="Libero.",
@@ -102,10 +121,10 @@ def testVerifiedEvidenceCanAdoptANewDetectedRole(tmp_path: Path) -> None:
         adoptDetectedRole=True,
     )
 
-    assert draft.roleID == 20
+    assert draft.roleID == expectedRoleID
     assert draft.displayName == "Libero."
     assert draft.phase is TacticalPhase.IN_POSSESSION
-    assert service.definitionConfirm(draft).name == "role-020.yaml"
+    assert service.definitionConfirm(draft).name == f"role-{expectedRoleID:03d}.yaml"
 
 
 def testLegacyTextNamedDefinitionRemainsRecognized(tmp_path: Path) -> None:

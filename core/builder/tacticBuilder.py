@@ -46,18 +46,11 @@ class TacticBuildResult:
 
 
 class TacticBuilder:
-    """Load a persisted tactic and translate it into the football object model.
-
-    The builder intentionally reports partial coverage instead of raising when
-    extraction data is incomplete. This lets callers render a tactic preview and
-    decide whether further screenshot extraction/review is needed.
-    """
+    """Load a persisted tactic and translate it into the football object model."""
 
     _POSITION_ORDER = {identity: index for index, identity in enumerate(PositionIdentity)}
 
     def __init__(self, engine: Engine) -> None:
-        """Create a builder bound to a SQLAlchemy engine."""
-
         self.engine = engine
 
     ## tactic
@@ -76,7 +69,6 @@ class TacticBuilder:
             definition = self._definitionLoad(session, cleanName)
 
         if definition is None:
-            logger.info(f"no screenshot-derived definition exists for {cleanName}")
             issues.append(
                 TacticBuildIssue(
                     "missingStructuredDefinition",
@@ -85,21 +77,18 @@ class TacticBuilder:
             )
             return TacticBuildResult(None, tuple(issues), False, False)
 
-        # Extraction and review findings are persisted with the structured
-        # definition.  They remain relevant when the rows can still be mapped
-        # into a complete football object model, so expose them to callers
-        # alongside mapping issues discovered by this builder.
-        issues.extend(TacticBuildIssue(issue.code, issue.message) for issue in definition.issues)
-
+        issues.extend(
+            TacticBuildIssue(issue.code, issue.message) for issue in definition.issues
+        )
         inPossessionSlots = self._slotsForPhase(definition, "inPossession")
         outOfPossessionSlots = self._slotsForPhase(definition, "outOfPossession")
-        logger.value("in-possession structured slots", len(inPossessionSlots))
-        logger.value("out-of-possession structured slots", len(outOfPossessionSlots))
-        logger.value("structured instructions", len(definition.instructions))
         instructionCatalog = self._instructionCatalogBuild(definition)
 
+        # FMSAT owns tactic identity. Football Manager's template/shape label is
+        # not a formation identity, so both phase names are deterministically
+        # derived from the user-owned tactic name.
         inPossessionModel = self._formationBuild(
-            formationName=definition.tacticMetadata.get("inPossessionName", "inPossession"),
+            formationName=f"{cleanName} IP",
             slots=inPossessionSlots,
             definition=definition,
             instructionCatalog=instructionCatalog,
@@ -107,7 +96,7 @@ class TacticBuilder:
             issues=issues,
         )
         outOfPossessionModel = self._formationBuild(
-            formationName=definition.tacticMetadata.get("outOfPossessionName", "outOfPossession"),
+            formationName=f"{cleanName} OOP",
             slots=outOfPossessionSlots,
             definition=definition,
             instructionCatalog=instructionCatalog,
@@ -116,9 +105,7 @@ class TacticBuilder:
         )
         transitionModel = self._transitionBuild(definition, instructionCatalog, issues)
 
-        # A tactic cannot be built if either required phase has no valid slots.
         if inPossessionModel is None or outOfPossessionModel is None:
-            logger.info(f"tactic object-model build failed with {len(issues)} issues")
             return TacticBuildResult(
                 None,
                 tuple(issues),
@@ -132,15 +119,11 @@ class TacticBuilder:
             outOfPossession=outOfPossessionModel,
             transition=transitionModel,
         )
-        logger.info(
-            f"tactic object-model build finished: complete={definition.complete}, "
-            f"confirmed={definition.confirmed}, issues={len(issues)}"
-        )
         return TacticBuildResult(
-            tactic=tacticModel,
-            issues=tuple(issues),
-            complete=definition.complete,
-            confirmed=definition.confirmed,
+            tacticModel,
+            tuple(issues),
+            definition.complete,
+            definition.confirmed,
         )
 
     ## definition
@@ -150,8 +133,6 @@ class TacticBuilder:
         session: Session,
         tacticName: str,
     ) -> ScreenshotDerivedTacticDefinition | None:
-        """Return the eager-loaded screenshot-derived definition for one tactic."""
-
         query: Select[tuple[DatabaseTactic]] = (
             select(DatabaseTactic)
             .where(DatabaseTactic.normalizedName == tacticName.casefold())
@@ -168,9 +149,7 @@ class TacticBuilder:
             )
         )
         record = session.scalar(query)
-        if record is None:
-            return None
-        return record.structuredDefinition
+        return record.structuredDefinition if record is not None else None
 
     ## formation
 
@@ -183,23 +162,19 @@ class TacticBuilder:
         phaseName: str,
         issues: list[TacticBuildIssue],
     ) -> Formation | None:
-        """Build one phase formation from structured slots and instructions."""
-
         positions: list[Position] = []
         roleCache: dict[RoleIdentity, Role] = {}
         profileCache: dict[tuple[RoleIdentity, str], RoleProfile] = {}
-
         for slot in sorted(slots, key=self._slotSortKey):
             position = self._positionBuild(
-                slot=slot,
-                phaseName=phaseName,
-                issues=issues,
-                roleCache=roleCache,
-                profileCache=profileCache,
+                slot,
+                phaseName,
+                issues,
+                roleCache,
+                profileCache,
             )
             if position is not None:
                 positions.append(position)
-
         if not positions:
             issues.append(
                 TacticBuildIssue(
@@ -208,7 +183,6 @@ class TacticBuilder:
                 )
             )
             return None
-
         if len(positions) < 11:
             issues.append(
                 TacticBuildIssue(
@@ -216,11 +190,14 @@ class TacticBuilder:
                     f"{phaseName} has {len(positions)} mapped positions; 11 expected",
                 )
             )
-
         return Formation(
             name=formationName,
             positions=positions,
-            instructions=self._instructionsBuild(definition, instructionCatalog, phaseName),
+            instructions=self._instructionsBuild(
+                definition,
+                instructionCatalog,
+                phaseName,
+            ),
         )
 
     def _positionBuild(
@@ -231,8 +208,6 @@ class TacticBuilder:
         roleCache: dict[RoleIdentity, Role],
         profileCache: dict[tuple[RoleIdentity, str], RoleProfile],
     ) -> Position | None:
-        """Build one position from one slot, or report why it cannot be mapped."""
-
         identity = self._positionIdentityParse(slot.position)
         if identity is None:
             issues.append(
@@ -247,16 +222,20 @@ class TacticBuilder:
         if roleIdentity is None:
             if slot.observedRole:
                 roleIdentity = RoleIdentity.UNRESOLVED
-                issues.append(TacticBuildIssue(
-                    "roleDefinitionRequired",
-                    f"{phaseName} slot {slot.slotId!r} retains observed role "
-                    f"{slot.observedRole!r}; a user definition is required",
-                ))
+                issues.append(
+                    TacticBuildIssue(
+                        "roleDefinitionRequired",
+                        f"{phaseName} slot {slot.slotId!r} retains observed role "
+                        f"{slot.observedRole!r}; a user definition is required",
+                    )
+                )
             else:
-                issues.append(TacticBuildIssue(
-                    "unknownRoleIdentity",
-                    f"{phaseName} slot {slot.slotId!r} has no recognizable role evidence",
-                ))
+                issues.append(
+                    TacticBuildIssue(
+                        "unknownRoleIdentity",
+                        f"{phaseName} slot {slot.slotId!r} has no recognizable role evidence",
+                    )
+                )
                 return None
 
         role = roleCache.get(roleIdentity)
@@ -276,17 +255,14 @@ class TacticBuilder:
                 slot.observedRole
                 if roleIdentity is RoleIdentity.UNRESOLVED
                 or (slot.role or "").startswith("capturedRole")
-                else slot.duty.capitalize() if slot.duty else "Observed role"
+                else slot.duty.capitalize()
+                if slot.duty
+                else "Observed role"
             )
             roleProfile = RoleProfile(
                 name=profileName,
                 description=(
-                    f"{slot.role or roleIdentity.value} ({profileName})"
-                    if slot.duty
-                    else (
-                        f"{slot.observedRole or slot.role or roleIdentity.value} "
-                        "(duty not shown)"
-                    )
+                    f"{slot.observedRole or slot.role or roleIdentity.value} ({profileName})"
                 ),
             )
             profileCache[profileKey] = roleProfile
@@ -295,12 +271,12 @@ class TacticBuilder:
             identity=identity,
             role=role,
             roleProfile=roleProfile,
+            canonicalPosition=slot.position,
+            canonicalRole=slot.role,
             slotId=slot.slotId,
             duty=slot.duty,
             x=slot.x,
             y=slot.y,
-            # The formation screenshot records who happened to be selected in
-            # FM, not an assignment for this reusable tactical definition.
             player=None,
             confidence=slot.confidence,
             sourceImportSessionId=slot.sourceImportSessionId,
@@ -308,20 +284,18 @@ class TacticBuilder:
         )
 
     def _slotSortKey(self, slot: StructuredFormationSlot) -> tuple[int, str]:
-        """Sort slots by semantic position ordering for stable rendering flow."""
-
         identity = self._positionIdentityParse(slot.position)
-        if identity is None:
-            return len(self._POSITION_ORDER), slot.slotId
-        return self._POSITION_ORDER[identity], slot.slotId
+        return (
+            (len(self._POSITION_ORDER), slot.slotId)
+            if identity is None
+            else (self._POSITION_ORDER[identity], slot.slotId)
+        )
 
     def _slotsForPhase(
         self,
         definition: ScreenshotDerivedTacticDefinition,
         phase: str,
     ) -> list[StructuredFormationSlot]:
-        """Collect and return slots for one exact stored phase name."""
-
         return [slot for slot in definition.slots if slot.phase == phase]
 
     ## instructions
@@ -330,12 +304,6 @@ class TacticBuilder:
         self,
         definition: ScreenshotDerivedTacticDefinition,
     ) -> dict[str, Instruction]:
-        """Build one instruction object per category with all observed values.
-
-        This keeps instruction objects reusable across formations and transition,
-        which aligns with the object-model concept that each instruction is unique.
-        """
-
         valueMap: dict[str, list[InstructionValue]] = {}
         for stored in definition.instructions:
             instructionName = stored.category.strip() or "unknown"
@@ -348,10 +316,12 @@ class TacticBuilder:
             )
             if value not in bucket:
                 bucket.append(value)
-
         return {
             name: Instruction(name=name, values=tuple(values))
-            for name, values in sorted(valueMap.items(), key=lambda item: item[0].casefold())
+            for name, values in sorted(
+                valueMap.items(),
+                key=lambda item: item[0].casefold(),
+            )
         }
 
     def _instructionsBuild(
@@ -360,13 +330,10 @@ class TacticBuilder:
         instructionCatalog: dict[str, Instruction],
         phase: str,
     ) -> InstructionSet:
-        """Build one instruction set keyed by canonical category."""
-
         byCategory: dict[str, tuple[float, str, InstructionValue]] = {}
         for stored in definition.instructions:
             if stored.phase != phase:
                 continue
-
             instructionName = stored.category.strip() or "unknown"
             instruction = instructionCatalog.get(instructionName)
             if instruction is None:
@@ -374,14 +341,19 @@ class TacticBuilder:
             value = self._instructionValueFind(stored, instruction)
             if value is None:
                 continue
-
             current = byCategory.get(instructionName)
             if current is None or stored.confidence >= current[0]:
-                byCategory[instructionName] = (stored.confidence, instructionName, value)
-
+                byCategory[instructionName] = (
+                    stored.confidence,
+                    instructionName,
+                    value,
+                )
         return {
             instructionCatalog[name]: value
-            for _, name, value in sorted(byCategory.values(), key=lambda item: item[1].casefold())
+            for _, name, value in sorted(
+                byCategory.values(),
+                key=lambda item: item[1].casefold(),
+            )
         }
 
     def _instructionValueFind(
@@ -389,8 +361,6 @@ class TacticBuilder:
         stored: StructuredTeamInstruction,
         instruction: Instruction,
     ) -> InstructionValue | None:
-        """Select an existing instruction value from the instruction catalog."""
-
         targetName = self._valueToText(stored.canonicalValue)
         targetDisplay = stored.displayValue.strip()
         for value in instruction.values:
@@ -406,14 +376,13 @@ class TacticBuilder:
         instructionCatalog: dict[str, Instruction],
         issues: list[TacticBuildIssue],
     ) -> Transition:
-        """Build transition instructions from dedicated or legacy phase names."""
-
-        instructions = self._instructionsBuild(definition, instructionCatalog, "transition")
+        instructions = self._instructionsBuild(
+            definition,
+            instructionCatalog,
+            "transition",
+        )
         if instructions:
             return Transition(instructions=instructions)
-
-        # Some stored data sets still persist transition categories under
-        # in-possession phase names; preserve usability by falling back.
         fallback = {
             instruction: value
             for instruction, value in self._instructionsBuild(
@@ -441,13 +410,9 @@ class TacticBuilder:
     ## identity
 
     def _positionIdentityParse(self, value: str | None) -> PositionIdentity | None:
-        """Map stored position text to a known PositionIdentity."""
-
         if value is None:
             return None
         normalized = value.strip().upper()
-        if not normalized:
-            return None
         canonicalToDomain = {
             "DCL": "DC",
             "DCR": "DC",
@@ -472,15 +437,15 @@ class TacticBuilder:
         roleCode: str | None,
         observedRole: str,
     ) -> RoleIdentity | None:
-        """Map canonical or observed role text to a known RoleIdentity."""
+        """Resolve canonical or observed role text through the shared vocabulary."""
 
-        return RoleVocabulary.identityResolve(roleCode or "", observedRole)
+        return RoleVocabulary.identityResolve(
+            *(candidate for candidate in (roleCode, observedRole) if candidate)
+        )
 
-    def _valueToText(self, value: str | bool | None) -> str:
-        """Convert JSON-typed canonical values to a stable object-model label."""
-
+    @staticmethod
+    def _valueToText(value: object) -> str:
         if value is None:
             return ""
-        if isinstance(value, bool):
-            return "enabled" if value else "disabled"
-        return str(value).strip()
+        raw = getattr(value, "value", value)
+        return raw.strip() if isinstance(raw, str) else str(raw).strip()

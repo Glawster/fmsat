@@ -101,6 +101,7 @@ def testBuilderLoadsStructuredTacticIntoObjectModel(tmp_path) -> None:
         tactic.structuredDefinition = ScreenshotDerivedTacticDefinition(
             confirmed=True,
             complete=True,
+            # Legacy shape-name metadata is deliberately ignored by the builder.
             tacticMetadata={
                 "inPossessionName": "3-4-2-1",
                 "outOfPossessionName": "4-4-1-1",
@@ -144,8 +145,8 @@ def testBuilderLoadsStructuredTacticIntoObjectModel(tmp_path) -> None:
     assert result.complete is True
     assert result.confirmed is True
     assert result.tactic.name == "High Press"
-    assert result.tactic.inPossession.name == "3-4-2-1"
-    assert result.tactic.outOfPossession.name == "4-4-1-1"
+    assert result.tactic.inPossession.name == "High Press IP"
+    assert result.tactic.outOfPossession.name == "High Press OOP"
     assert len(result.tactic.inPossession.positions) == 11
     assert len(result.tactic.outOfPossession.positions) == 11
     firstPosition = result.tactic.inPossession.positions[0]
@@ -244,7 +245,6 @@ def testBuilderOrdersPositionsBySemanticPositionIdentity(tmp_path) -> None:
         assert tactic is not None
         assert sourceImport is not None
 
-        # Deliberately scramble slot IDs to ensure semantic ordering is applied.
         tactic.structuredDefinition = ScreenshotDerivedTacticDefinition(
             confirmed=False,
             complete=False,

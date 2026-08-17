@@ -7,15 +7,16 @@ from .roleProfile import (
     RoleProfileParser,
     RoleProfileEvidence,
 )
-from .squadAttributes import SquadAttributesParser
+from .squadAttributesFm26 import SquadAttributesParser
 from .tactic import ExtractedTactic, TacticParser
 from .tacticFormation import (
     FormationExtractResult,
     FormationPhaseLinker,
     PitchZoneClassifier,
-    TacticFormationExtractor,
 )
-from .tacticLayout import TacticLayoutAnchor, TacticLayoutResult
+from .tacticFormationFm26 import TacticFormationExtractor
+from .tacticLayoutFm26 import TacticLayoutAnchor
+from .tacticLayout import TacticLayoutResult
 from .tacticInstructions import InstructionExtractResult, TacticInstructionExtractor
 from .tacticModels import (
     FormationSlot,

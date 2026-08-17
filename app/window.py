@@ -28,19 +28,22 @@ from PySide6.QtWidgets import (
     QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
-    QToolBar,
     QVBoxLayout,
     QWidget,
 )
+from sqlalchemy.exc import SQLAlchemyError
 
 from fmsat.app.managementWindow import ManagementWindow
 from fmsat.app.screenshotWindow import ScreenshotWindow
+from fmsat.app.squadDetailModel import squadDetailModelBuild
+from fmsat.app.squadDetailView import SquadDetailView
 from fmsat.app.tacticDetailMapping import (
     tacticDetailIncompleteModelBuild,
     tacticDetailModelBuild,
 )
 from fmsat.app.roleProfileDialog import RoleProfileReviewDialog
 from fmsat.app.tacticDetailView import TacticDetailView
+from fmsat.app.tacticModelEditDialog import TacticModelEditDialog
 from fmsat.app.welcomeView import WelcomeService, WelcomeView
 from fmsat.core.builder.tacticBuilder import TacticBuildIssue
 from fmsat.core.builder.tacticModelLoader import (
@@ -60,6 +63,8 @@ from fmsat.core.parser import (
 from fmsat.core.requirements import ScreenshotRequirement, TacticScreenshotPlanner
 from fmsat.core.roleKnowledge import RoleKnowledgeService
 from fmsat.core.screenshotStore import ScreenshotStore, ScreenshotStoreError
+from fmsat.core.squadAssessment import SquadAssessmentService
+from fmsat.core.squadModel import SquadModel, SquadModelService
 from fmsat.core.services import (
     ImportError,
     ImportResult,
@@ -107,6 +112,18 @@ class MainWindow(QMainWindow):
         self.ocrDiagnosticPaths: tuple[str, ...] = ()
         self.ocrDiagnosticWindows: list[ScreenshotWindow] = []
         self.tacticModelLoader = TacticModelLoader(database.engine)
+        self.squadModelService = SquadModelService(database.engine)
+        self.squadAssessmentService = (
+            SquadAssessmentService(
+                database,
+                self.squadModelService,
+                self.tacticModelLoader,
+                roleKnowledgeService,
+                tacticVocabulary,
+            )
+            if roleKnowledgeService is not None and tacticVocabulary is not None
+            else None
+        )
         self.tacticScreenshotExtractor = TacticScreenshotExtractor(
             database.engine,
             roleDefinitionsProvider=(
@@ -117,6 +134,7 @@ class MainWindow(QMainWindow):
         )
         self.currentResult: ImportResult | None = None
         self.currentTactic: str | None = None
+        self.currentTacticModel: ModelTactic | None = None
         self.currentSquad: str | None = None
         self.currentSquadExistingNames: set[str] = set()
         self.currentSquadPlayerOffset = 0
@@ -127,7 +145,6 @@ class MainWindow(QMainWindow):
         self.resize(1500, 800)
         self._actionsCreate()
         self._menuCreate()
-        self._toolbarCreate()
         self._contentCreate()
         self.dataChanged.connect(self.welcomeView.refresh)
         self.statusBar().messageChanged.connect(self._statusRecord)
@@ -966,6 +983,7 @@ class MainWindow(QMainWindow):
             loadResult,
         )
         if loadResult.tactic is None:
+            self.currentTacticModel = None
             reason = "; ".join(issue.message for issue in loadResult.issues) or "No model data"
             detailModel = tacticDetailIncompleteModelBuild(
                 tacticName,
@@ -985,6 +1003,7 @@ class MainWindow(QMainWindow):
                 12000,
             )
             return
+        self.currentTacticModel = loadResult.tactic
         detailModel = tacticDetailModelBuild(
             loadResult.tactic,
             source=loadResult.source,
@@ -1012,11 +1031,78 @@ class MainWindow(QMainWindow):
         )
         self.contentStack.setCurrentWidget(self.tacticDetailView)
 
+    def _tacticModelEdit(self, tacticName: str) -> None:
+        """Edit the current role-level model and supersede its screenshot evidence."""
+
+        if self.currentTacticModel is None or self.currentTacticModel.name != tacticName:
+            loaded = self.tacticModelLoader.tacticLoad(tacticName)
+            if loaded.tactic is None:
+                self._errorShow("Cannot edit tactic", "No object model is available")
+                return
+            self.currentTacticModel = loaded.tactic
+        dialog = TacticModelEditDialog(self.currentTacticModel, self)
+        if dialog.exec() != QDialog.DialogCode.Accepted or dialog.editedTactic is None:
+            return
+        try:
+            TacticStore(self.database.engine).tacticSave(
+                dialog.editedTactic,
+                supersedeEvidence=True,
+            )
+        except (SQLAlchemyError, ValueError) as exc:
+            self._errorShow("Cannot save tactic model", str(exc))
+            return
+        self.tacticProcessStatuses[tacticName.casefold()] = "Edited model"
+        self.dataChanged.emit()
+        self.statusBar().showMessage(
+            f"Saved {tacticName}; source screenshots marked as superseded.",
+            12000,
+        )
+        self.tacticShow(tacticName)
+
     def _tacticDetailBack(self) -> None:
         """Return from tactic detail to the refreshed workspace."""
 
         self.welcomeView.refresh()
         self.contentStack.setCurrentWidget(self.welcomeView)
+
+    def squadShow(self, squadName: str, tacticName: str | None = None) -> None:
+        """Open one editable squad model assessed once per canonical tactic role."""
+
+        if self.squadAssessmentService is None:
+            self._errorShow(
+                "Squad assessment unavailable",
+                "Role knowledge and tactic vocabulary must be configured.",
+            )
+            return
+        try:
+            assessment = self.squadAssessmentService.assessmentBuild(squadName, tacticName)
+        except (DatabaseError, SQLAlchemyError, ValueError) as exc:
+            self._errorShow("Squad assessment error", str(exc))
+            return
+        if assessment is None:
+            self._errorShow("Squad unavailable", f"No squad model exists for {squadName}")
+            return
+        self.squadDetailView.squadShow(squadName, squadDetailModelBuild(assessment))
+        self.contentStack.setCurrentWidget(self.squadDetailView)
+        self.statusBar().showMessage(
+            f"Opened {squadName}; {len(assessment.roles)} unique tactic roles assessed.",
+            10000,
+        )
+
+    def _squadModelSave(self, model: SquadModel) -> None:
+        """Save corrected squad values and supersede their screenshot evidence."""
+
+        try:
+            saved = self.squadModelService.modelSave(model)
+        except (DatabaseError, SQLAlchemyError, ValueError) as exc:
+            self._errorShow("Cannot save squad model", str(exc))
+            return
+        self.dataChanged.emit()
+        self.statusBar().showMessage(
+            f"Saved {saved.name}; source screenshots marked as superseded.",
+            12000,
+        )
+        self.squadShow(saved.name)
 
     def roleShow(self, roleCode: str) -> None:
         """Load one captured role definition into the review dialog for editing."""
@@ -1103,6 +1189,8 @@ class MainWindow(QMainWindow):
                 self.screenshotStore,
                 self,
                 tacticApply=self.tacticApplyToSquad,
+                tacticShow=self.tacticShow,
+                squadShow=self.squadShow,
             )
             self.managementWindow.destroyed.connect(self._managementForget)
             self.managementWindow.dataChanged.connect(self.dataChanged.emit)
@@ -1268,7 +1356,7 @@ class MainWindow(QMainWindow):
             ),
             self.tacticShow,
             self.tacticProcess,
-            lambda name: self.managementShow("Squads", name),
+            self.squadShow,
             self.roleShow,
             self,
         )
@@ -1277,7 +1365,13 @@ class MainWindow(QMainWindow):
         self.tacticDetailView.backRequested.connect(self._tacticDetailBack)
         self.tacticDetailView.assignmentRequested.connect(self.tacticApplyToSquad)
         self.tacticDetailView.importToModelRequested.connect(self.tacticModelImport)
+        self.tacticDetailView.modelEditRequested.connect(self._tacticModelEdit)
         self.contentStack.addWidget(self.tacticDetailView)
+        self.squadDetailView = SquadDetailView(self, attributes=self.attributes)
+        self.squadDetailView.backRequested.connect(self._tacticDetailBack)
+        self.squadDetailView.modelSaveRequested.connect(self._squadModelSave)
+        self.squadDetailView.tacticSelected.connect(self.squadShow)
+        self.contentStack.addWidget(self.squadDetailView)
         self.reviewWidget = QWidget(self)
         layout = QVBoxLayout(self.reviewWidget)
         self.instructions = QLabel(
@@ -1797,13 +1891,3 @@ class MainWindow(QMainWindow):
                 )
             )
         return players
-
-    def _toolbarCreate(self) -> None:
-        toolbar = QToolBar("Main", self)
-        toolbar.setMovable(False)
-        for action in (
-            self.importTacticAction,
-            self.importSquadAction,
-        ):
-            toolbar.addAction(action)
-        self.addToolBar(toolbar)
