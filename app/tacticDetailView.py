@@ -4,26 +4,15 @@ from __future__ import annotations
 
 from importlib.resources import files
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import (
-    QComboBox,
-    QFrame,
-    QHBoxLayout,
-    QInputDialog,
-    QLabel,
-    QLayout,
-    QMessageBox,
-    QPushButton,
-    QTabWidget,
-    QVBoxLayout,
-    QWidget,
-)
+from PySide6.QtCore import Signal
+from PySide6.QtWidgets import QComboBox, QHBoxLayout, QInputDialog, QLayout, QMessageBox, QPushButton, QTabWidget, QVBoxLayout, QWidget
 
 from fmsat.app.tacticDetailModel import DisplaySlot, TacticDetailModel
 from fmsat.app.tacticDetailPrototype import tacticDetailPrototype
 from fmsat.app.tacticDetailTabs import AnalysisTab, InstructionsTab, OverviewTab, ShapeTab
 from fmsat.app.tacticPitchWidget import PitchWidget
 from fmsat.app.tacticValidationWidget import BuildResult
+from fmsat.app.workspaceWidgets import FactCard, WorkspaceHeader
 from fmsat.database.tacticNaming import TacticRenameError, tacticRename
 
 __all__ = ["DisplaySlot", "PitchWidget", "TacticDetailView"]
@@ -67,47 +56,37 @@ class TacticDetailView(QWidget):
         facts = QHBoxLayout()
         facts.setSpacing(10)
         for label, value in (("FORMATION", self.model.formation), ("MENTALITY", self.model.mentality), ("STATUS", self.model.status), ("ASSIGNED SQUADS", self.model.assignedSquads), ("UPDATED", self.model.updated)):
-            facts.addWidget(self._factCardCreate(label, value), 1)
+            facts.addWidget(FactCard(label, value), 1)
         return facts
 
     def _headerCreate(self) -> QHBoxLayout:
-        header = QHBoxLayout()
-        header.setSpacing(18)
-        back = QPushButton("←  FMSAT Workspace")
-        back.setObjectName("quietButton")
-        back.clicked.connect(self.backRequested.emit)
-        header.addWidget(back, 0, Qt.AlignmentFlag.AlignVCenter)
-
-        heading = QVBoxLayout()
-        heading.setSpacing(2)
-        workspace = QLabel(f"Tactic Workspace  ·  {self.sourceLabel}")
-        workspace.setObjectName("workspaceHeading")
-        heading.addWidget(workspace)
-        titleRow = QHBoxLayout()
-        titleRow.setSpacing(12)
-        self.titleLabel = QLabel(self.tacticName or "Tactic")
-        self.titleLabel.setObjectName("pageTitle")
-        titleRow.addWidget(self.titleLabel, 0, Qt.AlignmentFlag.AlignVCenter)
         self.renameButton = QPushButton("Rename")
         self.renameButton.setObjectName("quietButton")
         self.renameButton.clicked.connect(self._renameBegin)
-        titleRow.addWidget(self.renameButton, 0, Qt.AlignmentFlag.AlignVCenter)
-        titleRow.addStretch()
-        heading.addLayout(titleRow)
-        header.addLayout(heading, 1)
 
+        trailing: list[QWidget] = []
         if self.model.revisions:
             revisions = QComboBox()
             revisions.setObjectName("revisionPicker")
             revisions.addItems(self.model.revisions)
-            header.addWidget(revisions, 0, Qt.AlignmentFlag.AlignVCenter)
+            trailing.append(revisions)
         compare = QPushButton("Compare")
         compare.setObjectName("secondaryButton")
-        header.addWidget(compare, 0, Qt.AlignmentFlag.AlignVCenter)
+        trailing.append(compare)
         self.assignmentButton = QPushButton("Assign Squad")
         self.assignmentButton.clicked.connect(lambda: self.assignmentRequested.emit(self.tacticName))
-        header.addWidget(self.assignmentButton, 0, Qt.AlignmentFlag.AlignVCenter)
-        return header
+        trailing.append(self.assignmentButton)
+
+        header = WorkspaceHeader(
+            workspace="Tactic",
+            context=self.sourceLabel,
+            title=self.tacticName or "Tactic",
+            backRequested=self.backRequested.emit,
+            titleActions=(self.renameButton,),
+            trailingActions=trailing,
+        )
+        self.titleLabel = header.titleLabel
+        return header.layout
 
     def _renameBegin(self) -> None:
         """Rename the persisted tactic identity without regenerating evidence."""
@@ -164,20 +143,6 @@ class TacticDetailView(QWidget):
         return tabs
 
     ## utilities
-
-    @staticmethod
-    def _factCardCreate(label: str, value: str) -> QFrame:
-        card = QFrame()
-        card.setObjectName("factCard")
-        layout = QVBoxLayout(card)
-        key = QLabel(label)
-        key.setObjectName("factKey")
-        layout.addWidget(key)
-        fact = QLabel(value)
-        fact.setObjectName("factValue")
-        fact.setWordWrap(True)
-        layout.addWidget(fact)
-        return card
 
     @staticmethod
     def _styleLoad() -> str:
