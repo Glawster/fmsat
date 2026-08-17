@@ -36,13 +36,17 @@ def testPitchZonesClassifyBoundariesFromConfiguration() -> None:
     assert classifier.positionClassify(1.2, 0.50) is None
 
 
-def testFormationExtractorDetectsTilesBeforeFocusedOcr() -> None:
+def testFormationExtractorDetectsTilesWithExactLabelEvidence() -> None:
     image = np.full((200, 400, 3), 35, dtype=np.uint8)
     cv2.rectangle(image, (40, 20), (150, 55), (180, 20, 180), -1)
     cv2.rectangle(image, (240, 110), (350, 145), (180, 20, 180), -1)
     ocr = FakeOcr([
+        # In-possession expanded card crop, then exact role-label crop.
         [OcrResult("Alex Forward", 0.96), OcrResult("CFD", 0.98), OcrResult("Attack", 0.97)],
+        [OcrResult("CFD", 0.99)],
+        # Out-of-possession expanded card crop, then exact role-label crop.
         [OcrResult("Alex Forward", 0.95), OcrResult("CFD", 0.97), OcrResult("Support", 0.96)],
+        [OcrResult("CFD", 0.99)],
     ])
     configuration = {
         "phaseRegions": {
@@ -94,6 +98,7 @@ def testFormationTileDetectionExcludesPitchControlAndPhaseBadge() -> None:
         FakeOcr([]),
         TacticVocabulary(),
         {"tileDetection": {"excludedRegions": [
+            {"x": 0.0, "y": 0.0, "width": 1.0, "height": 0.055},
             {"x": 0.0, "y": 0.0, "width": 0.2, "height": 0.1},
             {"x": 0.0, "y": 0.9, "width": 0.25, "height": 0.1},
         ]}},
@@ -101,7 +106,10 @@ def testFormationTileDetectionExcludesPitchControlAndPhaseBadge() -> None:
 
     assert extractor._excludedCandidate((5, 5, 45, 25), 400, 400) is True
     assert extractor._excludedCandidate((5, 365, 90, 390), 400, 400) is True
-    assert extractor._excludedCandidate((150, 5, 250, 30), 400, 400) is False
+    # Phase tabs can sit further across the clipped top of the pitch than the
+    # eye control; the complete shallow top band must therefore be excluded.
+    assert extractor._excludedCandidate((150, 5, 250, 30), 400, 400) is True
+    assert extractor._excludedCandidate((150, 35, 250, 60), 400, 400) is False
 
 
 def testFormationSlotAcceptsObservedRoleWhenDutyIsNotDisplayed() -> None:

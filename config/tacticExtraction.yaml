@@ -51,8 +51,12 @@ tileDetection:
   minimumWidth: 0.06
   maximumWidth: 0.32
   minimumHeight: 0.025
-  maximumHeight: 0.16
-  minimumAspectRatio: 1.45
+  # Actual FM26 role labels are shallow rectangles. Larger contours are player
+  # cards, goal-box chrome or other Planner UI and must never become role tiles.
+  maximumHeight: 0.08
+  # Role labels are strongly horizontal. Circular player-state icons can have
+  # similar saturation and size but are much squarer, so exclude them by shape.
+  minimumAspectRatio: 2.50
   minimumInteriorSaturation: 70
   minimumInteriorValue: 82
   goalkeeperXMin: 0.35
@@ -60,7 +64,12 @@ tileDetection:
   goalkeeperYMin: 0.86
   goalkeeperMinimumInteriorSaturation: 15
   excludedRegions:
-    - {x: 0.00, y: 0.00, width: 0.20, height: 0.10}
+    # The calibrated pitch top can still clip the phase tabs into the crop.
+    # Reject that shallow chrome band across the full pitch width.
+    - {x: 0.00, y: 0.00, width: 1.00, height: 0.055}
+    # Eye/dropdown control at the upper-left of each pitch.
+    - {x: 0.00, y: 0.00, width: 0.20, height: 0.16}
+    # Phase-name badge at the lower-left of each pitch.
     - {x: 0.00, y: 0.90, width: 0.25, height: 0.10}
 
 linking:

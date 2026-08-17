@@ -54,6 +54,7 @@ def testInstructionVocabularyNormalizesCurrentFm26DisplayedValues() -> None:
     assert vocabulary.instructionNormalize("inPossession", "supportingRuns", "Both Flanks").value == "both flanks"
     assert vocabulary.instructionNormalize("inPossession", "progressThrough", "Both Flanks").value == "both flanks"
     assert vocabulary.instructionNormalize("inPossession", "patience", "Standard").value == "standard"
+    assert vocabulary.instructionNormalize("inPossession", "patience", "Work Ball Into..").value == "work ball into box"
     assert vocabulary.instructionNormalize("inPossession", "shotsFromDistance", "Discourage").value == "discourage"
 
 
@@ -81,6 +82,39 @@ def testRoleAbbreviationNormalizesToStableNamedIdentity() -> None:
     assert vocabulary.roles["centreForward"].roleID == 15
 
 
+def testConfiguredRoleProfileAbbreviationsAreCanonicalTacticalRoles() -> None:
+    """Roles exposed by OCR role definitions must never require tactic redefinition."""
+
+    vocabulary = TacticVocabulary()
+    expected = {
+        "FR": "freeRole",
+        "SS": "secondStriker",
+        "CHM": "channelMidfielder",
+        "PW": "playmakingWinger",
+        "WF": "wideForward",
+        "IW": "insideWinger",
+        "DLF": "deepLyingForward",
+        "P": "poacher",
+        "F9": "falseNine",
+        "HB": "halfBack",
+        "DDM": "deepDefensiveMidfielder",
+    }
+
+    for abbreviation, canonical in expected.items():
+        assert vocabulary.roleNormalize(abbreviation).value == canonical
+
+
+def testConfirmedOcrRoleDefinitionsAreAuditedAgainstTacticalVocabulary() -> None:
+    vocabulary = TacticVocabulary()
+    definitions = (
+        SimpleNamespace(displayName="Half-Back", abbreviations=("HB",)),
+        SimpleNamespace(displayName="Deep Defensive Midfielder", abbreviations=("DDM",)),
+        SimpleNamespace(displayName="Unmapped Test Role", abbreviations=("UTR",)),
+    )
+
+    assert vocabulary.canonicalRoleDefinitionGaps(definitions) == ("Unmapped Test Role",)
+
+
 def testUnknownVocabularyDoesNotInventMeaning() -> None:
     value = TacticVocabulary().roleNormalize("Raumdeuter-ish")
 
@@ -91,12 +125,31 @@ def testUnknownVocabularyDoesNotInventMeaning() -> None:
 
 def testCapturedRoleDefinitionExtendsLiveOcrVocabulary() -> None:
     vocabulary = TacticVocabulary()
-    vocabulary.capturedRolesAdd((SimpleNamespace(roleID=20, roleCode=None, displayName="Advanced Wing-Back", abbreviations=("AWB",), positions=("WBL", "WBR")),))
+    vocabulary.capturedRolesAdd((SimpleNamespace(roleID=31, roleCode=None, displayName="Advanced Wing-Back", abbreviations=("AWB",), positions=("WBL", "WBR")),))
 
     value = vocabulary.roleNormalize("AWB")
 
-    assert value.value == "capturedRole20"
+    assert value.value == "capturedRole31"
     assert value.observedText == "AWB"
+
+
+def testCapturedRoleAlreadyCanonicalDoesNotDuplicateAlias() -> None:
+    """Legacy confirmed roles must defer to a role now supplied canonically."""
+
+    vocabulary = TacticVocabulary()
+    vocabulary.capturedRolesAdd((
+        SimpleNamespace(
+            roleID=20,
+            roleCode=None,
+            displayName="Free Role",
+            abbreviations=("FR",),
+            positions=("AMC",),
+        ),
+    ))
+
+    assert "capturedRole20" not in vocabulary.roles
+    assert vocabulary.roleNormalize("Free Role").value == "freeRole"
+    assert vocabulary.roleNormalize("FR").value == "freeRole"
 
 
 def testRoleProfileEvidenceSeparatesKeyAttributesFromPlayerValues() -> None:

@@ -1,7 +1,7 @@
 # OCR zone geometry history
 
-FMSAT treats tactic OCR geometry as evidence that can be measured over time rather
-than as an unchecked set of coordinates.
+FMSAT treats OCR geometry as evidence that can be measured over time rather than
+as an unchecked set of coordinates.
 
 ## Purpose
 
@@ -9,15 +9,47 @@ The tactic extractor uses normalized `x`, `y`, `width` and `height` values so
 screen resolution and desktop position do not by themselves move a recognition
 zone. Even with normalized coordinates, a bad breadcrumb, panel anchor or layout
 profile can shift the effective OCR reference frame and make previously reliable
-instruction regions miss their cards.
+regions miss their content.
 
 The geometry history provides two protections:
 
-1. regression tests lock the currently accepted normalized formation and
-   instruction-zone configuration; and
+1. regression tests lock the currently accepted normalized fallback geometry; and
 2. an append-only historical store allows newly observed geometry to be compared
    with previous validated observations for the same screen, layout profile and
    zone.
+
+## Reference-frame rule
+
+Every primary OCR path must establish the smallest reliable local reference frame
+from visible evidence before applying child regions. A configured screen-relative
+rectangle may remain as a fallback, but it must not replace a stronger local
+anchor that is present in the capture. An image that is already the local reference
+frame must never be cropped a second time.
+
+The current OCR paths are handled as follows:
+
+- **Team Instructions** — breadcrumb and phase-tab anchored; already-cropped modal
+  captures are retained whole.
+- **Formation** — the layout anchor retains the complete Tactics Planner capture;
+  the wide/compact profile supplies horizontal pitch placement only, while FM26
+  refines the vertical pitch extent from the visible green field. This prevents a
+  calibrated short region from truncating defenders and the goalkeeper row.
+- **Squad Attributes** — geometry-capable OCR runs against the full image and
+  derives columns/rows from the observed `Player`, `Position`, `CA`, `PA` and
+  attribute headings. YAML row/column geometry is legacy fallback for OCR engines
+  without positional geometry.
+- **Role Profile** — OCR runs against the complete image and sections are derived
+  from semantic headings such as `Role Ability`, `Key Attributes` and
+  `Player Instructions`; no fixed child grid is the primary parser.
+- **Formation metadata** — mentality is searched semantically across whole-image
+  OCR rather than from a fixed crop.
+- **Tactic selector name** — the importer retains its small configured header crop
+  because that crop is itself the visible selector control, and tactic identity is
+  subsequently owned/editable by FMSAT. It must not be reused as a parent frame
+  for Formation or Team Instructions extraction.
+
+This audit is intended to prevent a fix in one OCR path from leaving another path
+with the same reference-frame defect.
 
 ## Team Instructions anchor contract
 
@@ -47,6 +79,23 @@ and the same displacement occurred Out of Possession). The active-tab underline
 was also outside the erroneous local frame. Tests now reproduce the 1505x895 In
 Possession and 1505x652 Out of Possession capture shapes and require the complete
 modal to be retained even when OCR does not recover both tab labels.
+
+## Formation pitch contract
+
+Formation uses the complete anchored Tactics Planner capture as its parent frame.
+The two calibrated layout profiles still distinguish the horizontal placement of
+the pitches in compact and wide Planner layouts, but their configured `y` and
+`height` values are fallback evidence only.
+
+FM26 pitch refinement samples the configured horizontal pitch corridor, identifies
+the visible green field and expands the phase region through its observed vertical
+extent. The detected extent is accepted only when it occupies at least half of the
+capture, begins in the expected Planner body and reaches the lower portion of the
+window. Otherwise the calibrated profile is retained unchanged.
+
+This protects against the 2026-08-17 regression where a wide Planner profile ended
+near the midfield/DM area and excluded the CB/GK rows even though the outer
+Tactics Planner anchor was correct.
 
 ## Player-agnostic tactic evidence
 
@@ -87,14 +136,18 @@ automatically.
 
 ## Regression contract
 
-`tests/test_ocrZoneHistory.py` locks the currently accepted FM26 tactic geometry.
-`tests/test_tacticLayoutAnchor.py` protects reference-frame anchoring, including
-the supplied cropped Team Instructions capture dimensions and active underline.
+`tests/test_ocrZoneHistory.py` locks the accepted fallback geometry.
+`tests/test_tacticLayoutAnchor.py` protects Team Instructions reference-frame
+anchoring, including already-cropped modals and active underline recognition.
+`tests/test_tacticFormationFm26.py` protects visible-field Formation depth and
+requires a safe fallback when the field cannot be established.
 
 ## Current integration boundary
 
-Anchor-relative Team Instructions frame recovery is preferred over the
-whole-screen percentage fallback. The history and classification layer is also
-available for tactic extraction. The remaining extraction wiring step is to
-record effective anchor-derived panel/card geometry from each successful run and
-surface `ocrZoneDrift` diagnostics when a new observation is anomalous.
+Anchor-relative Team Instructions frame recovery and visible-field Formation depth
+are preferred over whole-screen percentage fallbacks. Squad Attributes, Role
+Profile and Formation metadata already derive their primary structure from OCR
+geometry or semantic headings. The history/classification layer remains available;
+the remaining integration step is to record effective anchor-derived panel/card
+geometry from each successful run and surface `ocrZoneDrift` diagnostics when a
+new observation is anomalous.

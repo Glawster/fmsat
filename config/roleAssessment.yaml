@@ -50,3 +50,25 @@ roles:
     attributeWeights: {work_rate: 5, stamina: 5, teamwork: 5, aggression: 4, off_the_ball: 4, finishing: 3, anticipation: 4, acceleration: 3, strength: 3, decisions: 3}
   advancedPlaymaker:
     attributeWeights: {passing: 5, vision: 5, first_touch: 5, technique: 5, decisions: 4, composure: 4, flair: 4, off_the_ball: 3, anticipation: 3, dribbling: 3}
+  freeRole:
+    attributeWeights: {first_touch: 5, technique: 5, flair: 5, vision: 5, passing: 4, decisions: 4, dribbling: 4, composure: 4, off_the_ball: 3, anticipation: 3}
+  secondStriker:
+    attributeWeights: {finishing: 5, off_the_ball: 5, anticipation: 5, acceleration: 4, pace: 4, first_touch: 4, composure: 4, decisions: 3, technique: 3, dribbling: 3}
+  channelMidfielder:
+    attributeWeights: {off_the_ball: 5, work_rate: 4, stamina: 4, passing: 4, vision: 4, decisions: 4, dribbling: 3, first_touch: 3, acceleration: 3, teamwork: 3}
+  playmakingWinger:
+    attributeWeights: {passing: 5, vision: 5, technique: 4, first_touch: 4, dribbling: 4, flair: 4, decisions: 4, off_the_ball: 3, acceleration: 3, crossing: 3}
+  wideForward:
+    attributeWeights: {finishing: 5, off_the_ball: 5, pace: 5, acceleration: 4, dribbling: 4, first_touch: 4, technique: 3, composure: 3, crossing: 3, anticipation: 3}
+  insideWinger:
+    attributeWeights: {dribbling: 5, passing: 4, vision: 4, first_touch: 4, technique: 4, decisions: 4, off_the_ball: 4, agility: 3, acceleration: 3, flair: 3}
+  deepLyingForward:
+    attributeWeights: {first_touch: 5, passing: 5, vision: 4, technique: 4, off_the_ball: 4, teamwork: 4, composure: 4, decisions: 4, finishing: 3, strength: 3}
+  poacher:
+    attributeWeights: {finishing: 5, off_the_ball: 5, anticipation: 5, acceleration: 4, pace: 4, composure: 4, first_touch: 3, decisions: 3, agility: 3, technique: 2}
+  falseNine:
+    attributeWeights: {first_touch: 5, passing: 5, vision: 5, technique: 5, off_the_ball: 4, decisions: 4, composure: 4, flair: 4, dribbling: 3, finishing: 3}
+  halfBack:
+    attributeWeights: {positioning: 5, anticipation: 5, tackling: 4, marking: 4, passing: 4, decisions: 4, teamwork: 4, concentration: 4, composure: 3, strength: 3}
+  deepDefensiveMidfielder:
+    attributeWeights: {positioning: 5, tackling: 5, marking: 4, anticipation: 4, concentration: 4, decisions: 4, teamwork: 4, strength: 4, passing: 3, composure: 3}

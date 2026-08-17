@@ -34,13 +34,10 @@ QPushButton#secondaryButton[copyState="copied"] { background: #56d6b0; color: #0
 QWidget#tacticDetailView QComboBox, QWidget#squadDetailView QComboBox { background: #31b98f; color: #061510; border: 1px solid #31b98f; border-radius: 7px; padding: 8px 12px; font-weight: 700; }
 QWidget#tacticDetailView QComboBox:hover, QWidget#squadDetailView QComboBox:hover { background: #56d6b0; border-color: #56d6b0; }
 QWidget#tacticDetailView QComboBox:disabled, QWidget#squadDetailView QComboBox:disabled { background: #9bbbad; border-color: #9bbbad; color: #52645d; }
-QComboBox QAbstractItemView { background: #101f2e; color: #f5f8fb; border: 1px solid #30465a; selection-background-color: #31b98f; selection-color: #061510; }
-QComboBox QAbstractItemView::item { color: #f5f8fb; background: #101f2e; padding: 6px; }
-QComboBox QAbstractItemView::item:selected { color: #061510; background: #31b98f; }
-QComboBox#squadTacticPicker { combobox-popup: 0; }
-QComboBox#squadTacticPicker QAbstractItemView, QComboBox#squadTacticPicker QListView { background: #d9e5ef; color: #101f2e; border: 1px solid #30465a; selection-background-color: #31b98f; selection-color: #061510; }
-QComboBox#squadTacticPicker QAbstractItemView::item, QComboBox#squadTacticPicker QListView::item { background: #d9e5ef; color: #101f2e; padding: 7px 10px; }
-QComboBox#squadTacticPicker QAbstractItemView::item:hover, QComboBox#squadTacticPicker QAbstractItemView::item:selected, QComboBox#squadTacticPicker QListView::item:hover, QComboBox#squadTacticPicker QListView::item:selected { background: #31b98f; color: #061510; }
+QComboBox { combobox-popup: 0; }
+QComboBox QAbstractItemView, QComboBox QListView { background: #101f2e; color: #d9e5ef; border: 1px solid #30465a; selection-background-color: #56d6b0; selection-color: #061510; }
+QComboBox QAbstractItemView::item, QComboBox QListView::item { background: #101f2e; color: #d9e5ef; min-height: 30px; padding: 5px 8px; }
+QComboBox QAbstractItemView::item:hover, QComboBox QAbstractItemView::item:selected, QComboBox QListView::item:hover, QComboBox QListView::item:selected { background: #56d6b0; color: #061510; }
 QMenu#playerFilterMenu { background: #101f2e; color: #f5f8fb; border: 1px solid #30465a; padding: 7px; }
 QMenu#playerFilterMenu QCheckBox { color: #f5f8fb; spacing: 9px; padding: 7px 12px; min-width: 170px; }
 QDialog { background: #08131f; color: #e8eef5; }

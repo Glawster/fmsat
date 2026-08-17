@@ -207,13 +207,13 @@ class SquadRolesTab(BaseSquadRolesTab):
             root.insertWidget(0, self.clearRoleButton, 0, Qt.AlignmentFlag.AlignLeft)
 
             titles = QHBoxLayout()
+            titles.setSpacing(12)
             self.rolePaneTitle = QLabel("Tactic Roles", self)
             self.rolePaneTitle.setObjectName("workspaceHeading")
-            self.rolePaneTitle.setMinimumWidth(400)
-            titles.addWidget(self.rolePaneTitle)
+            titles.addWidget(self.rolePaneTitle, 3)
             self.candidatePaneTitle = QLabel("Candidates for Selected Role", self)
             self.candidatePaneTitle.setObjectName("workspaceHeading")
-            titles.addWidget(self.candidatePaneTitle, 1)
+            titles.addWidget(self.candidatePaneTitle, 7)
             root.insertLayout(1, titles)
 
         self.playerRoleTitle = QLabel("Player Role Assessment", self)

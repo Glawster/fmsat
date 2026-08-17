@@ -100,7 +100,13 @@ def testEvidenceMustOnlyReferenceKnownAttributes(tmp_path: Path) -> None:
 
 
 def testVerifiedEvidenceCanAdoptANewDetectedRole(tmp_path: Path) -> None:
-    service = _serviceCreate(tmp_path)
+    vocabulary = TacticVocabulary()
+    expectedRoleID = max(role.roleID for role in vocabulary.roles.values()) + 1
+    service = RoleKnowledgeService(
+        tmp_path,
+        vocabulary,
+        {"offTheBall", "passing", "vision", "decisions"},
+    )
     evidence = RoleProfileEvidence(
         position="D (C)",
         roleName="Libero.",
@@ -115,10 +121,10 @@ def testVerifiedEvidenceCanAdoptANewDetectedRole(tmp_path: Path) -> None:
         adoptDetectedRole=True,
     )
 
-    assert draft.roleID == 20
+    assert draft.roleID == expectedRoleID
     assert draft.displayName == "Libero."
     assert draft.phase is TacticalPhase.IN_POSSESSION
-    assert service.definitionConfirm(draft).name == "role-020.yaml"
+    assert service.definitionConfirm(draft).name == f"role-{expectedRoleID:03d}.yaml"
 
 
 def testLegacyTextNamedDefinitionRemainsRecognized(tmp_path: Path) -> None:

@@ -13,8 +13,8 @@ from .tacticFormation import (
     FormationExtractResult,
     FormationPhaseLinker,
     PitchZoneClassifier,
-    TacticFormationExtractor,
 )
+from .tacticFormationFm26 import TacticFormationExtractor
 from .tacticLayoutFm26 import TacticLayoutAnchor
 from .tacticLayout import TacticLayoutResult
 from .tacticInstructions import InstructionExtractResult, TacticInstructionExtractor
