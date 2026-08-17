@@ -105,11 +105,12 @@ class TacticVocabulary:
     def capturedRolesAdd(self, definitions: Iterable[object]) -> None:
         """Add confirmed user role definitions to the live OCR vocabulary.
 
-        A persisted role definition may pre-date a role becoming part of the
-        packaged canonical catalogue. In that case its display name or
-        abbreviation already resolves canonically and it must not be added as a
-        second live role identity, otherwise roleNormalize would encounter a
-        duplicate alias such as ``Free Role``.
+        Persisted role IDs were allocated against the catalogue that existed at
+        capture time. Later packaged roles may legitimately reuse one of those
+        old numeric IDs, so identity is checked from the captured display name
+        and abbreviation before trusting a supplied canonical role code. A
+        genuinely distinct captured role receives a collision-free runtime ID;
+        its persisted evidence is not rewritten.
         """
 
         for definition in definitions:
@@ -117,22 +118,37 @@ class TacticVocabulary:
             roleCode = getattr(definition, "roleCode", None)
             if not isinstance(roleID, int) or roleID < 1:
                 continue
-            code = roleCode or f"capturedRole{roleID}"
-            if code in self.roles:
-                continue
             abbreviations = tuple(getattr(definition, "abbreviations", ()))
             positions = tuple(getattr(definition, "positions", ()))
-            displayName = str(getattr(definition, "displayName", code))
+            displayName = str(getattr(definition, "displayName", f"capturedRole{roleID}"))
             if not abbreviations:
                 continue
 
             observedAliases = (displayName, *tuple(str(value) for value in abbreviations))
-            if any(self.roleNormalize(alias).resolved for alias in observedAliases):
+            canonicalMatches = {
+                normalized.value
+                for alias in observedAliases
+                if (normalized := self.roleNormalize(alias)).resolved
+            }
+            if len(canonicalMatches) == 1:
+                canonicalCode = next(iter(canonicalMatches))
+                if roleCode is None or roleCode == canonicalCode:
+                    continue
+
+            code = roleCode or f"capturedRole{roleID}"
+            if code in self.roles:
+                code = f"capturedRole{roleID}"
+            if code in self.roles:
                 continue
+
+            usedRoleIDs = {role.roleID for role in self.roles.values()}
+            runtimeRoleID = roleID
+            if runtimeRoleID in usedRoleIDs:
+                runtimeRoleID = max(usedRoleIDs, default=0) + 1
 
             self.roles[code] = RoleDefinition(
                 code=code,
-                roleID=roleID,
+                roleID=runtimeRoleID,
                 displayName=displayName,
                 abbreviations=tuple(str(value).upper() for value in abbreviations),
                 aliases=(),
