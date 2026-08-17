@@ -166,20 +166,6 @@ class TacticDetailView(QWidget):
     ## utilities
 
     @staticmethod
-    def _factCardCreate(label: str, value: str) -> QFrame:
-        card = QFrame()
-        card.setObjectName("factCard")
-        layout = QVBoxLayout(card)
-        key = QLabel(label)
-        key.setObjectName("factKey")
-        layout.addWidget(key)
-        fact = QLabel(value)
-        fact.setObjectName("factValue")
-        fact.setWordWrap(True)
-        layout.addWidget(fact)
-        return card
-
-    @staticmethod
     def _styleLoad() -> str:
         return files("fmsat.app").joinpath("fmsat.qss").read_text(encoding="utf-8")
 
