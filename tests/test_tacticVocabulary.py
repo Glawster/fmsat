@@ -123,14 +123,40 @@ def testUnknownVocabularyDoesNotInventMeaning() -> None:
     assert value.resolved is False
 
 
-def testCapturedRoleDefinitionExtendsLiveOcrVocabulary() -> None:
+def testCapturedRoleDefinitionExtendsLiveOcrVocabularyBySemanticCode() -> None:
     vocabulary = TacticVocabulary()
-    vocabulary.capturedRolesAdd((SimpleNamespace(roleID=31, roleCode=None, displayName="Advanced Wing-Back", abbreviations=("AWB",), positions=("WBL", "WBR")),))
+    vocabulary.capturedRolesAdd((
+        SimpleNamespace(
+            roleCode="advancedWingBack",
+            displayName="Advanced Wing-Back",
+            abbreviations=("AWB",),
+            positions=("WBL", "WBR"),
+        ),
+    ))
 
     value = vocabulary.roleNormalize("AWB")
 
-    assert value.value == "capturedRole31"
+    assert value.value == "advancedWingBack"
     assert value.observedText == "AWB"
+
+
+def testLegacyNumericCollisionDoesNotChangeCapturedRoleIdentity() -> None:
+    """A stale numeric ID cannot turn TAM into whichever role later received that ID."""
+
+    vocabulary = TacticVocabulary()
+    vocabulary.capturedRolesAdd((
+        SimpleNamespace(
+            roleID=20,
+            roleCode="trackingAttackingMidfielder",
+            displayName="Tracking Attacking Midfielder",
+            abbreviations=("TAM",),
+            positions=("AMC",),
+        ),
+    ))
+
+    assert vocabulary.roleNormalize("TAM").value == "trackingAttackingMidfielder"
+    assert vocabulary.roleNormalize("Tracking Attacking Midfielder").value == "trackingAttackingMidfielder"
+    assert vocabulary.roleNormalize("FR").value == "freeRole"
 
 
 def testCapturedRoleAlreadyCanonicalDoesNotDuplicateAlias() -> None:
@@ -140,37 +166,19 @@ def testCapturedRoleAlreadyCanonicalDoesNotDuplicateAlias() -> None:
     vocabulary.capturedRolesAdd((
         SimpleNamespace(
             roleID=20,
-            roleCode=None,
+            roleCode="freeRole",
             displayName="Free Role",
             abbreviations=("FR",),
             positions=("AMC",),
         ),
     ))
 
-    assert "capturedRole20" not in vocabulary.roles
     assert vocabulary.roleNormalize("Free Role").value == "freeRole"
     assert vocabulary.roleNormalize("FR").value == "freeRole"
 
 
-def testCapturedRoleSurvivesLaterCanonicalRoleIdCollision() -> None:
-    """An old captured role must not become a different packaged role just because IDs collide."""
-
-    vocabulary = TacticVocabulary()
-    vocabulary.capturedRolesAdd((
-        SimpleNamespace(
-            roleID=20,
-            roleCode="freeRole",
-            displayName="Tracking Attacking Midfielder",
-            abbreviations=("TAM",),
-            positions=("AMC",),
-        ),
-    ))
-
-    value = vocabulary.roleNormalize("TAM")
-
-    assert value.value == "capturedRole20"
-    assert vocabulary.roles["capturedRole20"].displayName == "Tracking Attacking Midfielder"
-    assert vocabulary.roles["capturedRole20"].roleID != 20
+def testRoleCodeIsDerivedFromRoleNameNotNumericSequence() -> None:
+    assert TacticVocabulary.roleCodeCreate("Tracking Attacking Midfielder", "TAM") == "trackingAttackingMidfielder"
 
 
 def testRoleProfileEvidenceSeparatesKeyAttributesFromPlayerValues() -> None:
