@@ -37,47 +37,57 @@ Operational baseline delivered:
 - integrity-gated football object-model generation;
 - model freshness and regeneration;
 - missing-role detection;
-- user-reviewed factual role definitions; and
+- user-reviewed factual role definitions;
+- OCR-role to tactical-vocabulary consistency checking; and
 - a model-backed tactic viewer.
 
-Remaining Phase 3 work is non-blocking for the squad-viewer start:
+The current FM26 reference tactic regenerates with 11 In Possession and 11 Out Of
+Possession roles, including canonical SS, HB and DDM handling.
 
-- structured-tactic correction and diagnostic CLI completion under requirement
-  006;
+Remaining Phase 3 work is non-blocking for squad assessment:
+
+- structured-tactic correction and diagnostic CLI completion under requirement 006;
 - immutable revision history and comparison under requirement 009; and
-- the assessment-policy portion of requirement 010, which will be delivered as
-  the squad assessment consumes it.
+- broader role/position knowledge and tactical modifiers under requirement 010.
 
 ## Phase 4 — Squad assessment
 
 Current development phase.
 
-Delivered squad-viewer foundation:
+### 007A — Generic Role Fit foundation — complete
+
+Delivered:
 
 - a squad viewer using the tactic viewer's visual language;
-- explicit squad, tactic revision and knowledge-version context;
-- Overview, Players and Roles views;
-- configuration-driven Generic Role Fit;
-- reproducible score explanations and unavailable states; and
-- initial starter, backup and uncovered-role assessment.
+- Overview, Players, Roles and Analysis views;
+- complete, versioned Generic Role Fit weights for every canonical tactic role;
+- deterministic all-player role calculations;
+- transparent weighted contribution traces;
+- explicit `Unavailable` states for incomplete evidence;
+- role/candidate browsing and player-role assessment;
+- initial required-role depth and squad findings;
+- common QSS-owned dropdown styling; and
+- surname-sorted player selection displayed as `Surname, Firstname`.
 
-Current Generic Role Fit analysis increment:
+### 007B — Role-depth and player-role analysis — next
 
-- complete, versioned weights for every canonical tactic role;
-- consistent all-player/all-role calculation;
-- required-role depth and uncovered roles;
-- player best and alternative roles;
-- weak positions, concentrated role duplication and unused squad strengths;
-- transparent weighted contribution traces; and
-- explicit unavailable states for incomplete evidence.
+The next increment will refine the existing Analysis tab around:
+
+- the complete all-player/all-role matrix;
+- unique-player assignment across simultaneous required tactical slots;
+- best candidate, backup and uncovered roles;
+- each player's best and alternative roles;
+- weak positions, concentrated role duplication and unused squad strengths; and
+- transparent evidence for every score and finding.
 
 Later increments:
 
 - Tactical Fit and Position Familiarity;
 - Overall Suitability;
+- competition-level role attribute benchmarks once an evidence model exists;
 - candidate comparison;
 - Role Health;
-- squad depth and Best XI; and
+- Best XI; and
 - recruitment analysis built on confirmed assessment results.
 
 ## Future
