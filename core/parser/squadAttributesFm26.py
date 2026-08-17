@@ -29,12 +29,71 @@ class SquadAttributesParser(_BaseSquadAttributesParser):
         )
         if composite is not None:
             return composite
-        return super()._attributeHeaderFind(
+
+        direct = super()._attributeHeaderFind(
             results,
             attributeName,
             headerY,
             tolerance,
             minimumX,
+        )
+        if direct is not None:
+            return direct
+
+        if attributeName == "first_touch":
+            return self._firstTouchHeaderInfer(
+                results,
+                headerY,
+                tolerance,
+                minimumX,
+            )
+        return None
+
+    def _firstTouchHeaderInfer(
+        self,
+        results: list[OcrResult],
+        headerY: float,
+        tolerance: float,
+        minimumX: float,
+    ) -> OcrResult | None:
+        """Infer First Touch between Finishing and Heading when OCR drops its label."""
+
+        finishing = super()._attributeHeaderFind(
+            results,
+            "finishing",
+            headerY,
+            tolerance,
+            minimumX,
+        )
+        heading = super()._attributeHeaderFind(
+            results,
+            "heading",
+            headerY,
+            tolerance,
+            minimumX,
+        )
+        if (
+            finishing is None
+            or heading is None
+            or finishing.center is None
+            or heading.center is None
+            or heading.center[0] <= finishing.center[0]
+        ):
+            return None
+
+        centerX = (finishing.center[0] + heading.center[0]) / 2
+        gap = heading.center[0] - finishing.center[0]
+        halfWidth = max(4.0, gap * 0.18)
+        halfHeight = max(4.0, tolerance * 0.25)
+        return OcrResult(
+            "First Touch (inferred)",
+            min(finishing.confidence, heading.confidence),
+            (
+                centerX - halfWidth,
+                headerY - halfHeight,
+                centerX + halfWidth,
+                headerY + halfHeight,
+            ),
         )
 
     def _compositeHeaderFind(
