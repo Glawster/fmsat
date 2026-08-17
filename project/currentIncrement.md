@@ -22,6 +22,17 @@ player must not be allocated to more than one required slot in the same assignme
 - Supporting ADRs: None
 - Milestone / Roadmap: requirement 007B role-depth and player-role analysis
 
+## Role Identity Contract
+
+- `roleCode` is the durable semantic identity used by OCR normalization, persisted role
+  knowledge and Generic Role Fit policy lookup.
+- Football Manager abbreviations, display names and OCR aliases resolve to `roleCode`; they
+  are evidence and presentation values rather than persistence keys.
+- Historical numeric `roleID` values are compatibility/surrogate metadata only and must never
+  decide which role a captured definition represents.
+- Legacy role files that pre-date `roleCode` are resolved from their confirmed display name
+  and abbreviation before any numeric metadata is considered.
+
 ## Scope
 
 - Calculate Generic Role Fit consistently for every available player/role combination where
@@ -48,6 +59,8 @@ player must not be allocated to more than one required slot in the same assignme
 
 ## In-Progress Tasks
 
+- [x] Make semantic `roleCode` the role identity used for captured-role reconciliation and
+  Generic Role Fit policy lookup; retain numeric IDs only for legacy compatibility.
 - [ ] Confirm the all-player/all-role matrix is complete and consistently filtered by role
   positional eligibility.
 - [ ] Implement unique-player assignment across simultaneous required tactical slots.
@@ -62,10 +75,14 @@ player must not be allocated to more than one required slot in the same assignme
 ## Relevant Files & Components
 
 - `config/roleAssessment.yaml`
+- `core/parser/tacticVocabulary.py`
+- `core/roleKnowledge.py`
 - `core/squadAssessment.py`
 - `app/squadDetailModel.py`
 - `app/squadDetailTabOverrides.py`
 - `app/squadDetailView.py`
+- `tests/test_roleKnowledge.py`
+- `tests/test_tacticVocabulary.py`
 - `tests/test_squadAssessment.py`
 - `tests/test_squadPresentationRefinements.py`
 - `project/roadmap.md`
@@ -89,6 +106,10 @@ Then review the current reference squad against its assigned tactic and confirm:
 6. missing evidence remains `Unavailable`; and
 7. every displayed score/finding has a transparent calculation/evidence explanation.
 
+For role migration specifically, regenerate `Libero1974` and confirm historical captured roles
+such as TAM resolve from their confirmed name/abbreviation even when an old numeric `roleID`
+collides with a newer packaged catalogue role.
+
 ## Definition of Done
 
 - Every required tactical slot has a best candidate, backup or explicit uncovered state.
@@ -96,6 +117,7 @@ Then review the current reference squad against its assigned tactic and confirm:
 - Every player has a best/alternative role result where evidence permits.
 - Weak positions, duplication and unused strengths are derived from the same explicit role-fit
   evidence.
+- Role identity is semantic (`roleCode`), never inferred from numeric sequence allocation.
 - No Best XI, Tactical Fit or recruitment judgement is introduced by this increment.
 - The full automated suite passes.
 
