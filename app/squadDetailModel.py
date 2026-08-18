@@ -349,7 +349,7 @@ def _playerNamesReplace(text: str, displayNames: dict[str, str]) -> str:
     ):
         rendered = rendered.replace(storedName, displayName)
     return re.sub(
-        r"(?<=[A-Za-zÀ-ÖØ-öø-ÿ.'-]), (?=[A-ZÀ-ÖØ-Þ][^,.;:]+,)",
-        "; ",
+        r"([A-ZÀ-ÖØ-Þ][^,;:.]+, [^,;:.]+), (?=[A-ZÀ-ÖØ-Þ][^,;:.]+, )",
+        r"\1; ",
         rendered,
     )
