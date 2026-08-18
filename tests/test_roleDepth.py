@@ -42,12 +42,20 @@ def _role(
     )
 
 
-def _position(slotId: str, roleCode: str, position: str):
+def _position(
+    slotId: str | None,
+    roleCode: str,
+    position: str,
+    x: float | None = None,
+    y: float | None = None,
+):
     return SimpleNamespace(
         slotId=slotId,
         canonicalRole=roleCode,
         canonicalPosition=position,
         identity=SimpleNamespace(value=position),
+        x=x,
+        y=y,
     )
 
 
@@ -165,20 +173,10 @@ def testRoleDepthIsUnavailableWhenSlotLinkageEvidenceIsMissing() -> None:
     role = _role("role", "Role", "R", {"Alpha": 80.0})
     tactic = SimpleNamespace(
         inPossession=SimpleNamespace(
-            positions=(SimpleNamespace(
-                slotId=None,
-                canonicalRole="role",
-                canonicalPosition="AMC",
-                identity=SimpleNamespace(value="AMC"),
-            ),)
+            positions=(_position(None, "role", "AMC"),)
         ),
         outOfPossession=SimpleNamespace(
-            positions=(SimpleNamespace(
-                slotId=None,
-                canonicalRole="role",
-                canonicalPosition="MC",
-                identity=SimpleNamespace(value="MC"),
-            ),)
+            positions=(_position(None, "role", "MC"),)
         ),
     )
 
@@ -188,6 +186,66 @@ def testRoleDepthIsUnavailableWhenSlotLinkageEvidenceIsMissing() -> None:
     assert depth[0].bestCandidate is None
     assert depth[0].uncovered
     assert "slot linkage is unavailable" in depth[0].unavailableReason
+
+
+def testRoleDepthRecoversGloballyUnambiguousSpatialLinkage() -> None:
+    """Regenerated phase slots can recover linkage from unique global geometry."""
+
+    roles = {
+        "leftIn": _role("leftIn", "Left In", "LI", {"Alpha": 80.0, "Bravo": 70.0}),
+        "rightIn": _role("rightIn", "Right In", "RI", {"Alpha": 70.0, "Bravo": 80.0}),
+        "leftOut": _role("leftOut", "Left Out", "LO", {"Alpha": 80.0, "Bravo": 70.0}),
+        "rightOut": _role("rightOut", "Right Out", "RO", {"Alpha": 70.0, "Bravo": 80.0}),
+    }
+    tactic = SimpleNamespace(
+        inPossession=SimpleNamespace(
+            positions=(
+                _position("ip-left", "leftIn", "AML", 0.20, 0.30),
+                _position("ip-right", "rightIn", "AMR", 0.80, 0.30),
+            )
+        ),
+        outOfPossession=SimpleNamespace(
+            positions=(
+                _position("oop-right", "rightOut", "MR", 0.78, 0.46),
+                _position("oop-left", "leftOut", "ML", 0.22, 0.46),
+            )
+        ),
+    )
+
+    depth = RoleDepthService("phaseMean").depthBuild(tactic, roles)
+
+    assert len(depth) == 2
+    assert [tuple(role.roleCode for role in slot.roles) for slot in depth] == [
+        ("leftIn", "leftOut"),
+        ("rightIn", "rightOut"),
+    ]
+    assert all(slot.slotId.startswith("spatial:") for slot in depth)
+
+
+def testRoleDepthRejectsAmbiguousSpatialLinkage() -> None:
+    """Spatial recovery must remain unavailable when two complete mappings are equivalent."""
+
+    role = _role("role", "Role", "R", {"Alpha": 80.0})
+    tactic = SimpleNamespace(
+        inPossession=SimpleNamespace(
+            positions=(
+                _position("ip-a", "role", "MC", 0.40, 0.40),
+                _position("ip-b", "role", "MC", 0.60, 0.40),
+            )
+        ),
+        outOfPossession=SimpleNamespace(
+            positions=(
+                _position("oop-a", "role", "MC", 0.50, 0.50),
+                _position("oop-b", "role", "MC", 0.50, 0.50),
+            )
+        ),
+    )
+
+    depth = RoleDepthService("phaseMean").depthBuild(tactic, {"role": role})
+
+    assert len(depth) == 2
+    assert all(slot.bestCandidate is None for slot in depth)
+    assert all("slot linkage is unavailable" in slot.unavailableReason for slot in depth)
 
 
 def testRoleDepthIsUnavailableWithoutExplicitAggregationPolicy() -> None:
