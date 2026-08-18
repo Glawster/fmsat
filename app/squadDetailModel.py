@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from fmsat.app.presentation import playerNameDisplay
+from fmsat.app.presentation import playerNameDisplay, rolePositionSortKey
 from fmsat.core.squadAssessment import SquadAssessment
 from fmsat.core.squadModel import SquadModel
 
@@ -80,7 +80,7 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
                 for role in assessment.roles
                 if not role.roleCode.startswith("capturedRole")
             ),
-            key=_rolePositionSortKey,
+            key=rolePositionSortKey,
         )
     )
     catalogueSource = assessment.allRoles or assessment.roles
@@ -252,46 +252,3 @@ def _playerNamesReplace(text: str, displayNames: dict[str, str]) -> str:
     ):
         rendered = rendered.replace(storedName, displayName)
     return rendered
-
-
-def _rolePositionSortKey(role) -> tuple[int, int, str, str]:
-    """Order roles from forwards back through midfield and defence to goalkeeper."""
-
-    positionKeys = [_positionSortKey(position) for position in role.positions]
-    line, side = min(positionKeys, default=(6, 3))
-    return line, side, role.displayName.casefold(), role.roleCode.casefold()
-
-
-def _positionSortKey(position: str) -> tuple[int, int]:
-    compact = (
-        position.upper()
-        .replace(" ", "")
-        .replace("(", "")
-        .replace(")", "")
-    )
-    if compact.startswith("ST"):
-        line = 0
-    elif compact.startswith("AM"):
-        line = 1
-    elif compact.startswith("M") and not compact.startswith("AM"):
-        line = 2
-    elif compact.startswith("DM"):
-        line = 3
-    elif compact.startswith("WB") or (
-        compact.startswith("D") and not compact.startswith("DM")
-    ):
-        line = 4
-    elif compact == "GK":
-        line = 5
-    else:
-        line = 6
-    side = (
-        0
-        if compact.endswith("L")
-        else 1
-        if compact.endswith("C")
-        else 2
-        if compact.endswith("R")
-        else 3
-    )
-    return line, side
