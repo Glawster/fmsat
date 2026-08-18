@@ -21,8 +21,22 @@ class SquadAnalysisTab(BaseSquadAnalysisTab):
     ) -> None:
         # The base class still owns the dashboard composition and companion analysis tables.
         super().__init__(model, attributes, requiredRows, parent)
+        self._playerStrengthsSimplify()
         if model.requiredSlots:
             self._slotDepthPopulate(model)
+
+    def _playerStrengthsSimplify(self) -> None:
+        """Keep Analysis conclusion-focused; detailed weighting remains on the Roles tab."""
+
+        # Score breakdown is valuable evidence, but the Roles workspace already exposes it
+        # in detail. Analysis should prioritise role conclusions and squad-level patterns.
+        if self.playerTable.columnCount() >= 5:
+            self.playerTable.removeColumn(3)
+        header = self.playerTable.horizontalHeader()
+        for column in range(min(3, self.playerTable.columnCount())):
+            header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
+        if self.playerTable.columnCount() >= 4:
+            header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
 
     def _slotDepthPopulate(self, model: SquadDetailModel) -> None:
         """Render hidden-position-ordered IP/OOP roles with primary and backup assignments."""
