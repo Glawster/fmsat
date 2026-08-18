@@ -60,10 +60,14 @@ def testCandidateRowsExposePlayersBestAvailableRole() -> None:
 def testUnavailableEvidenceIsNotRepeatedAsWeakPositionFinding() -> None:
     """Required Role Depth already carries unavailable evidence; findings should not duplicate it."""
 
-    player = SquadModelPlayer("Ada Player", "M (C)", "", "", 0.9, ())
+    players = (
+        SquadModelPlayer("Ada Player", "M (C)", "", "", 0.9, ()),
+        SquadModelPlayer("Bea Example", "D (C)", "", "", 0.9, ()),
+        SquadModelPlayer("Cara Sample", "D (C)", "", "", 0.9, ()),
+    )
     squad = SquadModel(
         "First Team",
-        (player,),
+        players,
         datetime(2026, 8, 18),
         datetime(2026, 8, 18),
         False,
