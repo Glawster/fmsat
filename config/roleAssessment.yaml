@@ -76,3 +76,5 @@ roles:
     attributeWeights: {positioning: 5, anticipation: 5, tackling: 4, marking: 4, passing: 4, decisions: 4, teamwork: 4, concentration: 4, composure: 3, strength: 3}
   deepDefensiveMidfielder:
     attributeWeights: {positioning: 5, tackling: 5, marking: 4, anticipation: 4, concentration: 4, decisions: 4, teamwork: 4, strength: 4, passing: 3, composure: 3}
+  trackingAttackingMidfielder:
+    attributeWeights: {work_rate: 5, stamina: 5, teamwork: 5, positioning: 4, anticipation: 4, marking: 4, decisions: 4, tackling: 3, acceleration: 3, off_the_ball: 3}
