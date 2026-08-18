@@ -38,6 +38,8 @@ class RoleDisplay:
     phases: str
     coverage: str
     candidates: tuple[CandidateDisplay, ...]
+    resolutionState: str = "ready"
+    resolutionReason: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,7 +132,7 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
         for player in assessment.squad.players
     }
 
-    roles = []
+    roles: list[RoleDisplay] = []
     for role in visibleRoles:
         candidates = []
         for candidate in role.candidates:
@@ -158,6 +160,23 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
                     available=fit.available,
                 )
             )
+
+        abbreviation = roleAbbreviationDisplay(role.roleCode, role.abbreviation)
+        resolutionState = "ready"
+        resolutionReason = ""
+        if abbreviation == "Unknown":
+            resolutionState = "missingAbbreviation"
+            resolutionReason = "The role identity is known but its abbreviation is not confirmed."
+        elif role.candidates and all(
+            candidate.genericRoleFit.score is None
+            and "assessment weights" in (
+                candidate.genericRoleFit.unavailableReason or ""
+            ).casefold()
+            for candidate in role.candidates
+        ):
+            resolutionState = "missingWeights"
+            resolutionReason = "No assessment weights are defined for this role."
+
         if role.uncovered:
             coverage = "Uncovered — no player has a calculable role fit"
         elif role.backupCandidate is None:
@@ -174,13 +193,72 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
             RoleDisplay(
                 roleCode=role.roleCode,
                 displayName=role.displayName,
-                abbreviation=roleAbbreviationDisplay(role.roleCode, role.abbreviation),
+                abbreviation=abbreviation,
                 positions=", ".join(role.positions),
                 phases=", ".join(role.phases),
                 coverage=coverage,
                 candidates=tuple(candidates),
+                resolutionState=resolutionState,
+                resolutionReason=resolutionReason,
             )
         )
+
+    # Required Role Depth retains phase roles that do not yet have assessment
+    # evidence. Surface those roles in the Roles tab as first-class knowledge
+    # gaps so every Unknown shown in Analysis has somewhere actionable to go.
+    knownRoleCodes = {role.roleCode for role in roles}
+    unresolved: dict[str, dict[str, object]] = {}
+    for slot in assessment.requiredSlots:
+        for requirement in slot.roles:
+            roleCode = str(requirement.roleCode or "").strip()
+            if (
+                not roleCode
+                or roleCode.startswith("capturedRole")
+                or roleCode in knownRoleCodes
+            ):
+                continue
+            entry = unresolved.setdefault(
+                roleCode,
+                {
+                    "displayName": _roleCodeDisplay(roleCode, requirement.displayName),
+                    "positions": [],
+                    "phases": [],
+                },
+            )
+            positions = entry["positions"]
+            phases = entry["phases"]
+            if isinstance(positions, list) and slot.position not in positions:
+                positions.append(slot.position)
+            if isinstance(phases, list) and requirement.phase not in phases:
+                phases.append(requirement.phase)
+
+    for roleCode, entry in unresolved.items():
+        positions = tuple(str(value) for value in entry["positions"])
+        phases = tuple(str(value) for value in entry["phases"])
+        roles.append(
+            RoleDisplay(
+                roleCode=roleCode,
+                displayName=str(entry["displayName"]),
+                abbreviation="Unknown",
+                positions=", ".join(positions),
+                phases=", ".join(phases),
+                coverage="Unavailable — role definition is not confirmed",
+                candidates=(),
+                resolutionState="unknownRole",
+                resolutionReason=(
+                    f"Role code {roleCode} is required by the tactic but has no confirmed "
+                    "role assessment evidence."
+                ),
+            )
+        )
+
+    roles.sort(
+        key=lambda role: (
+            *positionSortKey(role.positions.split(",", 1)[0].strip()),
+            role.displayName.casefold(),
+            role.roleCode.casefold(),
+        )
+    )
 
     catalogueFits = {
         (role.roleCode, candidate.player.name.casefold()): candidate.genericRoleFit
@@ -276,11 +354,21 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
     )
 
 
+def _roleCodeDisplay(roleCode: str, displayName: str) -> str:
+    """Turn unresolved semantic role identity into readable UI text without guessing."""
+
+    candidate = displayName.strip()
+    if candidate and candidate.casefold() != roleCode.casefold():
+        return candidate
+    spaced = re.sub(r"(?<!^)(?=[A-Z])", " ", roleCode.replace("_", " "))
+    return " ".join(spaced.split()).title()
+
+
 def _requiredSlotDisplay(slot) -> RequiredSlotDisplay:
     """Render one slot with phase roles and candidates who satisfy both phases."""
 
     phaseRoles = {
-        role.phase: roleAbbreviationDisplay(role.roleCode or "", role.abbreviation)
+        role.phase: _slotRoleLabel(role)
         for role in slot.roles
     }
     primary, primaryEvidence = _slotCandidateDisplay(slot, slot.bestCandidate)
@@ -307,6 +395,23 @@ def _requiredSlotDisplay(slot) -> RequiredSlotDisplay:
         primaryEvidence=primaryEvidence,
         backupEvidence=backupEvidence,
     )
+
+
+def _slotRoleLabel(role) -> str:
+    """Distinguish unresolved role identity from a missing abbreviation."""
+
+    if role.roleCode is None:
+        return "Unknown role"
+    roleCode = str(role.roleCode)
+    displayName = str(role.displayName or "")
+    abbreviation = str(role.abbreviation or "")
+    if (
+        displayName.casefold() == roleCode.casefold()
+        and abbreviation.casefold() == roleCode.casefold()
+    ):
+        return "Unknown role"
+    rendered = roleAbbreviationDisplay(roleCode, abbreviation)
+    return "Unknown abbreviation" if rendered == "Unknown" else rendered
 
 
 def _slotCandidateDisplay(slot, playerName: str | None) -> tuple[str, str]:
