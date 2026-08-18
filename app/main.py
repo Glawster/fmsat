@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from importlib.resources import files
 from pathlib import Path
 
 from fmsat.core.logUtils import getApplicationLogDir, getLogger
@@ -40,6 +41,9 @@ def main() -> int:
     application = QApplication(sys.argv)
     application.setApplicationName("FMSAT")
     application.setOrganizationName("FMSAT")
+    application.setStyleSheet(
+        files("fmsat.app").joinpath("fmsat.qss").read_text(encoding="utf-8")
+    )
     try:
         dataPaths = persistentDataPrepare(projectRoot)
         logger.value("persistent data directory", dataPaths.directory)
