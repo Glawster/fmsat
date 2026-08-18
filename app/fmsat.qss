@@ -75,3 +75,102 @@ QTabBar::tab:selected { color: #239b78; border-bottom-color: #31b98f; }
 QScrollArea { background: transparent; }
 QScrollArea#validationIssueScroll { background: #0c1926; border: 1px solid #203548; }
 QWidget#validationIssueContent { background: #0c1926; }
+
+/* Focused player editor */
+QDialog#playerEditorDialog { background: #08131f; color: #e8eef5; }
+QDialog#playerEditorDialog QLabel#playerEditorContext { color: #8fa3b8; padding: 0 2px 2px 2px; }
+QDialog#playerEditorDialog QGroupBox#playerEditorSection {
+    background: #0c1926;
+    border: 1px solid #263b4e;
+    border-radius: 8px;
+    margin-top: 10px;
+    padding-top: 7px;
+    font-weight: 700;
+    color: #d9e5ef;
+}
+QDialog#playerEditorDialog QGroupBox#playerEditorSection::title {
+    subcontrol-origin: margin;
+    left: 11px;
+    padding: 0 5px;
+    color: #56d6b0;
+}
+QDialog#playerEditorDialog QLineEdit {
+    background: #101f2e;
+    color: #f5f8fb;
+    border: 1px solid #30465a;
+    border-radius: 6px;
+    padding: 7px 9px;
+    min-height: 19px;
+}
+QDialog#playerEditorDialog QLineEdit:focus { border-color: #56d6b0; }
+QDialog#playerEditorDialog QLabel#playerEvidenceStatus {
+    background: #163b38;
+    color: #75e0bf;
+    border: 1px solid #28675e;
+    border-radius: 8px;
+    padding: 3px 8px;
+    font-weight: 700;
+}
+QScrollArea#playerAttributeScroll { background: #101f2e; border: 0; }
+QWidget#playerAttributeContainer { background: #101f2e; }
+QLabel#playerAttributeLabel { color: #8fa3b8; font-weight: 700; min-width: 28px; }
+QSpinBox#playerAttributeInput {
+    background: #0c1926;
+    color: #f5f8fb;
+    border: 1px solid #30465a;
+    border-radius: 5px;
+    padding: 5px 7px;
+    min-height: 20px;
+}
+QSpinBox#playerAttributeInput:focus { border-color: #56d6b0; }
+QSpinBox#playerAttributeInput::up-button, QSpinBox#playerAttributeInput::down-button {
+    background: #132536;
+    border: 0;
+    border-left: 1px solid #30465a;
+    width: 18px;
+}
+QLabel#playerTraitsSummary {
+    background: #101f2e;
+    color: #d9e5ef;
+    border: 1px solid #263b4e;
+    border-radius: 6px;
+    padding: 8px 10px;
+}
+QDialog#playerEditorDialog QPushButton#primaryButton,
+QDialog#playerTraitDialog QPushButton {
+    background: #31b98f;
+    color: #061510;
+    border: 1px solid #31b98f;
+    border-radius: 7px;
+    padding: 8px 14px;
+    font-weight: 700;
+}
+QDialog#playerEditorDialog QPushButton#primaryButton:hover,
+QDialog#playerTraitDialog QPushButton:hover {
+    background: #56d6b0;
+    border-color: #56d6b0;
+}
+QDialog#playerEditorDialog QPushButton#secondaryButton {
+    background: #132536;
+    color: #d9e5ef;
+    border: 1px solid #30465a;
+    border-radius: 7px;
+    padding: 8px 14px;
+    font-weight: 700;
+}
+QDialog#playerEditorDialog QPushButton#secondaryButton:hover {
+    background: #1a3044;
+    border-color: #56d6b0;
+    color: #f5f8fb;
+}
+
+/* Known-traits chooser */
+QDialog#playerTraitDialog { background: #08131f; color: #e8eef5; }
+QDialog#playerTraitDialog QLineEdit { margin-bottom: 3px; }
+QDialog#playerTraitDialog QCheckBox { color: #d9e5ef; spacing: 8px; padding: 3px 0; }
+QDialog#playerTraitDialog QTreeWidget#playerTraitList {
+    background: #0c1926;
+    border: 1px solid #30465a;
+    border-radius: 6px;
+}
+QDialog#playerTraitDialog QTreeWidget#playerTraitList::item { min-height: 26px; padding: 4px 6px; }
