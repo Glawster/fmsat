@@ -5,19 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import (
-    QApplication,
-    QHBoxLayout,
-    QLabel,
-    QMainWindow,
-    QMessageBox,
-    QPushButton,
-    QScrollArea,
-    QVBoxLayout,
-    QWidget,
-)
-from PySide6.QtGui import QResizeEvent
+from PySide6.QtGui import QPixmap, QResizeEvent
+from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox, QWidget
+
+from fmsat.app.ui.generated.ui_screenshotWindow import Ui_ScreenshotWindow
 
 
 class ScreenshotWindow(QMainWindow):
@@ -31,27 +22,14 @@ class ScreenshotWindow(QMainWindow):
             raise ValueError(f"Unable to open screenshot: {path}")
         self.fitEnabled = True
         self.setWindowTitle(f"FMSAT source screenshot — {path.name}")
-        self.resize(900, 650)
 
-        content = QWidget(self)
-        layout = QVBoxLayout(content)
-        self.imageLabel = QLabel()
-        self.imageLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.scrollArea = QScrollArea()
-        self.scrollArea.setWidget(self.imageLabel)
-        self.scrollArea.setWidgetResizable(True)
-        layout.addWidget(self.scrollArea)
-
-        buttons = QHBoxLayout()
-        buttons.addStretch()
-        self.sizeButton = QPushButton("Actual size")
+        self.ui = Ui_ScreenshotWindow()
+        self.ui.setupUi(self)
+        self.imageLabel = self.ui.image_label
+        self.scrollArea = self.ui.scroll_area
+        self.sizeButton = self.ui.size_button
         self.sizeButton.clicked.connect(self._sizeToggle)
-        buttons.addWidget(self.sizeButton)
-        closeButton = QPushButton("Close")
-        closeButton.clicked.connect(self.close)
-        buttons.addWidget(closeButton)
-        layout.addLayout(buttons)
-        self.setCentralWidget(content)
+        self.ui.close_button.clicked.connect(self.close)
         self._imageRefresh()
 
     @classmethod
@@ -76,7 +54,7 @@ class ScreenshotWindow(QMainWindow):
         viewer.show()
         return viewer
 
-    def resizeEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+    def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
         if self.fitEnabled:
             self._imageRefresh()

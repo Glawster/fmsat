@@ -83,9 +83,7 @@ class PositionRoleGroup(QWidget):
         self.summaryButton.setObjectName("positionSummaryButton")
         self.summaryButton.setProperty("position", position)
         roleLabel = "role" if roleCount == 1 else "roles"
-        self.summaryButton.setText(
-            f"{self._positionLabel(position)} — {roleCount} {roleLabel}"
-        )
+        self.summaryButton.setText(f"{self._positionLabel(position)} — {roleCount} {roleLabel}")
         self.summaryButton.setCheckable(True)
         self.summaryButton.setChecked(False)
         self.summaryButton.setArrowType(Qt.ArrowType.NoArrow)
@@ -526,9 +524,8 @@ class WelcomeView(QWidget):
             return
         for record in records:
             detail = f"Formation not recorded · {record.captureCount} captures"
-            needsProcessing = (
-                record.captureCount > 0
-                and not getattr(record, "hasObjectModelData", False)
+            needsProcessing = record.captureCount > 0 and not getattr(
+                record, "hasObjectModelData", False
             )
             self._summaryAdd(
                 record.name,

@@ -176,9 +176,7 @@ class TacticDetailView(QWidget):
         footer.addStretch()
         editButton = QPushButton("Edit Model")
         editButton.setObjectName("secondaryButton")
-        editButton.clicked.connect(
-            lambda: self.modelEditRequested.emit(self.tacticName)
-        )
+        editButton.clicked.connect(lambda: self.modelEditRequested.emit(self.tacticName))
         footer.addWidget(editButton)
         self.importToModelButton = QPushButton("Regenerate Model")
         self.importToModelButton.clicked.connect(

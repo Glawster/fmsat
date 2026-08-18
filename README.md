@@ -11,6 +11,7 @@ application.
 ## Documentation
 
 - [Architecture](documentation/architecture.md)
+- [Qt Designer workflow](documentation/qtDesignerWorkflow.md)
 - [Sample screenshot guidance](documentation/sampleScreenshots.md)
 - [Project records and delivery status](project/README.md)
 - [Repository layout](.github/repositoryLayout.md)

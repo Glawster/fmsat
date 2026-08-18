@@ -153,7 +153,11 @@ class RoleProfileReviewDialog(QDialog):
             rowData = {
                 "attribute": attribute,
                 "label": attribute.replace("_", " ").title(),
-                "value": "" if evidence.displayedPlayerAttributes.get(attribute) is None else str(evidence.displayedPlayerAttributes.get(attribute)),
+                "value": (
+                    ""
+                    if evidence.displayedPlayerAttributes.get(attribute) is None
+                    else str(evidence.displayedPlayerAttributes.get(attribute))
+                ),
                 "weight": "" if weights.get(attribute) is None else str(weights.get(attribute)),
                 "importance": "topThree" if row < 3 else importance.get(attribute, ""),
             }
@@ -247,11 +251,19 @@ class RoleProfileReviewDialog(QDialog):
         weightItem = self.attributeTable.item(row, 2)
         importanceCombo = self.attributeTable.cellWidget(row, 3)
         return {
-            "attribute": str(nameItem.data(Qt.ItemDataRole.UserRole) or "").strip() if nameItem is not None else "",
+            "attribute": (
+                str(nameItem.data(Qt.ItemDataRole.UserRole) or "").strip()
+                if nameItem is not None
+                else ""
+            ),
             "label": nameItem.text().strip() if nameItem is not None else "",
             "value": valueItem.text().strip() if valueItem is not None else "",
             "weight": weightItem.text().strip() if weightItem is not None else "",
-            "importance": str(importanceCombo.currentData() or "") if isinstance(importanceCombo, QComboBox) else "",
+            "importance": (
+                str(importanceCombo.currentData() or "")
+                if isinstance(importanceCombo, QComboBox)
+                else ""
+            ),
         }
 
     def _attributeMove(self, offset: int) -> None:
@@ -289,7 +301,9 @@ class RoleProfileReviewDialog(QDialog):
             selectedRow = 0
             if selectedAttribute:
                 for row, rowData in enumerate(rows):
-                    attributeKey = rowData["attribute"] or self._attributeKeyResolve(rowData["label"])
+                    attributeKey = rowData["attribute"] or self._attributeKeyResolve(
+                        rowData["label"]
+                    )
                     if attributeKey == selectedAttribute or rowData["label"] == selectedAttribute:
                         selectedRow = row
                         break
@@ -337,7 +351,9 @@ class RoleProfileReviewDialog(QDialog):
         if not normalizedText:
             return ""
 
-        knownAttributes = {attribute.casefold(): attribute for attribute in self.service.attributeIds}
+        knownAttributes = {
+            attribute.casefold(): attribute for attribute in self.service.attributeIds
+        }
         if normalizedText in knownAttributes:
             return knownAttributes[normalizedText]
 
@@ -455,7 +471,9 @@ class RoleProfileReviewDialog(QDialog):
             return
         self.accept()
 
-    def _expectedPositionResolve(self, detectedPosition: str, normalizedPosition: str) -> str | None:
+    def _expectedPositionResolve(
+        self, detectedPosition: str, normalizedPosition: str
+    ) -> str | None:
         # Preserve strict verification by default, but let reviewers explicitly
         # continue when OCR and tactical expectation disagree.
         result = QMessageBox.question(

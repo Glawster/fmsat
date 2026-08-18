@@ -14,3 +14,9 @@ repos:
         entry: runLinter
         language: python
         types: [python]
+      - id: ui-compile-check
+        name: Qt UI compile check
+        entry: python3 scripts/uiCompile.py --check
+        language: system
+        files: \.ui$
+        pass_filenames: false

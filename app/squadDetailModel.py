@@ -74,19 +74,13 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
 
     visibleRoles = tuple(
         sorted(
-            (
-                role
-                for role in assessment.roles
-                if not role.roleCode.startswith("capturedRole")
-            ),
+            (role for role in assessment.roles if not role.roleCode.startswith("capturedRole")),
             key=_rolePositionSortKey,
         )
     )
     catalogueSource = assessment.allRoles or assessment.roles
     visibleCatalogue = tuple(
-        role
-        for role in catalogueSource
-        if not role.roleCode.startswith("capturedRole")
+        role for role in catalogueSource if not role.roleCode.startswith("capturedRole")
     )
 
     bestRoles: dict[str, tuple[float, str]] = {}
@@ -98,9 +92,10 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
             key = candidate.player.name.casefold()
             current = bestRoles.get(key)
             proposed = (score, role.displayName)
-            if current is None or proposed[0] > current[0] or (
-                proposed[0] == current[0]
-                and proposed[1].casefold() < current[1].casefold()
+            if (
+                current is None
+                or proposed[0] > current[0]
+                or (proposed[0] == current[0] and proposed[1].casefold() < current[1].casefold())
             ):
                 bestRoles[key] = proposed
 
@@ -192,8 +187,7 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
                     if bestFit is not None
                     else player.unavailableReason or "Required data is unavailable"
                 ),
-                alternatives=", ".join(role[2] for role in alternatives)
-                or "Unavailable",
+                alternatives=", ".join(role[2] for role in alternatives) or "Unavailable",
             )
         )
 
@@ -214,9 +208,11 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
         sourceStatus=(
             "Regeneration required — newer squad screenshots exist"
             if assessment.squad.regenerationRequired
-            else "Edited model — screenshots superseded"
-            if assessment.squad.evidenceSuperseded
-            else "Generated from screenshot evidence"
+            else (
+                "Edited model — screenshots superseded"
+                if assessment.squad.evidenceSuperseded
+                else "Generated from screenshot evidence"
+            )
         ),
         updated=assessment.squad.updatedAt.strftime("%d %b %Y %H:%M"),
         requiredPositionCount=assessment.requiredPositionCount,
@@ -236,17 +232,10 @@ def _rolePositionSortKey(role) -> tuple[int, int, str, str]:
 
 
 def _positionSortKey(position: str) -> tuple[int, int]:
-    compact = (
-        position.upper()
-        .replace(" ", "")
-        .replace("(", "")
-        .replace(")", "")
-    )
+    compact = position.upper().replace(" ", "").replace("(", "").replace(")", "")
     if compact == "GK":
         line = 0
-    elif compact.startswith("WB") or (
-        compact.startswith("D") and not compact.startswith("DM")
-    ):
+    elif compact.startswith("WB") or (compact.startswith("D") and not compact.startswith("DM")):
         line = 1
     elif compact.startswith("DM"):
         line = 2
@@ -261,10 +250,6 @@ def _positionSortKey(position: str) -> tuple[int, int]:
     side = (
         0
         if compact.endswith("L")
-        else 1
-        if compact.endswith("C")
-        else 2
-        if compact.endswith("R")
-        else 3
+        else 1 if compact.endswith("C") else 2 if compact.endswith("R") else 3
     )
     return line, side

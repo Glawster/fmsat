@@ -13,7 +13,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-
 adminStyle = """
 QDialog#adminEditDialog, QDialog#adminTextEditDialog {
     background: #ffffff;
@@ -124,8 +123,7 @@ class AdminTextEditDialog(QDialog):
         layout.addWidget(self.editor)
 
         buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok
-            | QDialogButtonBox.StandardButton.Cancel,
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
             parent=self,
         )
         buttons.accepted.connect(self.accept)

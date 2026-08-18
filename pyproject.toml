@@ -50,6 +50,8 @@ fmsat = "fmsat.main:main"
 packages = [
   "fmsat",
   "fmsat.app",
+  "fmsat.app.ui",
+  "fmsat.app.ui.generated",
   "fmsat.config",
   "fmsat.core",
   "fmsat.core.images",

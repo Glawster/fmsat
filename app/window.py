@@ -127,9 +127,7 @@ class MainWindow(QMainWindow):
         self.tacticScreenshotExtractor = TacticScreenshotExtractor(
             database.engine,
             roleDefinitionsProvider=(
-                roleKnowledgeService.definitionsList
-                if roleKnowledgeService is not None
-                else None
+                roleKnowledgeService.definitionsList if roleKnowledgeService is not None else None
             ),
         )
         self.currentResult: ImportResult | None = None
@@ -623,9 +621,7 @@ class MainWindow(QMainWindow):
             loop = QEventLoop(self)
             completionPoll = QTimer(self)
             completionPoll.setInterval(50)
-            completionPoll.timeout.connect(
-                lambda: loop.quit() if future.done() else None
-            )
+            completionPoll.timeout.connect(lambda: loop.quit() if future.done() else None)
             completionPoll.start()
             loop.exec()
             completionPoll.stop()
@@ -702,8 +698,7 @@ class MainWindow(QMainWindow):
                     missing.append("source screenshot")
                 if missing:
                     issues.append(
-                        f"{phase} slot {position.slotId or '<unknown>'} lacks "
-                        + ", ".join(missing)
+                        f"{phase} slot {position.slotId or '<unknown>'} lacks " + ", ".join(missing)
                     )
         return tuple(issues)
 
@@ -1019,9 +1014,7 @@ class MainWindow(QMainWindow):
         sourceLabel = (
             "Regeneration Required"
             if loadResult.stale
-            else "Saved Tactic Model"
-            if loadResult.source == "objectModel"
-            else "Built Model"
+            else "Saved Tactic Model" if loadResult.source == "objectModel" else "Built Model"
         )
         self.tacticDetailView.tacticShow(
             loadResult.tactic.name,
@@ -1633,9 +1626,7 @@ class MainWindow(QMainWindow):
         """Retain and expose annotated OCR references produced by extraction."""
 
         self.ocrDiagnosticPaths = tuple(
-            path
-            for path in getattr(extraction, "diagnosticPaths", ())
-            if Path(path).is_file()
+            path for path in getattr(extraction, "diagnosticPaths", ()) if Path(path).is_file()
         )
         self.ocrDiagnosticsAction.setEnabled(bool(self.ocrDiagnosticPaths))
         logger.value("OCR diagnostic images", len(self.ocrDiagnosticPaths))

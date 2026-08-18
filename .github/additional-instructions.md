@@ -20,6 +20,8 @@ The managed guidance in `agent-instructions.md`, `repositoryLayout.md`, and
 ## Source layout
 
 - `app/` contains PySide6 views and application-specific resources.
+- `app/ui/` contains Qt Designer `.ui` files; generated Python lives in
+  `app/ui/generated/` and is produced by `scripts/uiCompile.py`.
 - `core/` contains UI-independent domain, parsing, OCR, validation, and persistence
   services.
 - `database/` contains SQLAlchemy models and database access.

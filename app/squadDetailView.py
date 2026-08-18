@@ -50,9 +50,7 @@ class SquadDetailView(QWidget):
         self.squadName = ""
         self.regenerationProgress: QProgressDialog | None = None
         self.setObjectName("squadDetailView")
-        self.setStyleSheet(
-            files("fmsat.app").joinpath("fmsat.qss").read_text(encoding="utf-8")
-        )
+        self.setStyleSheet(files("fmsat.app").joinpath("fmsat.qss").read_text(encoding="utf-8"))
         self.rootLayout = QVBoxLayout(self)
         self.rootLayout.setContentsMargins(28, 20, 28, 24)
         self.rootLayout.setSpacing(16)
@@ -125,9 +123,7 @@ class SquadDetailView(QWidget):
 
     def _factsCreate(self) -> QHBoxLayout:
         assert self.model is not None
-        covered = sum(
-            not role.coverage.startswith("Uncovered") for role in self.model.roles
-        )
+        covered = sum(not role.coverage.startswith("Uncovered") for role in self.model.roles)
         facts = QHBoxLayout()
         tacticName = (
             "No tactic assigned"
@@ -346,11 +342,7 @@ class SquadDetailView(QWidget):
         order: list[str] = []
         for phase, positions in (("IP", inPositions), ("OOP", outPositions)):
             for index, position in enumerate(positions):
-                key = (
-                    str(position.slotId)
-                    if useSlotIds and position.slotId
-                    else f"ordinal:{index}"
-                )
+                key = str(position.slotId) if useSlotIds and position.slotId else f"ordinal:{index}"
                 if key not in slots:
                     slots[key] = {"position": "", "roles": []}
                     order.append(key)
@@ -380,10 +372,7 @@ class SquadDetailView(QWidget):
             roleText = (
                 uniqueLabels[0]
                 if len(uniqueLabels) == 1
-                else " / ".join(
-                    f"{phase} {label}"
-                    for phase, label, _coverage in roleFacts
-                )
+                else " / ".join(f"{phase} {label}" for phase, label, _coverage in roleFacts)
             )
             positionText = self._positionDisplay(str(entry["position"]))
             label = f"{roleText} · {positionText}" if positionText else roleText
@@ -392,15 +381,11 @@ class SquadDetailView(QWidget):
                 uniqueCoverage[0]
                 if len(uniqueCoverage) == 1
                 else " | ".join(
-                    f"{phase} {roleLabel}: {coverage}"
-                    for phase, roleLabel, coverage in roleFacts
+                    f"{phase} {roleLabel}: {coverage}" for phase, roleLabel, coverage in roleFacts
                 )
             )
             rows.append((label, coverageText))
-        if (
-            self.model.requiredPositionCount
-            and len(rows) != self.model.requiredPositionCount
-        ):
+        if self.model.requiredPositionCount and len(rows) != self.model.requiredPositionCount:
             logger.warning(
                 "squad analysis slot count mismatch tactic=%r expected=%d actual=%d",
                 self.model.tacticName,
