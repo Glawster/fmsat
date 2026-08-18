@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import re
-
 
 def playerNameDisplay(name: str) -> str:
     """Render a stored player name as ``Surname, Given names`` without changing identity."""
@@ -49,15 +47,13 @@ def playerSurnameDisplay(name: str) -> str:
 
 
 def roleAbbreviationDisplay(roleCode: str, abbreviation: str) -> str:
-    """Use known abbreviations, otherwise derive a readable acronym from semantic roleCode."""
+    """Use a confirmed abbreviation, otherwise expose the missing role knowledge."""
 
     code = roleCode.strip()
     candidate = abbreviation.strip()
     if candidate and candidate.casefold() != code.casefold():
         return candidate
-    words = re.findall(r"[A-Z]?[a-z]+|[A-Z]+(?![a-z])|\d+", code)
-    letters = [word[0] for word in words if word and not word.isdigit()]
-    return "".join(letters).upper() or candidate or code
+    return "Unknown"
 
 
 def positionSortKey(position: str) -> tuple[int, int]:
