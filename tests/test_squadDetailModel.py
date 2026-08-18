@@ -117,14 +117,16 @@ def testUnresolvedSlotRolesAreVisibleAndExplicitlyUnknown() -> None:
     assert semanticRole.displayName == "Tracking Winger"
     assert semanticRole.resolutionState == "unknownRole"
     assert semanticRole.phases == "OOP"
-    assert display.requiredSlots[0].oopRole == "Unknown role"
+    semanticSlot = next(slot for slot in display.requiredSlots if slot.position == "AMR")
+    assert semanticSlot.oopRole == "Unknown role"
 
     identityRole = next(
         role for role in display.roles if role.roleCode == "unresolved:10:OOP"
     )
     assert identityRole.displayName == "Unknown OOP role at STC"
     assert identityRole.resolutionState == "unknownRole"
-    assert display.requiredSlots[1].oopRole == "Unknown role"
+    identitySlot = next(slot for slot in display.requiredSlots if slot.position == "STC")
+    assert identitySlot.oopRole == "Unknown role"
 
 
 def testUnavailableEvidenceIsNotRepeatedAsWeakPositionFinding() -> None:
