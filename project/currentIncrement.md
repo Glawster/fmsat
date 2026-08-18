@@ -2,100 +2,105 @@
 
 ## Status
 
-InReview
+Active
 <!-- Options: Active, Idle, Blocked, InReview -->
 
 ## Objective
 
-Close requirement 007A after stabilising the tactic evidence and Generic Role Fit foundation,
-then merge the completed increment to `main` before starting 007B.
+Finish requirement 007A by closing the remaining tactic-evidence and role-identity defects discovered during final validation before opening the 007A pull request to `main`.
+
+The immediate acceptance case is the saved `Libero1974` tactic: OCR already reads `TAM`, so regeneration must normalize it to the existing Tracking Attacking Midfielder role without requesting a duplicate role definition.
 
 ## Governing References
 
 - Primary Requirement: `project/requirements/features/007-roleCentricSquadAssessment.md`
 - Supporting Requirements:
   - `project/requirements/features/006-structuredTacticExtraction.md`
-  - `project/requirements/features/009-tacticDetailManagement.md`
   - `project/requirements/features/010-positionAttributeRoleDefinitions.md`
 - Supporting ADRs: None
-- Milestone / Roadmap: requirement 007 generic analysis increment
+- Milestone / Roadmap: requirement 007A Generic Role Fit and tactic-evidence foundation
 
-## Delivered Scope
+## Role Identity Contract
 
-- Complete explicit Generic Role Fit weights for every canonical tactic role.
-- Preserve `Unavailable` whenever required evidence or assessment policy is incomplete.
-- Calculate and explain Generic Role Fit through transparent weighted contribution traces.
-- Keep tactic extraction player-agnostic and use tactic name as reusable tactic identity.
-- Retain OCR geometry history and anomaly classification.
-- Stabilise FM26 Formation extraction through CB/GK depth with exact role-label evidence.
-- Reconcile OCR-confirmed role definitions with canonical tactical vocabulary.
-- Add currently encountered canonical roles including SS, HB and DDM.
-- Provide role/candidate browsing, player-role assessment and initial role-depth analysis.
-- Use shared QSS styling for normal workspace dropdowns.
-- Sort the player selector by surname and display `Surname, Firstname` while retaining the
-  original player identity internally.
+- `roleCode` is the durable semantic identity used by OCR normalization, persisted role knowledge and Generic Role Fit policy lookup.
+- Football Manager abbreviations, display names and OCR aliases resolve to `roleCode`; they are evidence and presentation values rather than persistence keys.
+- Historical numeric `roleID` values are compatibility/surrogate metadata only and must never decide which role a captured definition represents.
+- Legacy role files that pre-date `roleCode` are resolved from their confirmed display name and abbreviation before any numeric metadata is considered.
+
+## Scope
+
+- Complete explicit assessment weights for all roles intended to participate in Generic Role Fit.
+- Calculate Generic Role Fit consistently for every available player where required evidence exists.
+- Keep results `Unavailable` where role assessment evidence or policy is incomplete.
+- Preserve transparent score breakdowns.
+- Stabilise role recognition and tactic regeneration needed by the 007A assessment foundation.
+- Ensure confirmed/canonical role abbreviations such as `TAM` resolve to their semantic role identity during regeneration.
+- Finish documentation, automated tests and manual `Libero1974` validation before PR to `main`.
 
 ## Explicit Exclusions
 
+- Unique-player simultaneous-slot assignment and role depth (007B).
 - Best XI selection.
-- Tactical Fit and Overall Suitability.
+- Tactical Fit and Position Familiarity.
+- Overall Suitability.
 - Recruitment analysis or recommendations.
-- Competition-level attribute benchmarks until an explicit benchmark evidence model exists.
-- Requirement 009 immutable revision-history and historical-comparison work.
+- Competition-level attribute benchmark colouring until an explicit benchmark evidence model exists.
 
-## Completion Tasks
+## In-Progress Tasks
 
-- [x] Complete explicit assessment weights for every canonical tactic role.
-- [x] Enforce complete/valid assessment policy and preserve `Unavailable` states.
-- [x] Add historical OCR-zone geometry observations and drift classification.
-- [x] Stabilise Team Instructions and Formation extraction against current FM26 evidence.
-- [x] Verify 11 In Possession and 11 Out Of Possession positions on regeneration.
-- [x] Resolve canonical role gaps encountered by regeneration, including SS, HB and DDM.
-- [x] Add internal OCR-role to tactical-vocabulary consistency checking.
-- [x] Standardise workspace dropdown styling in QSS.
-- [x] Run the full automated pytest suite successfully after the final changes.
-- [x] Update project status/documentation for 007A closure.
-- [ ] Merge the 007A pull request to `main`.
+- [x] Make semantic `roleCode` the role identity used for captured-role reconciliation and Generic Role Fit policy lookup; retain numeric IDs only for legacy compatibility.
+- [x] Add `TAM` / Tracking Attacking Midfielder to tactic-role recognition without inventing assessment weights.
+- [x] Add targeted logging through captured-role refresh, formation normalization and object-model role resolution.
+- [ ] Confirm the current checkout is running the latest 007A branch code and that the new role-resolution diagnostics appear.
+- [ ] Regenerate `Libero1974` and confirm OCR-observed `TAM` normalizes to `trackingAttackingMidfielder` with no missing-role prompt.
+- [ ] Run the full automated suite.
+- [ ] Update final 007A development status/documentation.
+- [ ] Squash as desired and open the 007A PR to `main`.
+
+## Relevant Files & Components
+
+- `config/tacticalVocabulary.yaml`
+- `config/roleAssessment.yaml`
+- `core/parser/tacticVocabulary.py`
+- `core/builder/tacticScreenshotExtractor.py`
+- `football/roleVocabulary.py`
+- `core/roleKnowledge.py`
+- `core/squadAssessment.py`
+- `tests/test_tacticVocabulary.py`
+- `tests/test_roleKnowledge.py`
+- `tests/test_roleAssessmentPolicy.py`
+- `tests/test_squadAssessment.py`
 
 ## Verification Procedures
 
-The final local verification completed successfully with:
+Run:
 
 ```bash
+manageProject --check
 QT_QPA_PLATFORM=offscreen pytest
 ```
 
-The current FM26 reference tactic was regenerated successfully with:
+Then restart FMSAT and regenerate `Libero1974`. Confirm:
 
-1. 11 In Possession positions;
-2. 11 Out Of Possession positions;
-3. canonical instruction normalization;
-4. role definitions resolving through the canonical tactical vocabulary; and
-5. no outstanding SS/HB/DDM knowledge gap expected after the final vocabulary changes.
+1. Formation OCR reads 11 genuine in-possession and 11 genuine out-of-possession role tiles;
+2. `TAM` is observed and normalized to `trackingAttackingMidfielder`;
+3. no duplicate/missing role-definition prompt is shown for TAM or any other already-known role;
+4. known team instructions do not produce bogus review-required issues;
+5. the regenerated tactic model is saved successfully; and
+6. Generic Role Fit remains `Unavailable` for any recognition-only role without an explicit assessment policy.
 
 ## Definition of Done
 
-- The full automated test suite passes.
-- Current reference regeneration produces 11 positions in both phases.
-- Generic Role Fit remains deterministic, explainable and `Unavailable`-safe.
-- Known OCR roles are represented by or checked against `tacticalVocabulary.yaml`.
-- The normal workspace dropdown look and feel is owned by QSS.
-- The 007A branch is merged to `main`.
+- Full automated suite passes.
+- `Libero1974` regenerates cleanly from saved screenshots.
+- Known roles, including TAM, resolve from semantic role identity rather than numeric sequence allocation.
+- No known role/instruction produces a bogus Review Required prompt.
+- Generic Role Fit remains evidence-driven and explainable.
+- 007A documentation/status is current and the branch is ready for squash/PR to `main`.
 
-## Handoff to 007B
+## Handoff
 
-007B should begin from the merged 007A baseline. The next work is to refine the existing
-Analysis tab around the complete player-role matrix and required-role depth. A player must
-not be allocated to more than one simultaneous tactical slot when calculating depth.
-
-The intended 007B outcomes are:
-
-- best candidate, backup and uncovered status for each required tactical slot;
-- each player's best and alternative roles;
-- weak positions, role duplication and unused squad strengths; and
-- transparent explanations for every calculated result.
-
-Best XI, Tactical Fit and recruitment analysis remain later increments.
+Only after 007A is merged to `main`, create 007B from the accepted `main` baseline and begin simultaneous-slot role-depth analysis, including the rule that one player cannot fill multiple required slots in the same assignment.
 
 ## Agent Readiness
 

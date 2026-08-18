@@ -447,7 +447,6 @@ class SquadAssessmentService:
         return {
             definition.roleCode: definition
             for definition in self.roleKnowledge.definitionsList()
-            if definition.roleCode is not None
         }
 
     def _roleAssess(
@@ -476,7 +475,7 @@ class SquadAssessmentService:
             if storedDefinition is not None and storedDefinition.abbreviations
             else vocabularyRole.abbreviations if vocabularyRole is not None else ()
         )
-        weights = self.roleKnowledge.weightsLoad(roleID) if roleID is not None else {}
+        weights = self.roleKnowledge.weightsLoad(roleCode)
         candidates = tuple(
             sorted(
                 (

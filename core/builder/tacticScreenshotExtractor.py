@@ -193,15 +193,35 @@ class TacticScreenshotExtractor:
     def _capturedRolesRefresh(self) -> None:
         """Refresh OCR aliases from confirmed user role definitions."""
 
+        packagedTam = self.vocabulary.roleNormalize("TAM")
+        logger.info(
+            "role refresh pre-check: "
+            f"TAM={packagedTam.value!r} resolved={packagedTam.resolved} "
+            f"catalogueRoles={len(self.vocabulary.roles)}"
+        )
         if self.roleDefinitionsProvider is None:
+            logger.info("role refresh has no captured-role provider")
             return
         try:
             definitions = tuple(self.roleDefinitionsProvider())
         except TypeError:
             logger.warning("captured role provider did not return an iterable")
             return
+        for definition in definitions:
+            logger.info(
+                "captured role definition: "
+                f"code={getattr(definition, 'roleCode', None)!r} "
+                f"display={getattr(definition, 'displayName', None)!r} "
+                f"abbreviations={getattr(definition, 'abbreviations', ())!r}"
+            )
         self.vocabulary.capturedRolesAdd(definitions)
         logger.value("captured role definitions available to OCR", len(definitions))
+        refreshedTam = self.vocabulary.roleNormalize("TAM")
+        logger.info(
+            "role refresh post-check: "
+            f"TAM={refreshedTam.value!r} resolved={refreshedTam.resolved} "
+            f"catalogueRoles={len(self.vocabulary.roles)}"
+        )
 
     ## metadata
 
@@ -252,6 +272,13 @@ class TacticScreenshotExtractor:
         logger.value("formation extractor slots", len(result.slots))
         logger.value("formation extractor issues", len(result.issues))
         for slot in result.slots:
+            if slot.observedRole or slot.role:
+                logger.info(
+                    "formation role resolution: "
+                    f"phase={slot.phase.value} slot={slot.slotId!r} "
+                    f"position={slot.position!r} observed={slot.observedRole!r} "
+                    f"canonical={slot.role!r}"
+                )
             definition.slots.append(StructuredFormationSlot(
                 slotId=slot.slotId,
                 phase=slot.phase.value,

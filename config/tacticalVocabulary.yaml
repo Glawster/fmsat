@@ -261,6 +261,14 @@ roles:
     aliases: [deep defensive midfielder]
     positions: [DMCR, DM, DMCL]
     duties: []
+  trackingAttackingMidfielder:
+    roleID: 31
+    displayName: Tracking Attacking Midfielder
+    abbreviations: [TAM]
+    aliases: [tracking attacking midfielder]
+    positions: [AMC]
+    duties: []
+    assessmentRequired: false
 
 instructions:
   inPossession:
