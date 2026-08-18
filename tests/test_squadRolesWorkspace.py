@@ -7,6 +7,7 @@ from fmsat.app.presentation import (
     playerNameDisplay,
     playerNameStorage,
     positionSortKey,
+    roleAbbreviationDisplay,
 )
 from fmsat.app.squadDetailModel import CandidateDisplay, RoleDisplay
 from fmsat.app.squadRolesWorkspace import SquadRolesTab
@@ -17,6 +18,7 @@ def _role(
     abbreviation: str,
     positions: str,
     playerName: str = "Player, Ada",
+    phases: str = "In Possession",
 ) -> RoleDisplay:
     candidate = CandidateDisplay(
         name=playerName,
@@ -31,7 +33,7 @@ def _role(
         displayName=code,
         abbreviation=abbreviation,
         positions=positions,
-        phases="In Possession",
+        phases=phases,
         coverage=f"Best: {playerName} · no calculated backup",
         candidates=(candidate,),
     )
@@ -49,9 +51,10 @@ def testRolesWorkspaceUsesFullHeightRolePaneAndStackedEvidence(qtbot) -> None:  
     tab = SquadRolesTab(roles)
     qtbot.addWidget(tab)
 
-    assert tab.roleTable.columnCount() == 2
-    assert [tab.roleTable.horizontalHeaderItem(column).text() for column in range(2)] == [
-        "Role",
+    assert tab.roleTable.columnCount() == 3
+    assert [tab.roleTable.horizontalHeaderItem(column).text() for column in range(3)] == [
+        "IP",
+        "OOP",
         "Coverage",
     ]
     mainSplitter = tab.findChild(QSplitter, "roleWorkspaceSplitter")
@@ -60,6 +63,60 @@ def testRolesWorkspaceUsesFullHeightRolePaneAndStackedEvidence(qtbot) -> None:  
     assert evidenceSplitter is not None
     assert mainSplitter.orientation() is Qt.Orientation.Horizontal
     assert evidenceSplitter.orientation() is Qt.Orientation.Vertical
+
+
+def testTacticRolesSeparatePossessionPhaseAndUseSurnameOnlyCoverage(qtbot) -> None:  # type: ignore[no-untyped-def]
+    candidates = (
+        CandidateDisplay(
+            name="Russo, Alessia",
+            positions="ST (C)",
+            score="80.0",
+            bestRole="Centre Forward",
+            breakdown="finishing: 16 × 5 = 80/100",
+            available=True,
+        ),
+        CandidateDisplay(
+            name="Freigang, Laura",
+            positions="ST (C)",
+            score="75.0",
+            bestRole="Centre Forward",
+            breakdown="finishing: 15 × 5 = 75/100",
+            available=True,
+        ),
+    )
+    roles = (
+        RoleDisplay(
+            roleCode="centreForward",
+            displayName="Centre Forward",
+            abbreviation="CF",
+            positions="STC",
+            phases="In Possession",
+            coverage="",
+            candidates=candidates,
+        ),
+        RoleDisplay(
+            roleCode="trackingCentreForward",
+            displayName="Tracking Centre Forward",
+            abbreviation="TCF",
+            positions="STC",
+            phases="Out Of Possession",
+            coverage="",
+            candidates=candidates,
+        ),
+    )
+    tab = SquadRolesTab(roles)
+    qtbot.addWidget(tab)
+
+    assert [tab.roleTable.item(0, column).text() for column in range(3)] == [
+        "CF",
+        "",
+        "Russo - Freigang",
+    ]
+    assert [tab.roleTable.item(1, column).text() for column in range(3)] == [
+        "",
+        "TCF",
+        "Russo - Freigang",
+    ]
 
 
 def testRoleCoverageUsesEligibleCandidatesAndNativeTableFont(qtbot) -> None:  # type: ignore[no-untyped-def]
@@ -100,15 +157,13 @@ def testRoleCoverageUsesEligibleCandidatesAndNativeTableFont(qtbot) -> None:  # 
     tab = SquadRolesTab((role,))
     qtbot.addWidget(tab)
 
-    coverageItem = tab.roleTable.item(0, 1)
-    assert coverageItem.text() == "Maanum, Frida; Stanway, Georgia"
+    coverageItem = tab.roleTable.item(0, 2)
+    assert coverageItem.text() == "Maanum - Stanway"
     assert "Hemp" not in coverageItem.text()
-    assert tab.roleTable.cellWidget(0, 1) is None
-    assert "Best:" not in coverageItem.text()
-    assert "Backup:" not in coverageItem.text()
+    assert tab.roleTable.cellWidget(0, 2) is None
 
 
-def testRoleOrderStaysTacticalUntilRoleHeaderIsClicked(qtbot) -> None:  # type: ignore[no-untyped-def]
+def testRoleOrderStaysTacticalUntilPhaseHeaderIsClicked(qtbot) -> None:  # type: ignore[no-untyped-def]
     roles = (
         _role("Channel Forward", "CHF", "STC"),
         _role("Attacking Midfielder", "AM", "AMC"),
@@ -148,6 +203,12 @@ def testSquadRoleLineOrderingRunsFromForwardsToGoalkeeper() -> None:
     assert positionSortKey("DM")[0] == 3
     assert positionSortKey("DC")[0] == 4
     assert positionSortKey("GK")[0] == 5
+
+
+def testUnresolvedSemanticRoleCodeGetsCompactDisplayAbbreviation() -> None:
+    assert roleAbbreviationDisplay("trackingWinger", "trackingWinger") == "TW"
+    assert roleAbbreviationDisplay("trackingWideMidfielder", "trackingWideMidfielder") == "TWM"
+    assert roleAbbreviationDisplay("trackingCentreForward", "TCF") == "TCF"
 
 
 def testPlayerNamePresentationIsSurnameFirstWithoutChangingStoredIdentity() -> None:
