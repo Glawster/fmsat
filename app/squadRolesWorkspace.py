@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from html import escape
-
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -72,18 +70,10 @@ class SquadRolesTab(BaseSquadRolesTab):
             abbreviation.setToolTip(role.displayName)
             self.roleTable.setItem(row, 0, abbreviation)
 
-            coverageText, coverageHtml = self._roleCoverageRender(role)
+            coverageText = self._roleCoverageRender(role)
             coverage = QTableWidgetItem(coverageText)
             coverage.setToolTip(coverageText)
             self.roleTable.setItem(row, 1, coverage)
-            coverageLabel = QLabel(coverageHtml, self.roleTable)
-            coverageLabel.setTextFormat(Qt.TextFormat.RichText)
-            coverageLabel.setToolTip(coverageText)
-            coverageLabel.setAlignment(
-                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-            )
-            coverageLabel.setStyleSheet("background: transparent;")
-            self.roleTable.setCellWidget(row, 1, coverageLabel)
 
         header = self.roleTable.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
@@ -114,21 +104,14 @@ class SquadRolesTab(BaseSquadRolesTab):
         )
 
     @classmethod
-    def _roleCoverageRender(cls, role: RoleDisplay) -> tuple[str, str]:
+    def _roleCoverageRender(cls, role: RoleDisplay) -> str:
         """Render best-first depth without repetitive Best/Backup labels."""
 
         candidates = cls._roleCoverageCandidates(role)
         if not candidates:
             hasEligible = any(_candidateEligible(role, candidate) for candidate in role.candidates)
-            text = "Unavailable" if hasEligible else "Uncovered"
-            return text, escape(text)
-
-        names = [candidate.name for candidate in candidates]
-        text = ", ".join(names)
-        html = f"<b>{escape(names[0])}</b>"
-        if len(names) > 1:
-            html += f", {escape(names[1])}"
-        return text, html
+            return "Unavailable" if hasEligible else "Uncovered"
+        return " · ".join(candidate.name for candidate in candidates)
 
     def _roleHeaderClicked(self, column: int) -> None:
         """Sort alphabetically only when the user explicitly clicks the Role header."""
