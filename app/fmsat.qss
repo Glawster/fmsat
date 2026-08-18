@@ -79,6 +79,7 @@ QWidget#validationIssueContent { background: #0c1926; }
 
 /* Focused player editor */
 QDialog#playerEditorDialog { background: #08131f; color: #e8eef5; }
+QDialog#playerEditorDialog QLabel { color: #d9e5ef; }
 QDialog#playerEditorDialog QLabel#playerEditorContext { color: #8fa3b8; padding: 0 2px 2px 2px; }
 QDialog#playerEditorDialog QGroupBox#playerEditorSection {
     background: #0c1926;
@@ -114,7 +115,7 @@ QDialog#playerEditorDialog QLabel#playerEvidenceStatus {
 }
 QScrollArea#playerAttributeScroll { background: #101f2e; border: 0; }
 QWidget#playerAttributeContainer { background: #101f2e; }
-QLabel#playerAttributeLabel { color: #8fa3b8; font-weight: 700; min-width: 112px; }
+QLabel#playerAttributeLabel { color: #d9e5ef; font-weight: 700; min-width: 112px; }
 QSpinBox#playerAttributeInput {
     background: #0c1926;
     color: #f5f8fb;
@@ -167,8 +168,26 @@ QDialog#playerEditorDialog QPushButton#secondaryButton:hover {
 
 /* Known-traits chooser */
 QDialog#playerTraitDialog { background: #08131f; color: #e8eef5; }
+QDialog#playerTraitDialog QLabel { color: #d9e5ef; }
 QDialog#playerTraitDialog QLineEdit { margin-bottom: 3px; }
 QDialog#playerTraitDialog QCheckBox { color: #d9e5ef; spacing: 8px; padding: 3px 0; }
+QDialog#playerTraitDialog QCheckBox::indicator,
+QDialog#playerTraitDialog QTreeWidget#playerTraitList::indicator {
+    width: 15px;
+    height: 15px;
+    background: #0c1926;
+    border: 1px solid #60788e;
+    border-radius: 3px;
+}
+QDialog#playerTraitDialog QCheckBox::indicator:checked,
+QDialog#playerTraitDialog QTreeWidget#playerTraitList::indicator:checked {
+    background: #31b98f;
+    border-color: #56d6b0;
+}
+QDialog#playerTraitDialog QCheckBox::indicator:hover,
+QDialog#playerTraitDialog QTreeWidget#playerTraitList::indicator:hover {
+    border-color: #56d6b0;
+}
 QDialog#playerTraitDialog QTreeWidget#playerTraitList {
     background: #0c1926;
     border: 1px solid #30465a;
