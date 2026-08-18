@@ -3,7 +3,7 @@
 from datetime import datetime
 from unittest.mock import patch
 
-from PySide6.QtWidgets import QAbstractItemView, QDialog
+from PySide6.QtWidgets import QAbstractItemView, QDialog, QDialogButtonBox
 
 from fmsat.app.playerEditorDialog import PlayerEditorDialog
 from fmsat.app.squadPlayersWorkspace import SquadPlayersTab
@@ -47,6 +47,23 @@ def testPlayerEditorReturnsCorrectedFactsWithoutDerivedScores(qtbot) -> None:  #
     assert edited.traits == ("Moves Into Channels", "Places Shots")
     assert edited.sourceImportSessionId == 12
     assert edited.validationState == "corrected"
+
+
+def testPlayerEditorExposesSharedStylingHooks(qtbot) -> None:  # type: ignore[no-untyped-def]
+    """The focused editor should retain stable object names used by the shared QSS."""
+
+    dialog = PlayerEditorDialog(_player(), _attributes())
+    qtbot.addWidget(dialog)
+
+    assert dialog.objectName() == "playerEditorDialog"
+    assert all(
+        editor.objectName() == "playerAttributeInput"
+        for editor in dialog.attributeInputs.values()
+    )
+    buttons = dialog.findChild(QDialogButtonBox, "playerEditorButtons")
+    assert buttons is not None
+    assert buttons.button(QDialogButtonBox.StandardButton.Save).objectName() == "primaryButton"
+    assert buttons.button(QDialogButtonBox.StandardButton.Cancel).objectName() == "secondaryButton"
 
 
 def testPlayersTabIsBrowseOnlyAndBuildsEditorChanges(qtbot) -> None:  # type: ignore[no-untyped-def]
