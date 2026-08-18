@@ -50,6 +50,7 @@ class SquadDetailView(QWidget):
         self.attributes = attributes
         self.model: SquadDetailModel | None = None
         self.squadName = ""
+        self.selectedTabName = "Overview"
         self.regenerationProgress: QProgressDialog | None = None
         self.setObjectName("squadDetailView")
         self.setStyleSheet(
@@ -65,12 +66,17 @@ class SquadDetailView(QWidget):
         self._contentRefresh()
 
     def _contentRefresh(self) -> None:
+        if hasattr(self, "tabs"):
+            currentName = self.tabs.tabText(self.tabs.currentIndex())
+            if currentName:
+                self.selectedTabName = currentName
         self._layoutClear(self.rootLayout)
         if self.model is None:
             return
         self.rootLayout.addLayout(self._headerCreate())
         self.rootLayout.addLayout(self._factsCreate())
-        self.rootLayout.addWidget(self._tabsCreate(), 1)
+        self.tabs = self._tabsCreate()
+        self.rootLayout.addWidget(self.tabs, 1)
         footer = QHBoxLayout()
         footer.addStretch()
         self.regenerateButton = QPushButton("Regenerate Squad Model")
@@ -162,6 +168,18 @@ class SquadDetailView(QWidget):
                 self._requiredRoleRows(),
             ),
             "Analysis",
+        )
+        targetIndex = next(
+            (
+                index
+                for index in range(tabs.count())
+                if tabs.tabText(index) == self.selectedTabName
+            ),
+            0,
+        )
+        tabs.setCurrentIndex(targetIndex)
+        tabs.currentChanged.connect(
+            lambda index: setattr(self, "selectedTabName", tabs.tabText(index))
         )
         return tabs
 
@@ -260,9 +278,11 @@ class SquadDetailView(QWidget):
         if not tactics:
             return None
         dialog = QDialog(self)
-        dialog.setWindowTitle("Assign tactic")
+        dialog.setWindowTitle("Assign Tactic")
+        dialog.resize(520, 160)
         layout = QVBoxLayout(dialog)
-        layout.addWidget(QLabel("Choose an existing tactic to assign to this squad:"))
+        prompt = QLabel("Choose the tactic context to apply to this squad.")
+        layout.addWidget(prompt)
         picker = QComboBox(dialog)
         picker.addItems(tactics)
         layout.addWidget(picker)
@@ -275,176 +295,18 @@ class SquadDetailView(QWidget):
         layout.addWidget(buttons)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return None
-        return picker.currentText().strip() or None
+        return picker.currentText()
 
     def _tacticAssign(self, tacticName: str) -> None:
-        database = getattr(self.window(), "database", None)
-        if database is not None:
-            try:
-                database.tacticApplyToSquad(self.squadName, tacticName)
-                logger.action(
-                    "squad tactic selected squad=%r tactic=%r",
-                    self.squadName,
-                    tacticName,
-                )
-                dataChanged = getattr(self.window(), "dataChanged", None)
-                if dataChanged is not None and hasattr(dataChanged, "emit"):
-                    dataChanged.emit()
-            except Exception as exc:
-                logger.exception(
-                    "unable to assign tactic from squad workspace squad=%r tactic=%r",
-                    self.squadName,
-                    tacticName,
-                )
-                statusBar = getattr(self.window(), "statusBar", None)
-                if callable(statusBar):
-                    statusBar().showMessage(str(exc), 10000)
-                return
+        if self.model is None or not self.squadName:
+            return
         self.tacticSelected.emit(self.squadName, tacticName)
 
     def _systemTactics(self) -> tuple[str, ...]:
-        assert self.model is not None
-        names = set(self.model.availableTactics)
-        database = getattr(self.window(), "database", None)
-        if database is not None:
-            try:
-                names.update(database.tacticsList())
-            except Exception:
-                logger.exception("unable to list system tactics for squad workspace")
-        return tuple(
-            sorted(
-                (name for name in names if name.strip()),
-                key=str.casefold,
-            )
-        )
-
-    def _requiredRoleRows(self) -> tuple[tuple[str, str], ...]:
-        assert self.model is not None
-        if self.model.tacticName in {"No tactic selected", "No tactic assigned"}:
-            return ()
-        loader = getattr(self.window(), "tacticModelLoader", None)
-        if loader is None:
-            return ()
-        try:
-            loaded = loader.tacticLoad(self.model.tacticName)
-        except Exception:
-            logger.exception(
-                "unable to load tactic slots for squad analysis tactic=%r",
-                self.model.tacticName,
-            )
-            return ()
-        tactic = getattr(loaded, "tactic", None)
-        if tactic is None:
-            return ()
-        inPositions = tuple(tactic.inPossession.positions)
-        outPositions = tuple(tactic.outOfPossession.positions)
-        inIds = {position.slotId for position in inPositions if position.slotId}
-        outIds = {position.slotId for position in outPositions if position.slotId}
-        sharedIds = inIds.intersection(outIds)
-        expectedShared = min(len(inPositions), len(outPositions))
-        useSlotIds = expectedShared > 0 and len(sharedIds) == expectedShared
-        roleByCode = {role.roleCode: role for role in self.model.roles}
-        slots: dict[str, dict[str, object]] = {}
-        order: list[str] = []
-        for phase, positions in (("IP", inPositions), ("OOP", outPositions)):
-            for index, position in enumerate(positions):
-                key = (
-                    str(position.slotId)
-                    if useSlotIds and position.slotId
-                    else f"ordinal:{index}"
-                )
-                if key not in slots:
-                    slots[key] = {"position": "", "roles": []}
-                    order.append(key)
-                positionName = position.canonicalPosition or position.identity.value
-                if not slots[key]["position"]:
-                    slots[key]["position"] = positionName
-                roleCode = position.canonicalRole
-                role = roleByCode.get(roleCode) if roleCode else None
-                roleLabel = (
-                    role.abbreviation
-                    if role is not None
-                    else roleCode or position.roleProfile.name or "Unavailable"
-                )
-                coverage = (
-                    role.coverage
-                    if role is not None
-                    else "Unavailable — role assessment is unresolved"
-                )
-                roles = slots[key]["roles"]
-                if isinstance(roles, list):
-                    roles.append((phase, roleLabel, coverage))
-        rows: list[tuple[str, str]] = []
-        for key in order:
-            entry = slots[key]
-            roleFacts = entry["roles"] if isinstance(entry["roles"], list) else []
-            uniqueLabels = list(dict.fromkeys(fact[1] for fact in roleFacts))
-            roleText = (
-                uniqueLabels[0]
-                if len(uniqueLabels) == 1
-                else " / ".join(
-                    f"{phase} {label}"
-                    for phase, label, _coverage in roleFacts
-                )
-            )
-            positionText = self._positionDisplay(str(entry["position"]))
-            label = f"{roleText} · {positionText}" if positionText else roleText
-            uniqueCoverage = list(dict.fromkeys(fact[2] for fact in roleFacts))
-            coverageText = (
-                uniqueCoverage[0]
-                if len(uniqueCoverage) == 1
-                else " | ".join(
-                    f"{phase} {roleLabel}: {coverage}"
-                    for phase, roleLabel, coverage in roleFacts
-                )
-            )
-            rows.append((label, coverageText))
-        if (
-            self.model.requiredPositionCount
-            and len(rows) != self.model.requiredPositionCount
-        ):
-            logger.warning(
-                "squad analysis slot count mismatch tactic=%r expected=%d actual=%d",
-                self.model.tacticName,
-                self.model.requiredPositionCount,
-                len(rows),
-            )
-        return tuple(rows)
-
-    @staticmethod
-    def _positionDisplay(position: str) -> str:
-        direct = {
-            "GK": "GK",
-            "DL": "D(L)",
-            "DC": "D(C)",
-            "DR": "D(R)",
-            "WBL": "WB(L)",
-            "WBR": "WB(R)",
-            "DM": "DM(C)",
-            "ML": "M(L)",
-            "MC": "M(C)",
-            "MR": "M(R)",
-            "AML": "AM(L)",
-            "AMC": "AM(C)",
-            "AMR": "AM(R)",
-            "ST": "ST(C)",
-            "STC": "ST(C)",
-        }
-        if position in direct:
-            return direct[position]
-        sideMap = {
-            "DCL": "D(CL)",
-            "DCR": "D(CR)",
-            "DMCL": "DM(CL)",
-            "DMCR": "DM(CR)",
-            "MCL": "M(CL)",
-            "MCR": "M(CR)",
-            "AMCL": "AM(CL)",
-            "AMCR": "AM(CR)",
-            "STCL": "ST(CL)",
-            "STCR": "ST(CR)",
-        }
-        return sideMap.get(position, position)
+        window = self.window()
+        database = getattr(window, "database", None)
+        names = tuple(database.tacticNames()) if database is not None else ()
+        return tuple(sorted(set(names).union(self.model.availableTactics if self.model else ())))
 
     @staticmethod
     def _factCardCreate(label: str, value: str) -> QFrame:
@@ -452,24 +314,30 @@ class SquadDetailView(QWidget):
         card.setObjectName("factCard")
         layout = QVBoxLayout(card)
         layout.setContentsMargins(12, 9, 12, 9)
-        layout.setSpacing(2)
-        labelWidget = QLabel(label)
-        labelWidget.setObjectName("factLabel")
-        valueWidget = QLabel(value)
-        valueWidget.setObjectName("factValue")
-        valueWidget.setWordWrap(True)
-        layout.addWidget(labelWidget)
-        layout.addWidget(valueWidget)
+        layout.setSpacing(3)
+        key = QLabel(label)
+        key.setObjectName("factKey")
+        layout.addWidget(key)
+        fieldValue = QLabel(value)
+        fieldValue.setObjectName("factValue")
+        fieldValue.setWordWrap(True)
+        layout.addWidget(fieldValue)
         return card
 
-    @staticmethod
-    def _layoutClear(layout: QLayout) -> None:
+    def _requiredRoleRows(self) -> tuple[tuple[str, str], ...]:
+        """Retain the legacy fallback only when domain slot depth is unavailable."""
+
+        if self.model is None or self.model.requiredSlots:
+            return ()
+        return tuple((role.displayName, role.coverage) for role in self.model.roles)
+
+    @classmethod
+    def _layoutClear(cls, layout: QLayout) -> None:
         while layout.count():
             item = layout.takeAt(0)
-            childLayout = item.layout()
-            childWidget = item.widget()
-            if childLayout is not None:
-                SquadDetailView._layoutClear(childLayout)
-                childLayout.deleteLater()
-            if childWidget is not None:
-                childWidget.deleteLater()
+            child = item.widget()
+            if child is not None:
+                child.deleteLater()
+            nested = item.layout()
+            if nested is not None:
+                cls._layoutClear(nested)
