@@ -65,63 +65,60 @@ attributes:
   leadership:
     abbreviation: Ldr
     order: 22
-  long_shots:
-    abbreviation: Lon
-    order: 23
   marking:
     abbreviation: Mar
-    order: 24
+    order: 23
   natural_fitness:
     abbreviation: Nat
-    order: 25
+    order: 24
   off_the_ball:
     abbreviation: OtB
-    order: 26
+    order: 25
   pace:
     abbreviation: Pac
-    order: 27
+    order: 26
   passing:
     abbreviation: Pas
-    order: 28
+    order: 27
   positioning:
     abbreviation: Pos
-    order: 29
+    order: 28
   reflexes:
     abbreviation: Ref
-    order: 30
+    order: 29
   stamina:
     abbreviation: Sta
-    order: 31
+    order: 30
   strength:
     abbreviation: Str
-    order: 32
+    order: 31
   tackling:
     abbreviation: Tck
-    order: 33
+    order: 32
   teamwork:
     abbreviation: Tea
-    order: 34
+    order: 33
   technique:
     abbreviation: Tec
-    order: 35
+    order: 34
   vision:
     abbreviation: Vis
-    order: 36
+    order: 35
   work_rate:
     abbreviation: Wor
-    order: 37
+    order: 36
   kicking:
     abbreviation: Kic
-    order: 38
+    order: 37
   one_on_ones:
     abbreviation: 1v1
-    order: 39
+    order: 38
   rushing_out:
     abbreviation: Rsh
-    order: 40
+    order: 39
   punching:
     abbreviation: Pun
-    order: 41
+    order: 40
   throwing:
     abbreviation: Thr
-    order: 42
+    order: 41

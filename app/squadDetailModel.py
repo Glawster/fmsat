@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from fmsat.app.presentation import playerNameDisplay, positionSortKey, rolePositionSortKey
+from fmsat.app.presentation import (
+    playerNameDisplay,
+    positionSortKey,
+    roleAbbreviationDisplay,
+    rolePositionSortKey,
+)
 from fmsat.core.squadAssessment import SquadAssessment
 from fmsat.core.squadModel import SquadModel
 
@@ -168,7 +173,7 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
             RoleDisplay(
                 roleCode=role.roleCode,
                 displayName=role.displayName,
-                abbreviation=role.abbreviation,
+                abbreviation=roleAbbreviationDisplay(role.roleCode, role.abbreviation),
                 positions=", ".join(role.positions),
                 phases=", ".join(role.phases),
                 coverage=coverage,
@@ -269,7 +274,10 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
 def _requiredSlotDisplay(slot) -> RequiredSlotDisplay:
     """Render one slot with phase roles and candidates who satisfy both phases."""
 
-    phaseRoles = {role.phase: role.abbreviation for role in slot.roles}
+    phaseRoles = {
+        role.phase: roleAbbreviationDisplay(role.roleCode or "", role.abbreviation)
+        for role in slot.roles
+    }
     primary, primaryEvidence = _slotCandidateDisplay(slot, slot.bestCandidate)
     backup, backupEvidence = _slotCandidateDisplay(slot, slot.backupCandidate)
     if slot.unavailableReason is not None:

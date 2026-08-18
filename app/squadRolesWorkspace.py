@@ -105,13 +105,13 @@ class SquadRolesTab(BaseSquadRolesTab):
 
     @classmethod
     def _roleCoverageRender(cls, role: RoleDisplay) -> str:
-        """Render best-first depth without repetitive Best/Backup labels."""
+        """Render best-first depth with unambiguous surname-first player separators."""
 
         candidates = cls._roleCoverageCandidates(role)
         if not candidates:
             hasEligible = any(_candidateEligible(role, candidate) for candidate in role.candidates)
             return "Unavailable" if hasEligible else "Uncovered"
-        return " · ".join(candidate.name for candidate in candidates)
+        return "; ".join(candidate.name for candidate in candidates)
 
     def _roleHeaderClicked(self, column: int) -> None:
         """Sort alphabetically only when the user explicitly clicks the Role header."""
