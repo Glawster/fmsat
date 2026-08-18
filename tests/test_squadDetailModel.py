@@ -58,8 +58,8 @@ def testCandidateRowsExposePlayersBestAvailableRole() -> None:
     assert {role.candidates[0].bestRole for role in display.roles} == {"Shadow Striker"}
 
 
-def testUnresolvedSlotRoleIsVisibleAndExplicitlyUnknown() -> None:
-    """Every Analysis Unknown must have an actionable semantic role in the Roles tab."""
+def testUnresolvedSlotRolesAreVisibleAndExplicitlyUnknown() -> None:
+    """Every Analysis Unknown must have an actionable counterpart in the Roles tab."""
 
     squad = SquadModel(
         "First Team",
@@ -68,7 +68,7 @@ def testUnresolvedSlotRoleIsVisibleAndExplicitlyUnknown() -> None:
         datetime(2026, 8, 18),
         False,
     )
-    slot = RequiredSlotAssessment(
+    semanticGap = RequiredSlotAssessment(
         slotId="09",
         position="AMR",
         roles=(
@@ -85,22 +85,46 @@ def testUnresolvedSlotRoleIsVisibleAndExplicitlyUnknown() -> None:
         uncovered=True,
         unavailableReason="OOP roleCode trackingWinger has no role assessment evidence",
     )
+    identityGap = RequiredSlotAssessment(
+        slotId="10",
+        position="STC",
+        roles=(
+            SlotRoleRequirement(
+                phase="OOP",
+                roleCode=None,
+                displayName="Unavailable",
+                abbreviation="Unavailable",
+            ),
+        ),
+        candidates=(),
+        bestCandidate=None,
+        backupCandidate=None,
+        uncovered=True,
+        unavailableReason="OOP roleCode is unavailable",
+    )
     assessment = SquadAssessment(
         squad=squad,
         tacticName="High Press",
         availableTactics=("High Press",),
-        requiredPositionCount=1,
+        requiredPositionCount=2,
         roles=(),
-        requiredSlots=(slot,),
+        requiredSlots=(semanticGap, identityGap),
     )
 
     display = squadDetailModelBuild(assessment)
 
-    unresolved = next(role for role in display.roles if role.roleCode == "trackingWinger")
-    assert unresolved.displayName == "Tracking Winger"
-    assert unresolved.resolutionState == "unknownRole"
-    assert unresolved.phases == "OOP"
+    semanticRole = next(role for role in display.roles if role.roleCode == "trackingWinger")
+    assert semanticRole.displayName == "Tracking Winger"
+    assert semanticRole.resolutionState == "unknownRole"
+    assert semanticRole.phases == "OOP"
     assert display.requiredSlots[0].oopRole == "Unknown role"
+
+    identityRole = next(
+        role for role in display.roles if role.roleCode == "unresolved:10:OOP"
+    )
+    assert identityRole.displayName == "Unknown OOP role at STC"
+    assert identityRole.resolutionState == "unknownRole"
+    assert display.requiredSlots[1].oopRole == "Unknown role"
 
 
 def testUnavailableEvidenceIsNotRepeatedAsWeakPositionFinding() -> None:
