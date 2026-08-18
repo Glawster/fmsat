@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from fmsat.app.presentation import playerNameDisplay, rolePositionSortKey
+from fmsat.app.presentation import playerNameDisplay, positionSortKey, rolePositionSortKey
 from fmsat.core.squadAssessment import SquadAssessment
 from fmsat.core.squadModel import SquadModel
 
@@ -46,6 +46,19 @@ class PlayerRoleDisplay:
 
 
 @dataclass(frozen=True, slots=True)
+class RequiredSlotDisplay:
+    """One simultaneous tactic slot rendered from FMSAT role-depth intelligence."""
+
+    position: str
+    ipRole: str
+    oopRole: str
+    primary: str
+    backup: str
+    primaryEvidence: str
+    backupEvidence: str
+
+
+@dataclass(frozen=True, slots=True)
 class AnalysisFindingDisplay:
     """One squad-level finding and its evidence statement."""
 
@@ -68,6 +81,7 @@ class SquadDetailModel:
     scoringIdentity: str = "Unavailable"
     playerRoles: tuple[PlayerRoleDisplay, ...] = ()
     findings: tuple[AnalysisFindingDisplay, ...] = ()
+    requiredSlots: tuple[RequiredSlotDisplay, ...] = ()
 
 
 def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
@@ -209,6 +223,14 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
             )
         )
 
+    requiredSlots = tuple(
+        _requiredSlotDisplay(slot)
+        for slot in sorted(
+            assessment.requiredSlots,
+            key=lambda slot: (*positionSortKey(slot.position), slot.slotId.casefold()),
+        )
+    )
+
     findings = tuple(
         AnalysisFindingDisplay(
             category,
@@ -240,7 +262,69 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
         scoringIdentity=assessment.scoringIdentity,
         playerRoles=tuple(playerRoles),
         findings=findings,
+        requiredSlots=requiredSlots,
     )
+
+
+def _requiredSlotDisplay(slot) -> RequiredSlotDisplay:
+    """Render one slot with phase roles and candidates who satisfy both phases."""
+
+    phaseRoles = {role.phase: role.abbreviation for role in slot.roles}
+    primary, primaryEvidence = _slotCandidateDisplay(slot, slot.bestCandidate)
+    backup, backupEvidence = _slotCandidateDisplay(slot, slot.backupCandidate)
+    if slot.unavailableReason is not None:
+        primary = "Unavailable"
+        primaryEvidence = slot.unavailableReason
+        backup = "Unavailable"
+        backupEvidence = slot.unavailableReason
+    elif slot.uncovered and slot.bestCandidate is None:
+        primary = "Uncovered"
+        primaryEvidence = "No player has complete calculable evidence for every phase role."
+        backup = "—"
+        backupEvidence = primaryEvidence
+    elif slot.backupCandidate is None:
+        backup = "—"
+        backupEvidence = "No independent backup remains after the primary assignment."
+    return RequiredSlotDisplay(
+        position=slot.position,
+        ipRole=phaseRoles.get("IP", "—"),
+        oopRole=phaseRoles.get("OOP", "—"),
+        primary=primary,
+        backup=backup,
+        primaryEvidence=primaryEvidence,
+        backupEvidence=backupEvidence,
+    )
+
+
+def _slotCandidateDisplay(slot, playerName: str | None) -> tuple[str, str]:
+    """Show one assigned player with IP/OOP fit evidence proving complete slot coverage."""
+
+    if playerName is None:
+        return "—", "Unavailable"
+    candidate = next(
+        (
+            item
+            for item in slot.candidates
+            if item.player.name.casefold() == playerName.casefold()
+        ),
+        None,
+    )
+    if candidate is None or candidate.score is None:
+        return playerNameDisplay(playerName), "Required slot evidence is unavailable"
+
+    phaseScores = []
+    evidence = []
+    for roleFit in candidate.roleFits:
+        score = roleFit.genericRoleFit.score
+        scoreText = f"{score:.1f}" if score is not None else "Unavailable"
+        phaseScores.append(scoreText)
+        evidence.append(f"{roleFit.phase} {roleFit.displayName}: {scoreText}")
+    scoreText = " / ".join(phaseScores)
+    display = playerNameDisplay(playerName)
+    if scoreText:
+        display = f"{display} · {scoreText}"
+    evidence.append(f"Combined slot score: {candidate.score:.1f}")
+    return display, "; ".join(evidence)
 
 
 def _playerNamesReplace(text: str, displayNames: dict[str, str]) -> str:
