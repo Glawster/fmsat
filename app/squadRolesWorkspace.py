@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from fmsat.app.presentation import playerNameSortKey
+from fmsat.app.presentation import playerNameSortKey, playerSurnameDisplay
 from fmsat.app.squadDetailModel import CandidateDisplay, RoleDisplay
 from fmsat.app.squadDetailTabOverrides import (
     _breakdownAbbreviate,
@@ -58,31 +58,48 @@ class SquadRolesTab(BaseSquadRolesTab):
         self._rowsCompact()
 
     def _roleTableRebuild(self) -> None:
-        """Use role abbreviation and compact eligible depth, retaining roleCode metadata."""
+        """Show each unique tactic role in its possession phase with compact coverage."""
 
         self.roleTable.setSortingEnabled(False)
-        self.roleTable.setColumnCount(2)
-        self.roleTable.setHorizontalHeaderLabels(("Role", "Coverage"))
+        self.roleTable.setColumnCount(3)
+        self.roleTable.setHorizontalHeaderLabels(("IP", "OOP", "Coverage"))
         self.roleTable.setRowCount(len(self.roles))
         for row, role in enumerate(self.roles):
-            abbreviation = QTableWidgetItem(role.abbreviation)
-            abbreviation.setData(Qt.ItemDataRole.UserRole, role.roleCode)
-            abbreviation.setToolTip(role.displayName)
-            self.roleTable.setItem(row, 0, abbreviation)
+            ipText, oopText = self._rolePhaseCells(role)
+            for column, text in enumerate((ipText, oopText)):
+                item = QTableWidgetItem(text)
+                item.setData(Qt.ItemDataRole.UserRole, role.roleCode)
+                item.setToolTip(role.displayName)
+                self.roleTable.setItem(row, column, item)
 
             coverageText = self._roleCoverageRender(role)
             coverage = QTableWidgetItem(coverageText)
             coverage.setToolTip(coverageText)
-            self.roleTable.setItem(row, 1, coverage)
+            self.roleTable.setItem(row, 2, coverage)
 
         header = self.roleTable.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         header.setSectionsClickable(True)
         header.sectionClicked.connect(self._roleHeaderClicked)
-        self.roleTable.setMinimumWidth(300)
+        self.roleTable.setMinimumWidth(330)
         self.roleTable.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
         self.roleTable.verticalHeader().setDefaultSectionSize(28)
+
+    @staticmethod
+    def _rolePhaseCells(role: RoleDisplay) -> tuple[str, str]:
+        """Place the role abbreviation only in phases where the tactic uses it."""
+
+        phases = {phase.strip().casefold() for phase in role.phases.split(",")}
+        inPossession = any(phase in {"ip", "in possession"} for phase in phases)
+        outOfPossession = any(
+            phase in {"oop", "out of possession"} for phase in phases
+        )
+        return (
+            role.abbreviation if inPossession else "",
+            role.abbreviation if outOfPossession else "",
+        )
 
     @staticmethod
     def _roleCoverageCandidates(role: RoleDisplay) -> tuple[CandidateDisplay, ...]:
@@ -105,20 +122,20 @@ class SquadRolesTab(BaseSquadRolesTab):
 
     @classmethod
     def _roleCoverageRender(cls, role: RoleDisplay) -> str:
-        """Render best-first depth with unambiguous surname-first player separators."""
+        """Render deliberately compact surname-only coverage for the tactic navigator."""
 
         candidates = cls._roleCoverageCandidates(role)
         if not candidates:
             hasEligible = any(_candidateEligible(role, candidate) for candidate in role.candidates)
             return "Unavailable" if hasEligible else "Uncovered"
-        return "; ".join(candidate.name for candidate in candidates)
+        return " - ".join(playerSurnameDisplay(candidate.name) for candidate in candidates)
 
     def _roleHeaderClicked(self, column: int) -> None:
-        """Sort alphabetically only when the user explicitly clicks the Role header."""
+        """Allow explicit alphabetical sorting from either phase role header."""
 
-        if column != 0:
+        if column not in (0, 1):
             return
-        self.roleTable.sortItems(0, self.roleSortOrder)
+        self.roleTable.sortItems(column, self.roleSortOrder)
         self.roleSortOrder = (
             Qt.SortOrder.DescendingOrder
             if self.roleSortOrder is Qt.SortOrder.AscendingOrder
@@ -218,7 +235,7 @@ class SquadRolesTab(BaseSquadRolesTab):
         mainSplitter.addWidget(rightSplitter)
         mainSplitter.setStretchFactor(0, 1)
         mainSplitter.setStretchFactor(1, 4)
-        mainSplitter.setSizes([330, 1120])
+        mainSplitter.setSizes([360, 1090])
         root.addWidget(mainSplitter, 1)
 
         if oldSplitter is not None and oldSplitter is not mainSplitter:
@@ -236,7 +253,9 @@ class SquadRolesTab(BaseSquadRolesTab):
         if currentRow < 0:
             self._allCandidatesShow()
             return
-        roleItem = self.roleTable.item(currentRow, 0)
+        roleItem = self.roleTable.item(currentRow, currentColumn)
+        if roleItem is None or currentColumn == 2:
+            roleItem = self.roleTable.item(currentRow, 0) or self.roleTable.item(currentRow, 1)
         role = (
             self.rolesByCode.get(str(roleItem.data(Qt.ItemDataRole.UserRole)))
             if roleItem is not None
@@ -360,8 +379,7 @@ class SquadRolesTab(BaseSquadRolesTab):
     def _tooltipsApply(
         table: QTableWidget,
         column: int,
-        *,
-        preserve: bool = False,
+        *,        preserve: bool = False,
     ) -> None:
         for row in range(table.rowCount()):
             item = table.item(row, column)
