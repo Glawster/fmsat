@@ -1,8 +1,9 @@
 """Regression coverage for focused squad player editing."""
 
 from datetime import datetime
+from unittest.mock import patch
 
-from PySide6.QtWidgets import QAbstractItemView
+from PySide6.QtWidgets import QAbstractItemView, QDialog
 
 from fmsat.app.playerEditorDialog import PlayerEditorDialog
 from fmsat.app.squadPlayersWorkspace import SquadPlayersTab
@@ -80,3 +81,28 @@ def testPlayersTabIsBrowseOnlyAndBuildsEditorChanges(qtbot) -> None:  # type: ig
     assert dict(rebuilt.players[0].attributes)["acceleration"] == 15
     assert dict(rebuilt.players[0].attributes)["natural_fitness"] == 16
     assert rebuilt.players[0].traits == ("Places Shots",)
+
+
+def testPlayersTabLaunchesEditorWithConfiguredAttributes(qtbot) -> None:  # type: ignore[no-untyped-def]
+    """The double-click path must retain and pass the configured attribute definitions."""
+
+    attributes = _attributes()
+    model = SquadModel(
+        name="First Team",
+        players=(_player(),),
+        generatedAt=datetime(2026, 8, 18),
+        updatedAt=datetime(2026, 8, 18),
+        evidenceSuperseded=False,
+    )
+    tab = SquadPlayersTab(model, attributes)
+    qtbot.addWidget(tab)
+
+    with patch("fmsat.app.squadPlayersWorkspace.PlayerEditorDialog") as dialogClass:
+        dialogClass.return_value.exec.return_value = QDialog.DialogCode.Rejected
+
+        tab._playerEditorOpen(0, 0)
+
+    launchedPlayer, launchedAttributes, launchedParent = dialogClass.call_args.args
+    assert launchedPlayer.name == "Alessia Russo"
+    assert launchedAttributes == attributes
+    assert launchedParent is tab
