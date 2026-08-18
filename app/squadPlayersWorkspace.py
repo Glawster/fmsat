@@ -23,6 +23,7 @@ class SquadPlayersTab(BaseSquadPlayersTab):
         attributes: tuple[AttributeDefinition, ...] = (),
         parent=None,
     ) -> None:
+        self.attributes = attributes
         super().__init__(model, attributes, parent)
         blocker = QSignalBlocker(self.table)
         self.table.setSortingEnabled(False)
