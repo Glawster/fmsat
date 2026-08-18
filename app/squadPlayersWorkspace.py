@@ -53,7 +53,14 @@ class SquadPlayersTab(BaseSquadPlayersTab):
         edited = dialog.editedPlayer()
         self._playerRowApply(row, edited)
         self.changed.emit()
-        self.playerSaveRequested.emit()
+
+        # MainWindow already owns squad persistence and assessment refresh. Reuse it so
+        # role scores, slot depth and findings are rebuilt from the corrected facts once.
+        save = getattr(self.window(), "_squadModelSave", None)
+        if callable(save):
+            save(self.modelBuild())
+        else:
+            self.playerSaveRequested.emit()
 
     def _playerAtRow(self, row: int) -> SquadModelPlayer:
         """Rebuild one visible row into a detached player while retaining provenance."""
