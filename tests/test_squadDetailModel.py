@@ -4,6 +4,7 @@ from datetime import datetime
 
 from fmsat.app.squadDetailModel import squadDetailModelBuild
 from fmsat.core.squadAssessment import (
+    AnalysisFinding,
     GenericRoleFit,
     RequiredRoleAssessment,
     RoleCandidate,
@@ -54,3 +55,43 @@ def testCandidateRowsExposePlayersBestAvailableRole() -> None:
     display = squadDetailModelBuild(assessment)
 
     assert {role.candidates[0].bestRole for role in display.roles} == {"Shadow Striker"}
+
+
+def testUnavailableEvidenceIsNotRepeatedAsWeakPositionFinding() -> None:
+    """Required Role Depth already carries unavailable evidence; findings should not duplicate it."""
+
+    player = SquadModelPlayer("Ada Player", "M (C)", "", "", 0.9, ())
+    squad = SquadModel(
+        "First Team",
+        (player,),
+        datetime(2026, 8, 18),
+        datetime(2026, 8, 18),
+        False,
+    )
+    weak = AnalysisFinding(
+        "trackingWinger",
+        "Tracking Winger",
+        "No player has complete evidence for a calculable score.",
+    )
+    duplication = AnalysisFinding(
+        "centreBack",
+        "Centre-Back",
+        "3 players have this as their best role at 60.0 or above: Ada Player, Bea Example, Cara Sample.",
+    )
+    assessment = SquadAssessment(
+        squad=squad,
+        tacticName="High Press",
+        availableTactics=("High Press",),
+        requiredPositionCount=11,
+        roles=(),
+        weakRoles=(weak,),
+        duplicatedRoles=(duplication,),
+    )
+
+    display = squadDetailModelBuild(assessment)
+
+    assert all(finding.category != "Weak position" for finding in display.findings)
+    assert display.findings[0].explanation == (
+        "3 players have this as their best role at 60.0 or above: "
+        "Player, Ada; Example, Bea; Sample, Cara."
+    )
