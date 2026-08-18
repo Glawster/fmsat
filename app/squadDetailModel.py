@@ -203,26 +203,36 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
             )
         )
 
-    # Required Role Depth retains phase roles that do not yet have assessment
-    # evidence. Surface those roles in the Roles tab as first-class knowledge
-    # gaps so every Unknown shown in Analysis has somewhere actionable to go.
+    # Required Role Depth retains phase requirements even when role assessment
+    # evidence is absent. Surface every such requirement in Roles so each
+    # Unknown shown in Analysis has an actionable counterpart.
     knownRoleCodes = {role.roleCode for role in roles}
     unresolved: dict[str, dict[str, object]] = {}
     for slot in assessment.requiredSlots:
         for requirement in slot.roles:
-            roleCode = str(requirement.roleCode or "").strip()
-            if (
-                not roleCode
-                or roleCode.startswith("capturedRole")
-                or roleCode in knownRoleCodes
-            ):
+            semanticCode = str(requirement.roleCode or "").strip()
+            if semanticCode and semanticCode in knownRoleCodes:
                 continue
+            if semanticCode.startswith("capturedRole"):
+                continue
+
+            unresolvedKey = (
+                semanticCode
+                if semanticCode
+                else f"unresolved:{slot.slotId}:{requirement.phase}"
+            )
+            displayName = (
+                _roleCodeDisplay(semanticCode, requirement.displayName)
+                if semanticCode
+                else f"Unknown {requirement.phase} role at {slot.position}"
+            )
             entry = unresolved.setdefault(
-                roleCode,
+                unresolvedKey,
                 {
-                    "displayName": _roleCodeDisplay(roleCode, requirement.displayName),
+                    "displayName": displayName,
                     "positions": [],
                     "phases": [],
+                    "semanticCode": semanticCode,
                 },
             )
             positions = entry["positions"]
@@ -232,12 +242,20 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
             if isinstance(phases, list) and requirement.phase not in phases:
                 phases.append(requirement.phase)
 
-    for roleCode, entry in unresolved.items():
+    for unresolvedKey, entry in unresolved.items():
         positions = tuple(str(value) for value in entry["positions"])
         phases = tuple(str(value) for value in entry["phases"])
+        semanticCode = str(entry["semanticCode"])
+        reason = (
+            f"Role code {semanticCode} is required by the tactic but has no confirmed role "
+            "assessment evidence."
+            if semanticCode
+            else "This tactic slot has no semantic roleCode evidence; capture and confirm the "
+            "Football Manager role profile for this exact slot/phase."
+        )
         roles.append(
             RoleDisplay(
-                roleCode=roleCode,
+                roleCode=unresolvedKey,
                 displayName=str(entry["displayName"]),
                 abbreviation="Unknown",
                 positions=", ".join(positions),
@@ -245,10 +263,7 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
                 coverage="Unavailable — role definition is not confirmed",
                 candidates=(),
                 resolutionState="unknownRole",
-                resolutionReason=(
-                    f"Role code {roleCode} is required by the tactic but has no confirmed "
-                    "role assessment evidence."
-                ),
+                resolutionReason=reason,
             )
         )
 
