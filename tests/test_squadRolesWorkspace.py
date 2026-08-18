@@ -3,8 +3,12 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QSplitter
 
-from fmsat.app.presentation import playerNameDisplay, playerNameStorage
-from fmsat.app.squadDetailModel import CandidateDisplay, RoleDisplay, _positionSortKey
+from fmsat.app.presentation import (
+    playerNameDisplay,
+    playerNameStorage,
+    positionSortKey,
+)
+from fmsat.app.squadDetailModel import CandidateDisplay, RoleDisplay
 from fmsat.app.squadRolesWorkspace import SquadRolesTab
 
 
@@ -140,12 +144,12 @@ def testRoleOrderStaysTacticalUntilRoleHeaderIsClicked(qtbot) -> None:  # type: 
 
 
 def testSquadRoleLineOrderingRunsFromForwardsToGoalkeeper() -> None:
-    assert _positionSortKey("STC")[0] == 0
-    assert _positionSortKey("AMC")[0] == 1
-    assert _positionSortKey("MC")[0] == 2
-    assert _positionSortKey("DM")[0] == 3
-    assert _positionSortKey("DC")[0] == 4
-    assert _positionSortKey("GK")[0] == 5
+    assert positionSortKey("STC")[0] == 0
+    assert positionSortKey("AMC")[0] == 1
+    assert positionSortKey("MC")[0] == 2
+    assert positionSortKey("DM")[0] == 3
+    assert positionSortKey("DC")[0] == 4
+    assert positionSortKey("GK")[0] == 5
 
 
 def testPlayerNamePresentationIsSurnameFirstWithoutChangingStoredIdentity() -> None:
