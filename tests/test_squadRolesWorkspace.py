@@ -205,9 +205,9 @@ def testSquadRoleLineOrderingRunsFromForwardsToGoalkeeper() -> None:
     assert positionSortKey("GK")[0] == 5
 
 
-def testUnresolvedSemanticRoleCodeGetsCompactDisplayAbbreviation() -> None:
-    assert roleAbbreviationDisplay("trackingWinger", "trackingWinger") == "TW"
-    assert roleAbbreviationDisplay("trackingWideMidfielder", "trackingWideMidfielder") == "TWM"
+def testUnresolvedSemanticRoleCodeDisplaysUnknownAbbreviation() -> None:
+    assert roleAbbreviationDisplay("trackingWinger", "trackingWinger") == "Unknown"
+    assert roleAbbreviationDisplay("trackingWideMidfielder", "trackingWideMidfielder") == "Unknown"
     assert roleAbbreviationDisplay("trackingCentreForward", "TCF") == "TCF"
 
 
