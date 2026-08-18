@@ -58,6 +58,54 @@ def testRolesWorkspaceUsesFullHeightRolePaneAndStackedEvidence(qtbot) -> None:  
     assert evidenceSplitter.orientation() is Qt.Orientation.Vertical
 
 
+def testRoleCoverageUsesEligibleCandidatesAndCompactBestFirstPresentation(qtbot) -> None:  # type: ignore[no-untyped-def]
+    role = RoleDisplay(
+        roleCode="deepLyingPlaymaker",
+        displayName="Deep-Lying Playmaker",
+        abbreviation="DLP",
+        positions="DM, MC",
+        phases="In Possession",
+        coverage="Best: Hemp, Lauren · Backup: Maanum, Frida",
+        candidates=(
+            CandidateDisplay(
+                name="Hemp, Lauren",
+                positions="AM (L), ST (C)",
+                score="88.0",
+                bestRole="Wide Forward",
+                breakdown="passing: 15 × 5 = 75/100",
+                available=True,
+            ),
+            CandidateDisplay(
+                name="Maanum, Frida",
+                positions="M (C), AM (C)",
+                score="74.0",
+                bestRole="Attacking Midfielder",
+                breakdown="passing: 14 × 5 = 70/100",
+                available=True,
+            ),
+            CandidateDisplay(
+                name="Stanway, Georgia",
+                positions="DM, M (C)",
+                score="72.0",
+                bestRole="Defensive Midfielder",
+                breakdown="passing: 13 × 5 = 65/100",
+                available=True,
+            ),
+        ),
+    )
+    tab = SquadRolesTab((role,))
+    qtbot.addWidget(tab)
+
+    coverageItem = tab.roleTable.item(0, 1)
+    coverageLabel = tab.roleTable.cellWidget(0, 1)
+    assert coverageItem.text() == "Maanum, Frida, Stanway, Georgia"
+    assert "Hemp" not in coverageItem.text()
+    assert coverageLabel is not None
+    assert "<b>Maanum, Frida</b>" in coverageLabel.text()
+    assert "Best:" not in coverageLabel.text()
+    assert "Backup:" not in coverageLabel.text()
+
+
 def testRoleOrderStaysTacticalUntilRoleHeaderIsClicked(qtbot) -> None:  # type: ignore[no-untyped-def]
     roles = (
         _role("Channel Forward", "CHF", "STC"),
