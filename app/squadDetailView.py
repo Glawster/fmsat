@@ -23,8 +23,9 @@ from PySide6.QtWidgets import (
 )
 
 from fmsat.app.squadDetailModel import SquadDetailModel
-from fmsat.app.squadDetailTabOverrides import SquadAnalysisTab, SquadPlayersTab, SquadRolesTab
+from fmsat.app.squadDetailTabOverrides import SquadAnalysisTab, SquadPlayersTab
 from fmsat.app.squadDetailTabs import SquadOverviewTab
+from fmsat.app.squadRolesWorkspace import SquadRolesTab
 from fmsat.core.config import AttributeDefinition
 from fmsat.core.squadModel import SquadModel
 
