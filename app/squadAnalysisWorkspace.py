@@ -22,6 +22,7 @@ class SquadAnalysisTab(BaseSquadAnalysisTab):
         # The base class still owns the dashboard composition and companion analysis tables.
         super().__init__(model, attributes, requiredRows, parent)
         self._playerStrengthsSimplify()
+        self._findingPlayerListsFormat()
         if model.requiredSlots:
             self._slotDepthPopulate(model)
 
@@ -37,6 +38,26 @@ class SquadAnalysisTab(BaseSquadAnalysisTab):
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
         if self.playerTable.columnCount() >= 4:
             header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+
+    def _findingPlayerListsFormat(self) -> None:
+        """Separate surname-first player names with semicolons in finding prose."""
+
+        for row in range(self.findingsTable.rowCount()):
+            item = self.findingsTable.item(row, 2)
+            if item is None:
+                continue
+            text = item.text()
+            if "players have this as their best role" not in text or ": " not in text:
+                continue
+            prefix, namesText = text.rsplit(": ", 1)
+            suffix = "." if namesText.endswith(".") else ""
+            if suffix:
+                namesText = namesText[:-1]
+            parts = [part.strip() for part in namesText.split(",") if part.strip()]
+            if len(parts) < 4 or len(parts) % 2:
+                continue
+            names = [f"{parts[index]}, {parts[index + 1]}" for index in range(0, len(parts), 2)]
+            item.setText(f"{prefix}: {'; '.join(names)}{suffix}")
 
     def _slotDepthPopulate(self, model: SquadDetailModel) -> None:
         """Render hidden-position-ordered IP/OOP roles with primary and backup assignments."""
