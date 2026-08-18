@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+from fmsat.core.logUtils import getLogger
 from fmsat.core.parser import TacticVocabulary
 from fmsat.football.roleIdentity import RoleIdentity
+
+
+logger = getLogger()
 
 
 class RoleVocabulary:
@@ -15,6 +19,7 @@ class RoleVocabulary:
     def identityResolve(cls, *candidates: str) -> RoleIdentity | None:
         """Resolve one role identity from any number of candidate strings."""
 
+        logger.info(f"role identity candidates: {candidates!r}")
         explicitAliases = {
             "fullback": RoleIdentity.WB,
             "fb": RoleIdentity.WB,
@@ -25,9 +30,16 @@ class RoleVocabulary:
             if not normalized:
                 continue
             if normalized in explicitAliases:
-                return explicitAliases[normalized]
+                resolved = explicitAliases[normalized]
+                logger.info(
+                    f"role identity resolved directly: {candidate!r} -> {resolved.value}"
+                )
+                return resolved
             direct = cls._identityFromToken(normalized)
             if direct is not None:
+                logger.info(
+                    f"role identity resolved from token: {candidate!r} -> {direct.value}"
+                )
                 return direct
 
         # Then resolve via configured role vocabulary, which includes canonical
@@ -35,21 +47,40 @@ class RoleVocabulary:
         vocabulary = cls._vocabularyLoad()
         for candidate in candidates:
             normalized = vocabulary.roleNormalize(candidate)
+            logger.info(
+                "role vocabulary normalization: "
+                f"{candidate!r} -> {normalized.value!r} resolved={normalized.resolved}"
+            )
             if not normalized.resolved:
                 continue
             role = vocabulary.roles.get(normalized.value)
             if role is None:
+                logger.warning(
+                    f"normalized role {normalized.value!r} is absent from loaded vocabulary"
+                )
                 continue
+            logger.info(
+                "role vocabulary definition: "
+                f"code={role.code!r} abbreviations={role.abbreviations!r} "
+                f"display={role.displayName!r}"
+            )
             for abbreviation in role.abbreviations:
                 mapped = cls._identityFromToken(cls.normalize(abbreviation))
                 if mapped is not None:
+                    logger.info(
+                        f"role identity resolved from abbreviation: {abbreviation!r} -> {mapped.value}"
+                    )
                     return mapped
 
             # Fall back to role code text when abbreviation does not map directly.
             mapped = cls._identityFromToken(cls.normalize(role.code))
             if mapped is not None:
+                logger.info(
+                    f"role identity resolved from code: {role.code!r} -> {mapped.value}"
+                )
                 return mapped
 
+        logger.warning(f"role identity unresolved for candidates: {candidates!r}")
         return None
 
     @classmethod
@@ -96,6 +127,11 @@ class RoleVocabulary:
 
         if cls._vocabulary is None:
             cls._vocabulary = TacticVocabulary()
+            tam = cls._vocabulary.roleNormalize("TAM")
+            logger.info(
+                "loaded role vocabulary: "
+                f"roles={len(cls._vocabulary.roles)} TAM={tam.value!r} resolved={tam.resolved}"
+            )
         return cls._vocabulary
 
     @staticmethod

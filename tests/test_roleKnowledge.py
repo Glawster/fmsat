@@ -78,6 +78,7 @@ def testPackagedWeightsAreUsedWhenNoUserOverrideExists(tmp_path: Path) -> None:
         {"advancedPlaymaker": {"passing": 5, "vision": 4}},
     )
 
+    assert service.weightsLoad("advancedPlaymaker") == {"passing": 5, "vision": 4}
     assert service.weightsLoad(19) == {"passing": 5, "vision": 4}
 
 
@@ -124,7 +125,9 @@ def testVerifiedEvidenceCanAdoptANewDetectedRole(tmp_path: Path) -> None:
     assert draft.roleID == expectedRoleID
     assert draft.displayName == "Libero."
     assert draft.phase is TacticalPhase.IN_POSSESSION
-    assert service.definitionConfirm(draft).name == f"role-{expectedRoleID:03d}.yaml"
+    path = service.definitionConfirm(draft)
+    assert path.name == f"role-{expectedRoleID:03d}.yaml"
+    assert yaml.safe_load(path.read_text(encoding="utf-8"))["roleCode"] == "libero"
 
 
 def testLegacyTextNamedDefinitionRemainsRecognized(tmp_path: Path) -> None:
@@ -144,6 +147,33 @@ def testLegacyTextNamedDefinitionRemainsRecognized(tmp_path: Path) -> None:
     assert service.definitionExists("centreForward", TacticalPhase.IN_POSSESSION)
 
 
+def testLegacyNumericCollisionUsesConfirmedRoleNameNotNumericId(tmp_path: Path) -> None:
+    """Old TAM evidence remains TAM even if its historical ID now belongs to Free Role."""
+
+    (tmp_path / "role-020.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "roleID": 20,
+                "displayName": "Tracking Attacking Midfielder",
+                "abbreviations": ["TAM"],
+                "positions": ["AMC"],
+                "outOfPossession": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+    service = _serviceCreate(tmp_path)
+
+    definitions = service.definitionsList()
+
+    assert len(definitions) == 1
+    assert definitions[0].roleCode == "trackingAttackingMidfielder"
+    assert definitions[0].roleID == 20
+    service.vocabulary.capturedRolesAdd(definitions)
+    assert service.vocabulary.roleNormalize("TAM").value == "trackingAttackingMidfielder"
+    assert service.vocabulary.roleNormalize("FR").value == "freeRole"
+
+
 def testConfirmedDefinitionExcludesPlayerValuesStarsAndWeights(tmp_path: Path) -> None:
     service = _serviceCreate(tmp_path)
     draft = service.evidenceVerify(_advancedPlaymakerEvidence(), "MC", "advancedPlaymaker")
@@ -151,6 +181,7 @@ def testConfirmedDefinitionExcludesPlayerValuesStarsAndWeights(tmp_path: Path) -
     path = service.definitionConfirm(draft)
     content = yaml.safe_load(path.read_text(encoding="utf-8"))
 
+    assert content["roleCode"] == "advancedPlaymaker"
     assert content["roleID"] == 19
     assert "id" not in content
     assert content["positions"] == ["MCR", "MC", "MCL", "AMCR", "AMC", "AMCL"]
@@ -250,10 +281,11 @@ def testExistingRoleAbbreviationsAreNormalizedWhenReplaced(tmp_path: Path) -> No
     migratedPath = service.definitionConfirm(draft, replace=True)
     content = yaml.safe_load(migratedPath.read_text(encoding="utf-8"))
 
+    assert content["roleCode"] == "channelForward"
     assert content["abbreviations"] == ["CHF"]
     assert content["roleID"] == 17
     assert "id" not in content
-    assert migratedPath.name == "role-017.yaml"
+    assert migratedPath.name == "channelForward.yaml"
 
 
 def testExistingDefinitionRequiresExplicitReplacement(tmp_path: Path) -> None:
@@ -299,6 +331,7 @@ def testPossessionPhaseDefinitionsForOneRoleCanCoexist(tmp_path: Path) -> None:
     assert service.definitionExists("advancedPlaymaker", TacticalPhase.IN_POSSESSION)
     assert service.definitionExists("advancedPlaymaker", TacticalPhase.OUT_OF_POSSESSION)
     content = yaml.safe_load(first.read_text(encoding="utf-8"))
+    assert content["roleCode"] == "advancedPlaymaker"
     assert content["inPossession"] is True
     assert content["outOfPossession"] is True
 
@@ -308,16 +341,16 @@ def testAssessmentWeightsAreStoredSeparatelyFromRoleFacts(tmp_path: Path) -> Non
     draft = service.evidenceVerify(_advancedPlaymakerEvidence(), "MC", "advancedPlaymaker")
     rolePath = service.definitionConfirm(draft)
     weightsPath = service.weightsConfirm(
-        19,
+        "advancedPlaymaker",
         {"passing": 5, "vision": 4},
         {"passing": "topThree", "vision": "important"},
     )
 
     assert weightsPath is not None
-    assert weightsPath.name == "role-019.yaml"
+    assert weightsPath.name == "advancedPlaymaker.yaml"
     assert weightsPath.parent.name == "requirements"
-    assert service.weightsLoad(19) == {"passing": 5, "vision": 4}
-    assert service.importanceLoad(19) == {
+    assert service.weightsLoad("advancedPlaymaker") == {"passing": 5, "vision": 4}
+    assert service.importanceLoad("advancedPlaymaker") == {
         "passing": "topThree",
         "vision": "important",
     }
@@ -329,7 +362,7 @@ def testAssessmentRejectsMoreThanThreeTopAttributes(tmp_path: Path) -> None:
 
     with pytest.raises(RoleKnowledgeError, match="at most three"):
         service.weightsConfirm(
-            19,
+            "advancedPlaymaker",
             {},
             {
                 "offTheBall": "topThree",
@@ -345,7 +378,7 @@ def testDefinitionDeleteRemovesRoleAndRequirements(tmp_path: Path) -> None:
     draft = service.evidenceVerify(_advancedPlaymakerEvidence(), "MC", "advancedPlaymaker")
     rolePath = service.definitionConfirm(draft)
     weightsPath = service.weightsConfirm(
-        19,
+        "advancedPlaymaker",
         {"passing": 5},
         {"passing": "topThree"},
     )
