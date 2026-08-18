@@ -40,8 +40,28 @@ QComboBox QAbstractItemView::item, QComboBox QListView::item { background: #101f
 QComboBox QAbstractItemView::item:hover, QComboBox QAbstractItemView::item:selected, QComboBox QListView::item:hover, QComboBox QListView::item:selected { background: #56d6b0; color: #061510; }
 QMenu#playerFilterMenu { background: #101f2e; color: #f5f8fb; border: 1px solid #30465a; padding: 7px; }
 QMenu#playerFilterMenu QCheckBox { color: #f5f8fb; spacing: 9px; padding: 7px 12px; min-width: 170px; }
+
+/* Shared dialog palette. Dialogs opened outside the squad workspace use this too. */
 QDialog { background: #08131f; color: #e8eef5; }
+QDialog QLabel, QDialog QRadioButton, QDialog QCheckBox, QDialog QGroupBox { color: #d9e5ef; }
 QDialogButtonBox QPushButton { qproperty-iconSize: 0px 0px; }
+QDialog QPushButton {
+    background: #31b98f; color: #061510; border: 1px solid #31b98f;
+    border-radius: 7px; padding: 7px 12px; font-weight: 700;
+}
+QDialog QPushButton:hover { background: #56d6b0; border-color: #56d6b0; }
+QDialog QPushButton:disabled { background: #243545; color: #60788e; border-color: #405366; }
+QDialog QTableWidget {
+    background: #101f2e; alternate-background-color: #0c1926; color: #f5f8fb;
+    border: 1px solid #30465a; gridline-color: #263b4e;
+    selection-background-color: #163b38; selection-color: #75e0bf;
+}
+QDialog QTableWidget::item { color: #f5f8fb; padding: 4px; }
+QDialog QTableWidget::item:selected { background: #163b38; color: #75e0bf; }
+QDialog QComboBox {
+    background: #101f2e; color: #f5f8fb; border: 1px solid #30465a;
+    border-radius: 5px; padding: 5px 7px;
+}
 QInputDialog { min-width: 520px; }
 QLineEdit, QTextEdit, QPlainTextEdit { background: #101f2e; color: #f5f8fb; border: 1px solid #30465a; border-radius: 6px; padding: 8px; }
 QTreeWidget#playerTraitList { background: #101f2e; alternate-background-color: #0c1926; color: #f5f8fb; border: 1px solid #30465a; }
