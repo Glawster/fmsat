@@ -3,6 +3,7 @@
 from datetime import datetime
 
 from fmsat.app.squadDetailModel import squadDetailModelBuild
+from fmsat.core.roleDepth import RequiredSlotAssessment, SlotRoleRequirement
 from fmsat.core.squadAssessment import (
     AnalysisFinding,
     GenericRoleFit,
@@ -55,6 +56,51 @@ def testCandidateRowsExposePlayersBestAvailableRole() -> None:
     display = squadDetailModelBuild(assessment)
 
     assert {role.candidates[0].bestRole for role in display.roles} == {"Shadow Striker"}
+
+
+def testUnresolvedSlotRoleIsVisibleAndExplicitlyUnknown() -> None:
+    """Every Analysis Unknown must have an actionable semantic role in the Roles tab."""
+
+    squad = SquadModel(
+        "First Team",
+        (),
+        datetime(2026, 8, 18),
+        datetime(2026, 8, 18),
+        False,
+    )
+    slot = RequiredSlotAssessment(
+        slotId="09",
+        position="AMR",
+        roles=(
+            SlotRoleRequirement(
+                phase="OOP",
+                roleCode="trackingWinger",
+                displayName="trackingWinger",
+                abbreviation="trackingWinger",
+            ),
+        ),
+        candidates=(),
+        bestCandidate=None,
+        backupCandidate=None,
+        uncovered=True,
+        unavailableReason="OOP roleCode trackingWinger has no role assessment evidence",
+    )
+    assessment = SquadAssessment(
+        squad=squad,
+        tacticName="High Press",
+        availableTactics=("High Press",),
+        requiredPositionCount=1,
+        roles=(),
+        requiredSlots=(slot,),
+    )
+
+    display = squadDetailModelBuild(assessment)
+
+    unresolved = next(role for role in display.roles if role.roleCode == "trackingWinger")
+    assert unresolved.displayName == "Tracking Winger"
+    assert unresolved.resolutionState == "unknownRole"
+    assert unresolved.phases == "OOP"
+    assert display.requiredSlots[0].oopRole == "Unknown role"
 
 
 def testUnavailableEvidenceIsNotRepeatedAsWeakPositionFinding() -> None:
