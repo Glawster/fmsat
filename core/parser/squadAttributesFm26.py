@@ -55,6 +55,13 @@ class SquadAttributesParser(_BaseSquadAttributesParser):
                 tolerance,
                 minimumX,
             )
+        if attributeName == "natural_fitness":
+            return self._naturalFitnessHeaderInfer(
+                results,
+                headerY,
+                tolerance,
+                minimumX,
+            )
         return None
 
     def _firstTouchHeaderInfer(
@@ -145,6 +152,53 @@ class SquadAttributesParser(_BaseSquadAttributesParser):
         return OcrResult(
             f"{attributeName.replace('_', ' ').title()} (inferred)",
             min(technique.confidence, balance.confidence),
+            (
+                centerX - halfWidth,
+                headerY - halfHeight,
+                centerX + halfWidth,
+                headerY + halfHeight,
+            ),
+        )
+
+    def _naturalFitnessHeaderInfer(
+        self,
+        results: list[OcrResult],
+        headerY: float,
+        tolerance: float,
+        minimumX: float,
+    ) -> OcrResult | None:
+        """Infer Natural Fitness between Jumping Reach and FM's visible Long Shots header."""
+
+        jumping = super()._attributeHeaderFind(
+            results,
+            "jumping_reach",
+            headerY,
+            tolerance,
+            minimumX,
+        )
+        longShots = super()._attributeHeaderFind(
+            results,
+            "long_shots",
+            headerY,
+            tolerance,
+            minimumX,
+        )
+        if (
+            jumping is None
+            or longShots is None
+            or jumping.center is None
+            or longShots.center is None
+            or longShots.center[0] <= jumping.center[0]
+        ):
+            return None
+
+        centerX = (jumping.center[0] + longShots.center[0]) / 2
+        gap = longShots.center[0] - jumping.center[0]
+        halfWidth = max(4.0, gap * 0.18)
+        halfHeight = max(4.0, tolerance * 0.25)
+        return OcrResult(
+            "Natural Fitness (inferred)",
+            min(jumping.confidence, longShots.confidence),
             (
                 centerX - halfWidth,
                 headerY - halfHeight,
