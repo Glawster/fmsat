@@ -40,20 +40,29 @@ class PlayerEditorDialog(QDialog):
         self.attributes = attributes
         self.selectedTraits = player.traits
         self.attributeInputs: dict[str, QSpinBox] = {}
+        self.setObjectName("playerEditorDialog")
         self.setWindowTitle(f"Edit Player · {playerNameDisplay(player.name)}")
-        self.resize(820, 720)
+        self.resize(880, 720)
+        self.setMinimumSize(760, 620)
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 14, 16, 14)
+        layout.setSpacing(12)
+
         context = QLabel(
             "Edit factual player-model evidence here. Generic Role Fit, role depth and squad "
             "findings are derived automatically after the player is saved."
         )
-        context.setObjectName("mutedText")
+        context.setObjectName("playerEditorContext")
         context.setWordWrap(True)
         layout.addWidget(context)
 
         identityGroup = QGroupBox("Player", self)
+        identityGroup.setObjectName("playerEditorSection")
         identity = QFormLayout(identityGroup)
+        identity.setContentsMargins(12, 14, 12, 12)
+        identity.setHorizontalSpacing(14)
+        identity.setVerticalSpacing(8)
         self.nameInput = QLineEdit(playerNameDisplay(player.name), identityGroup)
         self.positionsInput = QLineEdit(player.positions, identityGroup)
         self.caInput = QLineEdit(player.ca, identityGroup)
@@ -70,41 +79,59 @@ class PlayerEditorDialog(QDialog):
                 else ""
             )
         )
-        identity.addRow("Evidence status", QLabel(provenance, identityGroup))
+        evidence = QLabel(provenance, identityGroup)
+        evidence.setObjectName("playerEvidenceStatus")
+        identity.addRow("Evidence status", evidence)
         layout.addWidget(identityGroup)
 
         scroll = QScrollArea(self)
+        scroll.setObjectName("playerAttributeScroll")
         scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         attributeContainer = QWidget(scroll)
+        attributeContainer.setObjectName("playerAttributeContainer")
         attributeLayout = QGridLayout(attributeContainer)
+        attributeLayout.setContentsMargins(10, 10, 10, 10)
+        attributeLayout.setHorizontalSpacing(10)
+        attributeLayout.setVerticalSpacing(7)
         values = dict(player.attributes)
         definitions = self._attributeDefinitions(values)
         for index, definition in enumerate(definitions):
             row = index // 4
             column = (index % 4) * 2
             label = QLabel(definition.abbreviation, attributeContainer)
+            label.setObjectName("playerAttributeLabel")
             label.setToolTip(definition.name.replace("_", " ").title())
             editor = QSpinBox(attributeContainer)
+            editor.setObjectName("playerAttributeInput")
             editor.setRange(0, 20)
             editor.setSpecialValueText("Unknown")
             editor.setValue(values.get(definition.name) or 0)
             editor.setToolTip(definition.name.replace("_", " ").title())
+            editor.setMinimumWidth(84)
             self.attributeInputs[definition.name] = editor
             attributeLayout.addWidget(label, row, column)
             attributeLayout.addWidget(editor, row, column + 1)
         scroll.setWidget(attributeContainer)
 
         attributesGroup = QGroupBox("Attributes", self)
+        attributesGroup.setObjectName("playerEditorSection")
         attributesLayout = QVBoxLayout(attributesGroup)
+        attributesLayout.setContentsMargins(8, 12, 8, 8)
         attributesLayout.addWidget(scroll)
         layout.addWidget(attributesGroup, 1)
 
         traitsGroup = QGroupBox("Known Traits", self)
+        traitsGroup.setObjectName("playerEditorSection")
         traitsLayout = QVBoxLayout(traitsGroup)
+        traitsLayout.setContentsMargins(12, 14, 12, 10)
+        traitsLayout.setSpacing(8)
         self.traitsSummary = QLabel(traitsGroup)
+        self.traitsSummary.setObjectName("playerTraitsSummary")
         self.traitsSummary.setWordWrap(True)
         traitsLayout.addWidget(self.traitsSummary)
         editTraits = QPushButton("Edit Known Traits", traitsGroup)
+        editTraits.setObjectName("secondaryButton")
         editTraits.clicked.connect(self._traitsEdit)
         row = QHBoxLayout()
         row.addWidget(editTraits)
@@ -117,7 +144,12 @@ class PlayerEditorDialog(QDialog):
             QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel,
             parent=self,
         )
-        buttons.button(QDialogButtonBox.StandardButton.Save).setText("Save Player")
+        buttons.setObjectName("playerEditorButtons")
+        saveButton = buttons.button(QDialogButtonBox.StandardButton.Save)
+        cancelButton = buttons.button(QDialogButtonBox.StandardButton.Cancel)
+        saveButton.setText("Save Player")
+        saveButton.setObjectName("primaryButton")
+        cancelButton.setObjectName("secondaryButton")
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -163,6 +195,7 @@ class PlayerEditorDialog(QDialog):
 
     def _traitsEdit(self) -> None:
         dialog = PlayerTraitDialog(self.selectedTraits, self)
+        dialog.setObjectName("playerTraitDialog")
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.selectedTraits = dialog.selectedTraits()
             self._traitsSummaryUpdate()
