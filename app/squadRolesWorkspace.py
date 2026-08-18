@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from html import escape
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -58,7 +60,7 @@ class SquadRolesTab(BaseSquadRolesTab):
         self._rowsCompact()
 
     def _roleTableRebuild(self) -> None:
-        """Use role abbreviation and coverage only, retaining semantic roleCode metadata."""
+        """Use role abbreviation and compact eligible depth, retaining roleCode metadata."""
 
         self.roleTable.setSortingEnabled(False)
         self.roleTable.setColumnCount(2)
@@ -69,9 +71,20 @@ class SquadRolesTab(BaseSquadRolesTab):
             abbreviation.setData(Qt.ItemDataRole.UserRole, role.roleCode)
             abbreviation.setToolTip(role.displayName)
             self.roleTable.setItem(row, 0, abbreviation)
-            coverage = QTableWidgetItem(role.coverage)
-            coverage.setToolTip(role.coverage)
+
+            coverageText, coverageHtml = self._roleCoverageRender(role)
+            coverage = QTableWidgetItem(coverageText)
+            coverage.setToolTip(coverageText)
             self.roleTable.setItem(row, 1, coverage)
+            coverageLabel = QLabel(coverageHtml, self.roleTable)
+            coverageLabel.setTextFormat(Qt.TextFormat.RichText)
+            coverageLabel.setToolTip(coverageText)
+            coverageLabel.setAlignment(
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+            )
+            coverageLabel.setStyleSheet("background: transparent;")
+            self.roleTable.setCellWidget(row, 1, coverageLabel)
+
         header = self.roleTable.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
@@ -80,6 +93,42 @@ class SquadRolesTab(BaseSquadRolesTab):
         self.roleTable.setMinimumWidth(300)
         self.roleTable.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
         self.roleTable.verticalHeader().setDefaultSectionSize(28)
+
+    @staticmethod
+    def _roleCoverageCandidates(role: RoleDisplay) -> tuple[CandidateDisplay, ...]:
+        """Return the top position-eligible calculable candidates shown as role depth."""
+
+        eligible = tuple(
+            candidate
+            for candidate in role.candidates
+            if candidate.available and _candidateEligible(role, candidate)
+        )
+        return tuple(
+            sorted(
+                eligible,
+                key=lambda candidate: (
+                    -float(candidate.score),
+                    playerNameSortKey(candidate.name),
+                ),
+            )[:2]
+        )
+
+    @classmethod
+    def _roleCoverageRender(cls, role: RoleDisplay) -> tuple[str, str]:
+        """Render best-first depth without repetitive Best/Backup labels."""
+
+        candidates = cls._roleCoverageCandidates(role)
+        if not candidates:
+            hasEligible = any(_candidateEligible(role, candidate) for candidate in role.candidates)
+            text = "Unavailable" if hasEligible else "Uncovered"
+            return text, escape(text)
+
+        names = [candidate.name for candidate in candidates]
+        text = ", ".join(names)
+        html = f"<b>{escape(names[0])}</b>"
+        if len(names) > 1:
+            html += f", {escape(names[1])}"
+        return text, html
 
     def _roleHeaderClicked(self, column: int) -> None:
         """Sort alphabetically only when the user explicitly clicks the Role header."""
