@@ -2,6 +2,26 @@
 
 from __future__ import annotations
 
+import re
+
+
+goalkeeperAttributeNames = frozenset(
+    {
+        "aerial_reach",
+        "command_of_area",
+        "communication",
+        "eccentricity",
+        "handling",
+        "kicking",
+        "one_on_ones",
+        "punching",
+        "reflexes",
+        "rushing_out",
+        "tendency_to_punch",
+        "throwing",
+    }
+)
+
 
 def playerNameDisplay(name: str) -> str:
     """Render a stored player name as ``Surname, Given names`` without changing identity."""
@@ -44,6 +64,19 @@ def playerSurnameDisplay(name: str) -> str:
     if "," in display:
         return display.split(",", 1)[0].strip()
     return display
+
+
+def playerIsGoalkeeper(positions: str) -> bool:
+    """Return whether the natural-position evidence explicitly includes goalkeeper."""
+
+    compact = re.sub(r"\s+", "", positions.upper())
+    return bool(re.search(r"(?:^|[,/])GK(?:$|[,/])", compact))
+
+
+def attributeIsGoalkeeperOnly(attributeName: str) -> bool:
+    """Identify attributes that should only be presented for goalkeepers."""
+
+    return attributeName.casefold() in goalkeeperAttributeNames
 
 
 def roleAbbreviationDisplay(roleCode: str, abbreviation: str) -> str:
