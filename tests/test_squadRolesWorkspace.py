@@ -101,7 +101,7 @@ def testRoleCoverageUsesEligibleCandidatesAndNativeTableFont(qtbot) -> None:  # 
     qtbot.addWidget(tab)
 
     coverageItem = tab.roleTable.item(0, 1)
-    assert coverageItem.text() == "Maanum, Frida · Stanway, Georgia"
+    assert coverageItem.text() == "Maanum, Frida; Stanway, Georgia"
     assert "Hemp" not in coverageItem.text()
     assert tab.roleTable.cellWidget(0, 1) is None
     assert "Best:" not in coverageItem.text()
