@@ -43,7 +43,7 @@ def testFactCardsHaveVisibleHeaderStyle(qtbot) -> None:  # type: ignore[no-untyp
     labels = {
         label.text()
         for label in view.findChildren(QLabel)
-        if label.objectName() == "factLabel"
+        if label.objectName() in {"factLabel", "factKey"}
     }
     stylesheet = files("fmsat.app").joinpath("fmsat.qss").read_text(encoding="utf-8")
 
@@ -53,8 +53,9 @@ def testFactCardsHaveVisibleHeaderStyle(qtbot) -> None:  # type: ignore[no-untyp
         "UNIQUE TACTIC ROLES",
         "COVERED UNIQUE ROLES",
         "STATUS",
+        "APPLY TACTIC",
     }
-    assert "QLabel#factLabel" in stylesheet
+    assert "QLabel#factKey" in stylesheet
 
 
 def testRegenerateButtonForcesCurrentModelThroughRegenerationPath(qtbot) -> None:  # type: ignore[no-untyped-def]
@@ -75,3 +76,23 @@ def testRegenerateButtonForcesCurrentModelThroughRegenerationPath(qtbot) -> None
     assert regenerationModel.regenerationRequired is True
     host.dataChanged.emit.assert_called_once()  # type: ignore[attr-defined]
     host.squadShow.assert_called_once_with("Wealdstone", "Libero Whealdstone")  # type: ignore[attr-defined]
+
+
+def testSquadRefreshPreservesSelectedTab(qtbot) -> None:  # type: ignore[no-untyped-def]
+    """Refreshing or regenerating squad data should not reset the user's active workspace tab."""
+
+    view = SquadDetailView()
+    qtbot.addWidget(view)
+    view.squadShow("Wealdstone", _detail())
+
+    playersIndex = next(
+        index
+        for index in range(view.tabs.count())
+        if view.tabs.tabText(index) == "Players"
+    )
+    view.tabs.setCurrentIndex(playersIndex)
+
+    view.squadShow("Wealdstone", _detail())
+
+    assert view.tabs.tabText(view.tabs.currentIndex()) == "Players"
+    assert view.selectedTabName == "Players"
