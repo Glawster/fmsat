@@ -38,7 +38,6 @@ class SquadRolesTab(BaseSquadRolesTab):
         attributes: tuple[AttributeDefinition, ...] = (),
         parent: QWidget | None = None,
     ) -> None:
-        # Build the base tables first so their shared palette and role metadata stay reused.
         self.attributes = attributes
         self.roleSortOrder = Qt.SortOrder.AscendingOrder
         super().__init__(roles, parent)
@@ -54,12 +53,12 @@ class SquadRolesTab(BaseSquadRolesTab):
 
         self.playerPicker.currentIndexChanged.connect(self._playerPickerChanged)
         self.candidateTable.cellClicked.connect(self._candidatePlayerSelect)
-        self.roleTable.cellDoubleClicked.connect(self._unknownRoleEdit)
+        self.roleTable.cellDoubleClicked.connect(self._roleEditRequested)
         self._allCandidatesShow()
         self._rowsCompact()
 
     def _roleTableRebuild(self) -> None:
-        """Show each unique tactic role in its possession phase with compact coverage."""
+        """Show every tactic role, including unresolved phase-role knowledge gaps."""
 
         self.roleTable.setSortingEnabled(False)
         self.roleTable.setColumnCount(3)
@@ -67,19 +66,16 @@ class SquadRolesTab(BaseSquadRolesTab):
         self.roleTable.setRowCount(len(self.roles))
         for row, role in enumerate(self.roles):
             ipText, oopText = self._rolePhaseCells(role)
+            tooltip = self._roleTooltip(role)
             for column, text in enumerate((ipText, oopText)):
                 item = QTableWidgetItem(text)
                 item.setData(Qt.ItemDataRole.UserRole, role.roleCode)
-                item.setToolTip(
-                    f"{role.displayName}: abbreviation is Unknown. Double-click to open the Role Editor."
-                    if text == "Unknown"
-                    else role.displayName
-                )
+                item.setToolTip(tooltip if text else role.displayName)
                 self.roleTable.setItem(row, column, item)
 
             coverageText = self._roleCoverageRender(role)
             coverage = QTableWidgetItem(coverageText)
-            coverage.setToolTip(coverageText)
+            coverage.setToolTip(role.resolutionReason or coverageText)
             self.roleTable.setItem(row, 2, coverage)
 
         header = self.roleTable.horizontalHeader()
@@ -88,28 +84,49 @@ class SquadRolesTab(BaseSquadRolesTab):
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         header.setSectionsClickable(True)
         header.sectionClicked.connect(self._roleHeaderClicked)
-        self.roleTable.setMinimumWidth(330)
+        self.roleTable.setMinimumWidth(370)
         self.roleTable.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
         self.roleTable.verticalHeader().setDefaultSectionSize(28)
 
-    @staticmethod
-    def _rolePhaseCells(role: RoleDisplay) -> tuple[str, str]:
-        """Place the role abbreviation only in phases where the tactic uses it."""
+    @classmethod
+    def _rolePhaseCells(cls, role: RoleDisplay) -> tuple[str, str]:
+        """Place an explicit resolved/unresolved label in every phase using the role."""
 
         phases = {phase.strip().casefold() for phase in role.phases.split(",")}
         inPossession = any(phase in {"ip", "in possession"} for phase in phases)
-        outOfPossession = any(
-            phase in {"oop", "out of possession"} for phase in phases
-        )
-        return (
-            role.abbreviation if inPossession else "",
-            role.abbreviation if outOfPossession else "",
-        )
+        outOfPossession = any(phase in {"oop", "out of possession"} for phase in phases)
+        label = cls._roleLabel(role)
+        return (label if inPossession else "", label if outOfPossession else "")
+
+    @staticmethod
+    def _roleLabel(role: RoleDisplay) -> str:
+        if role.resolutionState == "unknownRole":
+            return "Unknown role"
+        if role.resolutionState == "missingAbbreviation":
+            return "Unknown abbreviation"
+        return role.abbreviation
+
+    @staticmethod
+    def _roleTooltip(role: RoleDisplay) -> str:
+        if role.resolutionState == "unknownRole":
+            return (
+                f"{role.displayName} ({role.roleCode}) has no confirmed role definition. "
+                "Double-click to resolve it in the Role Editor."
+            )
+        if role.resolutionState == "missingAbbreviation":
+            return (
+                f"{role.displayName} has no confirmed abbreviation. "
+                "Double-click to update it in the Role Editor."
+            )
+        if role.resolutionState == "missingWeights":
+            return (
+                f"{role.displayName}: assessment weights are not defined. "
+                "Double-click to update them in the Role Editor."
+            )
+        return f"{role.displayName}. Double-click to open the Role Editor."
 
     @staticmethod
     def _roleCoverageCandidates(role: RoleDisplay) -> tuple[CandidateDisplay, ...]:
-        """Return the top position-eligible calculable candidates shown as role depth."""
-
         eligible = tuple(
             candidate
             for candidate in role.candidates
@@ -118,17 +135,16 @@ class SquadRolesTab(BaseSquadRolesTab):
         return tuple(
             sorted(
                 eligible,
-                key=lambda candidate: (
-                    -float(candidate.score),
-                    playerNameSortKey(candidate.name),
-                ),
+                key=lambda candidate: (-float(candidate.score), playerNameSortKey(candidate.name)),
             )[:2]
         )
 
     @classmethod
     def _roleCoverageRender(cls, role: RoleDisplay) -> str:
-        """Render deliberately compact surname-only coverage for the tactic navigator."""
-
+        if role.resolutionState == "unknownRole":
+            return "Unavailable — role definition missing"
+        if role.resolutionState == "missingWeights":
+            return "Unavailable — weights not defined"
         candidates = cls._roleCoverageCandidates(role)
         if not candidates:
             hasEligible = any(_candidateEligible(role, candidate) for candidate in role.candidates)
@@ -136,8 +152,6 @@ class SquadRolesTab(BaseSquadRolesTab):
         return " - ".join(playerSurnameDisplay(candidate.name) for candidate in candidates)
 
     def _roleHeaderClicked(self, column: int) -> None:
-        """Allow explicit alphabetical sorting from either phase role header."""
-
         if column not in (0, 1):
             return
         self.roleTable.sortItems(column, self.roleSortOrder)
@@ -147,25 +161,36 @@ class SquadRolesTab(BaseSquadRolesTab):
             else Qt.SortOrder.AscendingOrder
         )
 
-    def _unknownRoleEdit(self, row: int, column: int) -> None:
-        """Route missing abbreviation knowledge into the existing Role Editor workflow."""
+    def _roleEditRequested(self, row: int, column: int) -> None:
+        """Open stored role evidence when available, otherwise launch role capture."""
 
         if column not in (0, 1):
             return
         item = self.roleTable.item(row, column)
-        if item is None or item.text() != "Unknown":
+        if item is None or not item.text():
             return
         roleCode = str(item.data(Qt.ItemDataRole.UserRole) or "")
+        if not roleCode:
+            return
         window = self.window()
-        vocabulary = getattr(window, "tacticVocabulary", None)
-        if vocabulary is not None and roleCode in getattr(vocabulary, "roles", {}):
-            roleShow = getattr(window, "roleShow", None)
-            if callable(roleShow):
-                roleShow(roleCode)
-                return
+        knowledge = getattr(window, "roleKnowledgeService", None)
+        roleShow = getattr(window, "roleShow", None)
+        if (
+            knowledge is not None
+            and callable(getattr(knowledge, "definitionExists", None))
+            and knowledge.definitionExists(roleCode)
+            and callable(roleShow)
+        ):
+            roleShow(roleCode)
+            return
         roleImport = getattr(window, "roleProfileImport", None)
         if callable(roleImport):
             roleImport()
+
+    def _unknownRoleEdit(self, row: int, column: int) -> None:
+        """Backward-compatible entry point for earlier Unknown-role callers/tests."""
+
+        self._roleEditRequested(row, column)
 
     def _candidateTablePrepare(self) -> None:
         self.candidateTable.setWordWrap(False)
@@ -196,8 +221,6 @@ class SquadRolesTab(BaseSquadRolesTab):
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
 
     def _workspaceRebuild(self) -> None:
-        """Replace the base horizontal table strip with the requested two-column workspace."""
-
         root = self.layout()
         if root is None:
             return
@@ -260,19 +283,13 @@ class SquadRolesTab(BaseSquadRolesTab):
         mainSplitter.addWidget(rightSplitter)
         mainSplitter.setStretchFactor(0, 1)
         mainSplitter.setStretchFactor(1, 4)
-        mainSplitter.setSizes([360, 1090])
+        mainSplitter.setSizes([400, 1050])
         root.addWidget(mainSplitter, 1)
 
         if oldSplitter is not None and oldSplitter is not mainSplitter:
             oldSplitter.deleteLater()
 
-    def _roleShow(
-        self,
-        currentRow: int,
-        currentColumn: int,
-        previousRow: int,
-        previousColumn: int,
-    ) -> None:
+    def _roleShow(self, currentRow: int, currentColumn: int, previousRow: int, previousColumn: int) -> None:
         if not hasattr(self, "candidateTable"):
             return
         if currentRow < 0:
@@ -290,11 +307,7 @@ class SquadRolesTab(BaseSquadRolesTab):
             self._allCandidatesShow()
             return
         self._candidatesPopulate(
-            tuple(
-                candidate
-                for candidate in role.candidates
-                if _candidateEligible(role, candidate)
-            )
+            tuple(candidate for candidate in role.candidates if _candidateEligible(role, candidate))
         )
 
     def _selectionClear(self) -> None:
@@ -303,8 +316,6 @@ class SquadRolesTab(BaseSquadRolesTab):
         self._allCandidatesShow()
 
     def _allCandidatesShow(self) -> None:
-        """Default to one row per player using their best visible eligible role result."""
-
         best: dict[str, CandidateDisplay] = {}
         for role in self.roles:
             for candidate in role.candidates:
@@ -314,10 +325,7 @@ class SquadRolesTab(BaseSquadRolesTab):
                 current = best.get(key)
                 if current is None or (
                     candidate.available
-                    and (
-                        not current.available
-                        or float(candidate.score) > float(current.score)
-                    )
+                    and (not current.available or float(candidate.score) > float(current.score))
                 ):
                     best[key] = candidate
         self._candidatesPopulate(
@@ -366,10 +374,7 @@ class SquadRolesTab(BaseSquadRolesTab):
         rows = []
         if playerName:
             for role in self.roles:
-                candidate = next(
-                    (item for item in role.candidates if item.name == playerName),
-                    None,
-                )
+                candidate = next((item for item in role.candidates if item.name == playerName), None)
                 if candidate is not None and _candidateEligible(role, candidate):
                     rows.append((role, candidate))
         rows.sort(
@@ -382,12 +387,7 @@ class SquadRolesTab(BaseSquadRolesTab):
         self.playerRoleTable.setRowCount(len(rows))
         for row, (role, candidate) in enumerate(rows):
             for column, value in enumerate(
-                (
-                    role.abbreviation,
-                    role.displayName,
-                    candidate.score,
-                    candidate.breakdown,
-                )
+                (self._roleLabel(role), role.displayName, candidate.score, candidate.breakdown)
             ):
                 self.playerRoleTable.setItem(row, column, QTableWidgetItem(value))
         _breakdownAbbreviate(self.playerRoleTable, 3, self.attributes)
@@ -401,12 +401,7 @@ class SquadRolesTab(BaseSquadRolesTab):
                 table.setRowHeight(row, 28)
 
     @staticmethod
-    def _tooltipsApply(
-        table: QTableWidget,
-        column: int,
-        *,
-        preserve: bool = False,
-    ) -> None:
+    def _tooltipsApply(table: QTableWidget, column: int, *, preserve: bool = False) -> None:
         for row in range(table.rowCount()):
             item = table.item(row, column)
             if item is not None and (not preserve or not item.toolTip()):
