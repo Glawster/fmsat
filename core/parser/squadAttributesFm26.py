@@ -47,6 +47,14 @@ class SquadAttributesParser(_BaseSquadAttributesParser):
                 tolerance,
                 minimumX,
             )
+        if attributeName in {"acceleration", "agility"}:
+            return self._physicalHeaderInfer(
+                results,
+                attributeName,
+                headerY,
+                tolerance,
+                minimumX,
+            )
         return None
 
     def _firstTouchHeaderInfer(
@@ -88,6 +96,55 @@ class SquadAttributesParser(_BaseSquadAttributesParser):
         return OcrResult(
             "First Touch (inferred)",
             min(finishing.confidence, heading.confidence),
+            (
+                centerX - halfWidth,
+                headerY - halfHeight,
+                centerX + halfWidth,
+                headerY + halfHeight,
+            ),
+        )
+
+    def _physicalHeaderInfer(
+        self,
+        results: list[OcrResult],
+        attributeName: str,
+        headerY: float,
+        tolerance: float,
+        minimumX: float,
+    ) -> OcrResult | None:
+        """Infer FM's Acceleration/Agility columns between Technique and Balance."""
+
+        technique = super()._attributeHeaderFind(
+            results,
+            "technique",
+            headerY,
+            tolerance,
+            minimumX,
+        )
+        balance = super()._attributeHeaderFind(
+            results,
+            "balance",
+            headerY,
+            tolerance,
+            minimumX,
+        )
+        if (
+            technique is None
+            or balance is None
+            or technique.center is None
+            or balance.center is None
+            or balance.center[0] <= technique.center[0]
+        ):
+            return None
+
+        gap = balance.center[0] - technique.center[0]
+        fraction = 1 / 3 if attributeName == "acceleration" else 2 / 3
+        centerX = technique.center[0] + gap * fraction
+        halfWidth = max(4.0, gap * 0.10)
+        halfHeight = max(4.0, tolerance * 0.25)
+        return OcrResult(
+            f"{attributeName.replace('_', ' ').title()} (inferred)",
+            min(technique.confidence, balance.confidence),
             (
                 centerX - halfWidth,
                 headerY - halfHeight,
