@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from fmsat.app.presentation import (
@@ -249,6 +250,10 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
         )
         for finding in group
         if not finding.code.startswith("capturedRole")
+        and not (
+            category == "Weak position"
+            and finding.explanation.startswith("No player has complete evidence")
+        )
     )
     return SquadDetailModel(
         squad=assessment.squad,
@@ -336,11 +341,15 @@ def _slotCandidateDisplay(slot, playerName: str | None) -> tuple[str, str]:
 
 
 def _playerNamesReplace(text: str, displayNames: dict[str, str]) -> str:
-    """Render any player identities embedded in explanatory UI prose consistently."""
+    """Render embedded player identities and delimit surname-first lists unambiguously."""
 
     rendered = text
     for storedName, displayName in sorted(
         displayNames.items(), key=lambda item: len(item[0]), reverse=True
     ):
         rendered = rendered.replace(storedName, displayName)
-    return rendered
+    return re.sub(
+        r"(?<=[A-Za-zÀ-ÖØ-öø-ÿ.'-]), (?=[A-ZÀ-ÖØ-Þ][^,.;:]+,)",
+        "; ",
+        rendered,
+    )
