@@ -41,6 +41,7 @@ QComboBox QAbstractItemView::item:hover, QComboBox QAbstractItemView::item:selec
 QMenu#playerFilterMenu { background: #101f2e; color: #f5f8fb; border: 1px solid #30465a; padding: 7px; }
 QMenu#playerFilterMenu QCheckBox { color: #f5f8fb; spacing: 9px; padding: 7px 12px; min-width: 170px; }
 QDialog { background: #08131f; color: #e8eef5; }
+QDialogButtonBox QPushButton { qproperty-iconSize: 0px 0px; }
 QInputDialog { min-width: 520px; }
 QLineEdit, QTextEdit, QPlainTextEdit { background: #101f2e; color: #f5f8fb; border: 1px solid #30465a; border-radius: 6px; padding: 8px; }
 QTreeWidget#playerTraitList { background: #101f2e; alternate-background-color: #0c1926; color: #f5f8fb; border: 1px solid #30465a; }
@@ -113,7 +114,7 @@ QDialog#playerEditorDialog QLabel#playerEvidenceStatus {
 }
 QScrollArea#playerAttributeScroll { background: #101f2e; border: 0; }
 QWidget#playerAttributeContainer { background: #101f2e; }
-QLabel#playerAttributeLabel { color: #8fa3b8; font-weight: 700; min-width: 28px; }
+QLabel#playerAttributeLabel { color: #8fa3b8; font-weight: 700; min-width: 112px; }
 QSpinBox#playerAttributeInput {
     background: #0c1926;
     color: #f5f8fb;
