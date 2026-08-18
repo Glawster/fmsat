@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from fmsat.app.presentation import playerNameDisplay
 from fmsat.core.squadAssessment import SquadAssessment
 from fmsat.core.squadModel import SquadModel
 
@@ -104,6 +105,11 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
             ):
                 bestRoles[key] = proposed
 
+    displayNames = {
+        player.name: playerNameDisplay(player.name)
+        for player in assessment.squad.players
+    }
+
     roles = []
     for role in visibleRoles:
         candidates = []
@@ -121,7 +127,7 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
                 score = "Unavailable"
             candidates.append(
                 CandidateDisplay(
-                    name=candidate.player.name,
+                    name=playerNameDisplay(candidate.player.name),
                     positions=candidate.player.positions,
                     score=score,
                     bestRole=bestRoles.get(
@@ -135,9 +141,15 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
         if role.uncovered:
             coverage = "Uncovered — no player has a calculable role fit"
         elif role.backupCandidate is None:
-            coverage = f"Best: {role.bestCandidate} · no calculated backup"
+            coverage = (
+                f"Best: {playerNameDisplay(role.bestCandidate or '')} · "
+                "no calculated backup"
+            )
         else:
-            coverage = f"Best: {role.bestCandidate} · Backup: {role.backupCandidate}"
+            coverage = (
+                f"Best: {playerNameDisplay(role.bestCandidate or '')} · "
+                f"Backup: {playerNameDisplay(role.backupCandidate)}"
+            )
         roles.append(
             RoleDisplay(
                 roleCode=role.roleCode,
@@ -180,7 +192,7 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
         )
         playerRoles.append(
             PlayerRoleDisplay(
-                name=player.player.name,
+                name=playerNameDisplay(player.player.name),
                 bestRole=best[2] if best is not None else "Unavailable",
                 bestScore=f"{best[0]:.1f}" if best is not None else "Unavailable",
                 bestBreakdown=(
@@ -198,7 +210,11 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
         )
 
     findings = tuple(
-        AnalysisFindingDisplay(category, finding.title, finding.explanation)
+        AnalysisFindingDisplay(
+            category,
+            _playerNamesReplace(finding.title, displayNames),
+            _playerNamesReplace(finding.explanation, displayNames),
+        )
         for category, group in (
             ("Weak position", assessment.weakRoles),
             ("Role duplication", assessment.duplicatedRoles),
@@ -227,8 +243,19 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
     )
 
 
+def _playerNamesReplace(text: str, displayNames: dict[str, str]) -> str:
+    """Render any player identities embedded in explanatory UI prose consistently."""
+
+    rendered = text
+    for storedName, displayName in sorted(
+        displayNames.items(), key=lambda item: len(item[0]), reverse=True
+    ):
+        rendered = rendered.replace(storedName, displayName)
+    return rendered
+
+
 def _rolePositionSortKey(role) -> tuple[int, int, str, str]:
-    """Order roles using FM pitch order: GK, defence, DM, M, AM, ST."""
+    """Order roles from forwards back through midfield and defence to goalkeeper."""
 
     positionKeys = [_positionSortKey(position) for position in role.positions]
     line, side = min(positionKeys, default=(6, 3))
@@ -242,19 +269,19 @@ def _positionSortKey(position: str) -> tuple[int, int]:
         .replace("(", "")
         .replace(")", "")
     )
-    if compact == "GK":
+    if compact.startswith("ST"):
         line = 0
+    elif compact.startswith("AM"):
+        line = 1
+    elif compact.startswith("M") and not compact.startswith("AM"):
+        line = 2
+    elif compact.startswith("DM"):
+        line = 3
     elif compact.startswith("WB") or (
         compact.startswith("D") and not compact.startswith("DM")
     ):
-        line = 1
-    elif compact.startswith("DM"):
-        line = 2
-    elif compact.startswith("M") and not compact.startswith("AM"):
-        line = 3
-    elif compact.startswith("AM"):
         line = 4
-    elif compact.startswith("ST"):
+    elif compact == "GK":
         line = 5
     else:
         line = 6
