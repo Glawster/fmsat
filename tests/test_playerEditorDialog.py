@@ -3,7 +3,7 @@
 from datetime import datetime
 from unittest.mock import patch
 
-from PySide6.QtWidgets import QAbstractItemView, QDialog, QDialogButtonBox
+from PySide6.QtWidgets import QAbstractItemView, QDialog, QDialogButtonBox, QLabel
 
 from fmsat.app.playerEditorDialog import PlayerEditorDialog
 from fmsat.app.squadPlayersWorkspace import SquadPlayersTab
@@ -20,7 +20,11 @@ def _player() -> SquadModelPlayer:
         confidence=0.98,
         sourceImportSessionId=12,
         validationState="extracted",
-        attributes=(("acceleration", 14), ("natural_fitness", None)),
+        attributes=(
+            ("acceleration", 14),
+            ("natural_fitness", None),
+            ("handling", 7),
+        ),
         traits=("Moves Into Channels",),
     )
 
@@ -29,6 +33,7 @@ def _attributes() -> tuple[AttributeDefinition, ...]:
     return (
         AttributeDefinition("acceleration", "Acc", 1),
         AttributeDefinition("natural_fitness", "Nat", 2),
+        AttributeDefinition("handling", "Han", 3),
     )
 
 
@@ -44,9 +49,47 @@ def testPlayerEditorReturnsCorrectedFactsWithoutDerivedScores(qtbot) -> None:  #
 
     assert edited.name == "Alessia Russo"
     assert dict(edited.attributes)["natural_fitness"] == 16
+    # Hidden goalkeeper-only evidence is preserved for an outfield player.
+    assert dict(edited.attributes)["handling"] == 7
     assert edited.traits == ("Moves Into Channels", "Places Shots")
     assert edited.sourceImportSessionId == 12
     assert edited.validationState == "corrected"
+
+
+def testPlayerEditorUsesFullAttributeNamesAndHidesGoalkeeperOnlyFields(qtbot) -> None:  # type: ignore[no-untyped-def]
+    dialog = PlayerEditorDialog(_player(), _attributes())
+    qtbot.addWidget(dialog)
+
+    labels = {
+        label.text()
+        for label in dialog.findChildren(QLabel, "playerAttributeLabel")
+    }
+    assert "Acceleration" in labels
+    assert "Natural Fitness" in labels
+    assert "Acc" not in labels
+    assert "Nat" not in labels
+    assert "Handling" not in labels
+    assert "handling" not in dialog.attributeInputs
+
+
+def testGoalkeeperEditorShowsGoalkeeperAttributes(qtbot) -> None:  # type: ignore[no-untyped-def]
+    goalkeeper = SquadModelPlayer(
+        name="Example Keeper",
+        positions="GK",
+        ca="120",
+        pa="130",
+        confidence=0.9,
+        attributes=(("acceleration", 10), ("handling", 15)),
+    )
+    dialog = PlayerEditorDialog(goalkeeper, _attributes())
+    qtbot.addWidget(dialog)
+
+    labels = {
+        label.text()
+        for label in dialog.findChildren(QLabel, "playerAttributeLabel")
+    }
+    assert "Handling" in labels
+    assert "handling" in dialog.attributeInputs
 
 
 def testPlayerEditorExposesSharedStylingHooks(qtbot) -> None:  # type: ignore[no-untyped-def]
@@ -89,7 +132,11 @@ def testPlayersTabIsBrowseOnlyAndBuildsEditorChanges(qtbot) -> None:  # type: ig
         confidence=edited.confidence,
         sourceImportSessionId=edited.sourceImportSessionId,
         validationState="corrected",
-        attributes=(("acceleration", 15), ("natural_fitness", 16)),
+        attributes=(
+            ("acceleration", 15),
+            ("natural_fitness", 16),
+            ("handling", 7),
+        ),
         traits=("Places Shots",),
     )
     tab._playerRowApply(0, edited)
