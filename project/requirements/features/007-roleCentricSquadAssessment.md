@@ -15,22 +15,44 @@ built.
 
 ## Current delivery state
 
-The squad-viewer foundation is delivered and the first generic-analysis
-sub-increment, 007A, has established the assessment-policy foundation:
+The squad-viewer foundation and the first two analysis sub-increments are now
+implemented on the feature branch.
 
-- every canonical tactic role has explicit Generic Role Fit weights;
-- policy validation rejects missing roles, unknown roles, unknown attributes and
-  weights outside the supported range;
+007A established the assessment-policy foundation:
+
+- packaged assessable canonical roles have explicit Generic Role Fit weights;
+- policy validation rejects missing packaged roles, unknown roles, unknown
+  attributes and weights outside the supported range;
 - the Generic Role Fit calculation retains its weighted-attribute trace and
   returns `Unavailable` rather than fabricating a score when required evidence
   is missing; and
 - regression tests protect the assessment-policy catalogue.
 
-007B is deliberately paused while requirement 006's current tactic-extraction
-reference-frame regression is verified. This does not change 007's scope. Once
-that supporting evidence is dependable, the next work is the complete
-player-role matrix, best/alternative roles and required-role depth in the
-existing Analysis tab.
+007B builds on that foundation with role-depth intelligence and player-evidence
+maintenance:
+
+- simultaneous tactic slots are linked by durable `slotId` evidence and use
+  unique-player primary/backup assignment;
+- Analysis exposes IP role, OOP role, primary, backup and phase-specific Generic
+  Role Fit evidence without claiming Best XI selection;
+- each player receives best and alternative roles from the same Generic Role Fit
+  calculations;
+- calculable weak positions, role duplication and unused strengths are surfaced
+  without duplicating missing evidence as a weakness;
+- the most recently applied tactic persists as the squad's active/default tactic;
+- Players is a browse/filter/sort surface and double-clicking a row opens a
+  focused Player Editor for factual name, positions, CA/PA, attribute and known
+  trait corrections;
+- saving a player uses the existing squad-model persistence path and immediately
+  rebuilds Roles and Analysis from the corrected evidence;
+- missing role abbreviations are shown as `Unknown` rather than invented and are
+  directed to the existing Role Editor workflow; and
+- FM26 squad regeneration includes conservative header recovery for
+  Acceleration, Agility and Natural Fitness while keeping unsupported Long Shots
+  out of the stored squad model.
+
+Final 007B acceptance is gated by the full automated suite and manual review of
+the reference squad/tactic after these final presentation/editor changes.
 
 ## Dependencies
 
@@ -55,7 +77,8 @@ existing Analysis tab.
    when their calculations are delivered.
 4. Display the selected squad, selected tactic revision, squad-data date and
    knowledge/scoring identity. Changing tactic context must not mutate the
-   imported squad or tactic.
+   imported squad or tactic. The most recently selected applied tactic is the
+   persisted default when the squad is reopened.
 5. Provide an explicit empty or selection state when no tactic is assigned. The
    Players view remains usable, but tactic-dependent role assessment must be
    reported as unavailable.
@@ -66,10 +89,13 @@ existing Analysis tab.
    while preserving readability in light and dark themes.
 8. Treat the canonical Football Manager role as the assessment identity. A
    position is eligibility and presentation context only; the same role used in
-   multiple positions or tactic slots is assessed once.
-9. Allow corrections to squad object-model values from the Players view. Saving
-   a correction makes the edited object model authoritative and marks its
-   retained screenshot evidence as superseded without deleting that evidence.
+   multiple positions or tactic slots is assessed once at role level while
+   simultaneous slot depth remains slot-specific.
+9. Allow corrections to squad object-model values from the Players view through
+   a focused Player Editor. Saving a correction makes the edited object model
+   authoritative and marks its retained screenshot evidence as superseded
+   without deleting that evidence. Derived role scores and depth are never
+   editable fields; they are rebuilt after factual player changes.
 10. Display every configured attribute using its configured abbreviation and a
     consistent compact column width, followed by the player's left-aligned,
     comma-separated known traits. Attribute headers expose their full names as
@@ -106,19 +132,23 @@ the initial increment.
 
 ## Generic analysis increment
 
-The next increment after the merged squad-viewer foundation must:
+The Generic Role Fit analysis increment must:
 
-1. define explicit, versioned Generic Role Fit weights for every canonical
-   tactic role;
-2. calculate every available player against the complete role catalogue;
+1. define explicit, versioned Generic Role Fit weights for every packaged
+   assessable tactic role;
+2. calculate every available player against the complete available role
+   catalogue;
 3. show best candidate, backup candidate and uncovered state for required roles;
 4. show each player's best role and ordered alternative roles using the same
    scoring context;
 5. identify weak required roles, concentrated role duplication and strong best
    roles unused by the selected tactic through documented thresholds;
-6. retain and display the complete weighted-attribute calculation trace; and
+6. retain and display the complete weighted-attribute calculation trace;
 7. keep every affected result `Unavailable` when weights or required player
-   attributes are missing.
+   attributes are missing; and
+8. derive Required Role Depth from simultaneous tactic slots, ensuring a player
+   cannot fill two simultaneous primary slots in the same assignment result and
+   requiring complete IP/OOP evidence for a slot candidate.
 
 Present these results in the existing Analysis tab. Best XI, Tactical Fit,
 Overall Suitability and recruitment recommendations remain later increments.
@@ -235,30 +265,36 @@ invent a modifier when the structured tactic provides no supporting evidence.
 ## Acceptance criteria
 
 1. Opening a stored squad displays the squad viewer and identifies its selected
-   tactic revision and assessment context.
+   tactic revision and assessment context; reopening the squad restores the most
+   recently selected applied tactic.
 2. Overview, Players, Roles and Analysis views are available, with useful empty
    states for analysis not yet generated or tactic context not yet selected.
-3. Every role in a confirmed selected tactic appears once as an individual Role
-   Card.
-4. Cards are grouped and styled using the shared tactical colour families.
-5. Selecting a card opens its Role Workspace.
-6. The Candidates view ranks every squad player for the selected role.
-7. Each ranking exposes Generic Role Fit, Tactical Fit and Overall Suitability
-   as those calculation stages become available; an unavailable stage is never
-   displayed as zero.
-8. Every score provides a human-readable, reproducible explanation.
-9. Two or more candidates can be compared against the same role.
-10. Each player exposes their best alternative roles.
+3. Every role in a confirmed selected tactic appears once in the role-level
+   navigator, while simultaneous Required Role Depth remains slot-specific.
+4. Roles are grouped/ordered using the shared tactical-unit ordering and styled
+   using the shared visual language.
+5. Selecting a role exposes its candidate workspace.
+6. The Candidates view ranks every squad player for the selected role subject to
+   the currently defined presentation eligibility rules.
+7. Each ranking exposes Generic Role Fit and later Tactical Fit/Overall
+   Suitability as those calculation stages become available; an unavailable
+   stage is never displayed as zero.
+8. Every displayed score provides a human-readable, reproducible explanation.
+9. Required Role Depth uses unique-player simultaneous assignment and retains
+   separate IP/OOP evidence for each slot.
+10. Each player exposes their best alternative roles where evidence permits.
 11. Role Health remains visibly and computationally separate from player
-   suitability.
+   suitability when that later stage is delivered.
 12. Missing or incomplete inputs are shown clearly and never silently converted
-    into misleading scores.
-13. Automated tests cover scoring, weighting, tactical modifiers, ranking,
-    explanations, comparisons, alternative roles, Role Health, invalidation and
-    the main workspace behaviors.
-14. Existing tactic extraction, tactic viewing, squad import and
-    structured-tactic correction
-    workflows remain compatible.
+    into misleading scores; missing abbreviations show `Unknown`.
+13. Double-clicking a player opens a dedicated Player Editor for factual model
+    corrections, and saving those corrections persists the model and rebuilds
+    the derived Roles/Analysis views.
+14. Automated tests cover scoring, weighting, role-depth assignment, ranking,
+    explanations, alternative roles, player editing, tactic persistence,
+    invalidation and the main workspace behaviours delivered to date.
+15. Existing tactic extraction, tactic viewing, squad import and
+    structured-tactic correction workflows remain compatible.
 
 ## Out of scope
 
@@ -277,22 +313,35 @@ invent a modifier when the structured tactic provides no supporting evidence.
   loading/validation and the existing Generic Role Fit calculation service.
 - Tests: `tests/test_roleAssessmentPolicy.py` plus the existing Generic Role Fit
   calculation tests.
-- Behaviour: all canonical roles require explicit valid weights; missing weights
-  or required player attributes remain `Unavailable`; complete weighted
+- Behaviour: packaged assessable roles require explicit valid weights; missing
+  weights or required player attributes remain `Unavailable`; complete weighted
   contributions are retained for explanation.
-- Status: implemented; full branch test-suite verification remains part of the
-  current increment after the OMP 0.4 update.
+- Status: implemented.
 
-### Next verification gate
+### 007B — Role depth and player evidence workflow
 
-Requirement 006 tactic extraction is being stabilised against the current FM26
-reference captures before 007B consumes that evidence. See
-`project/currentIncrement.md` and `documentation/ocrZoneGeometry.md`.
+- Implementation: `core/roleDepth.py`, `core/squadAssessment.py`,
+  `app/squadDetailModel.py`, `app/squadRolesWorkspace.py`,
+  `app/squadAnalysisWorkspace.py`, `app/playerEditorDialog.py`,
+  `app/squadPlayersWorkspace.py`, `database/activeTacticDatabase.py` and the FM26
+  squad-header recovery in `core/parser/squadAttributesFm26.py`.
+- Tests: `tests/test_roleDepth.py`, `tests/test_squadAnalysisWorkspace.py`,
+  `tests/test_squadRolesWorkspace.py`, `tests/test_playerEditorDialog.py`,
+  `tests/test_tacticSelectionPersistence.py`, `tests/test_naturalFitnessHeader.py`
+  and related squad assessment/presentation tests.
+- Behaviour: slot depth is simultaneous and unique-player; missing evidence stays
+  explicit; factual player edits and active tactic selection persist; derived
+  analysis is rebuilt rather than edited directly.
+- Status: implementation complete; awaiting final full-suite and manual
+  reference-squad verification.
 
 ## Change history
 
 - 2026-08-16: recorded completion of the 007A assessment-policy foundation and
-  explicit pause before 007B while structured tactic extraction is verified.
+  explicit pause before 007B while structured tactic extraction was verified.
+- 2026-08-18: recorded 007B role-depth intelligence, active-tactic persistence,
+  Player Editor, Unknown-role workflow and final FM26 squad-header recovery as
+  implemented pending final verification.
 
 ## Future foundation
 
