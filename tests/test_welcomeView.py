@@ -401,6 +401,7 @@ def testWelcomeViewShowsUserDefinedRolesFromConfirmedYaml(qtbot, tmp_path) -> No
         supportedPositions=("DM",),
     )
     service.definitionConfirm(draft)
+    confirmedRole = service.definitionsList()[0]
     roleOpen = Mock()
     view = WelcomeView(
         WelcomeService(database, TacticVocabulary(), service),
@@ -427,7 +428,7 @@ def testWelcomeViewShowsUserDefinedRolesFromConfirmedYaml(qtbot, tmp_path) -> No
 
     qtbot.mouseClick(card, Qt.MouseButton.LeftButton)
 
-    roleOpen.assert_called_once_with(f"roleID:{draft.roleID}")
+    roleOpen.assert_called_once_with(confirmedRole.roleCode)
 
 
 def testTacticAndSquadCardsOpenWhenSelected(qtbot) -> None:  # type: ignore[no-untyped-def]
