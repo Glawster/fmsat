@@ -427,7 +427,7 @@ def testWelcomeViewShowsUserDefinedRolesFromConfirmedYaml(qtbot, tmp_path) -> No
 
     qtbot.mouseClick(card, Qt.MouseButton.LeftButton)
 
-    roleOpen.assert_called_once_with(f"roleID:{draft.roleID}")
+    roleOpen.assert_called_once_with(draft.roleCode)
 
 
 def testTacticAndSquadCardsOpenWhenSelected(qtbot) -> None:  # type: ignore[no-untyped-def]
