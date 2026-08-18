@@ -20,7 +20,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from fmsat.app.presentation import playerNameDisplay, playerNameStorage
+from fmsat.app.presentation import (
+    attributeIsGoalkeeperOnly,
+    playerIsGoalkeeper,
+    playerNameDisplay,
+    playerNameStorage,
+)
 from fmsat.app.squadDetailTabs import PlayerTraitDialog
 from fmsat.core.config import AttributeDefinition
 from fmsat.core.squadModel import SquadModelPlayer
@@ -42,8 +47,8 @@ class PlayerEditorDialog(QDialog):
         self.attributeInputs: dict[str, QSpinBox] = {}
         self.setObjectName("playerEditorDialog")
         self.setWindowTitle(f"Edit Player · {playerNameDisplay(player.name)}")
-        self.resize(880, 720)
-        self.setMinimumSize(760, 620)
+        self.resize(900, 720)
+        self.setMinimumSize(780, 620)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 14, 16, 14)
@@ -91,24 +96,31 @@ class PlayerEditorDialog(QDialog):
         attributeContainer = QWidget(scroll)
         attributeContainer.setObjectName("playerAttributeContainer")
         attributeLayout = QGridLayout(attributeContainer)
-        attributeLayout.setContentsMargins(10, 10, 10, 10)
-        attributeLayout.setHorizontalSpacing(10)
-        attributeLayout.setVerticalSpacing(7)
+        attributeLayout.setContentsMargins(12, 10, 12, 10)
+        attributeLayout.setHorizontalSpacing(20)
+        attributeLayout.setVerticalSpacing(8)
         values = dict(player.attributes)
-        definitions = self._attributeDefinitions(values)
+        definitions = tuple(
+            definition
+            for definition in self._attributeDefinitions(values)
+            if playerIsGoalkeeper(player.positions)
+            or not attributeIsGoalkeeperOnly(definition.name)
+        )
+        # Full attribute names need more horizontal room than the compact squad table.
+        # Three label/value groups per row remains readable at the minimum dialog width.
         for index, definition in enumerate(definitions):
-            row = index // 4
-            column = (index % 4) * 2
-            label = QLabel(definition.abbreviation, attributeContainer)
+            row = index // 3
+            column = (index % 3) * 2
+            fullName = definition.name.replace("_", " ").title()
+            label = QLabel(fullName, attributeContainer)
             label.setObjectName("playerAttributeLabel")
-            label.setToolTip(definition.name.replace("_", " ").title())
             editor = QSpinBox(attributeContainer)
             editor.setObjectName("playerAttributeInput")
             editor.setRange(0, 20)
             editor.setSpecialValueText("Unknown")
             editor.setValue(values.get(definition.name) or 0)
-            editor.setToolTip(definition.name.replace("_", " ").title())
-            editor.setMinimumWidth(84)
+            editor.setToolTip(fullName)
+            editor.setMinimumWidth(88)
             self.attributeInputs[definition.name] = editor
             attributeLayout.addWidget(label, row, column)
             attributeLayout.addWidget(editor, row, column + 1)
@@ -160,10 +172,9 @@ class PlayerEditorDialog(QDialog):
         name = playerNameStorage(self.nameInput.text().strip())
         if not name:
             raise ValueError("Player name is required")
-        attributes = tuple(
-            (name, editor.value() if editor.value() > 0 else None)
-            for name, editor in sorted(self.attributeInputs.items())
-        )
+        values = dict(self.player.attributes)
+        for attributeName, editor in self.attributeInputs.items():
+            values[attributeName] = editor.value() if editor.value() > 0 else None
         return replace(
             self.player,
             name=name,
@@ -171,7 +182,7 @@ class PlayerEditorDialog(QDialog):
             ca=self.caInput.text().strip(),
             pa=self.paInput.text().strip(),
             validationState="corrected",
-            attributes=attributes,
+            attributes=tuple(sorted(values.items())),
             traits=self.selectedTraits,
         )
 
