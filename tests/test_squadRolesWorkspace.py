@@ -62,7 +62,7 @@ def testRolesWorkspaceUsesFullHeightRolePaneAndStackedEvidence(qtbot) -> None:  
     assert evidenceSplitter.orientation() is Qt.Orientation.Vertical
 
 
-def testRoleCoverageUsesEligibleCandidatesAndCompactBestFirstPresentation(qtbot) -> None:  # type: ignore[no-untyped-def]
+def testRoleCoverageUsesEligibleCandidatesAndNativeTableFont(qtbot) -> None:  # type: ignore[no-untyped-def]
     role = RoleDisplay(
         roleCode="deepLyingPlaymaker",
         displayName="Deep-Lying Playmaker",
@@ -101,13 +101,11 @@ def testRoleCoverageUsesEligibleCandidatesAndCompactBestFirstPresentation(qtbot)
     qtbot.addWidget(tab)
 
     coverageItem = tab.roleTable.item(0, 1)
-    coverageLabel = tab.roleTable.cellWidget(0, 1)
-    assert coverageItem.text() == "Maanum, Frida, Stanway, Georgia"
+    assert coverageItem.text() == "Maanum, Frida · Stanway, Georgia"
     assert "Hemp" not in coverageItem.text()
-    assert coverageLabel is not None
-    assert "<b>Maanum, Frida</b>" in coverageLabel.text()
-    assert "Best:" not in coverageLabel.text()
-    assert "Backup:" not in coverageLabel.text()
+    assert tab.roleTable.cellWidget(0, 1) is None
+    assert "Best:" not in coverageItem.text()
+    assert "Backup:" not in coverageItem.text()
 
 
 def testRoleOrderStaysTacticalUntilRoleHeaderIsClicked(qtbot) -> None:  # type: ignore[no-untyped-def]
