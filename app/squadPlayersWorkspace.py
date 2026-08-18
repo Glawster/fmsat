@@ -43,6 +43,11 @@ class SquadPlayersTab(BaseSquadPlayersTab):
         value = super()._text(row, column)
         return playerNameStorage(value) if column == 0 else value
 
+    def _traitEditorOpen(self, _row: int, _column: int) -> None:
+        """Disable the legacy single-cell trait editor; Player Editor owns all edits."""
+
+        return
+
     def _playerEditorOpen(self, row: int, _column: int) -> None:
         """Open one factual player editor and immediately persist accepted changes."""
 
