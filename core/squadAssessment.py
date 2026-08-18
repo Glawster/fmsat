@@ -7,6 +7,7 @@ from dataclasses import dataclass, field, replace
 
 from fmsat.core.builder.tacticModelLoader import TacticModelLoader
 from fmsat.core.parser import TacticVocabulary
+from fmsat.core.roleDepth import RequiredSlotAssessment, RoleDepthService
 from fmsat.core.roleKnowledge import RoleKnowledgeService, StoredRoleDefinition
 from fmsat.core.squadModel import SquadModel, SquadModelPlayer, SquadModelService
 from fmsat.database import Database
@@ -106,6 +107,7 @@ class SquadAssessment:
     weakRoles: tuple[AnalysisFinding, ...] = field(default_factory=tuple)
     duplicatedRoles: tuple[AnalysisFinding, ...] = field(default_factory=tuple)
     unusedStrengths: tuple[AnalysisFinding, ...] = field(default_factory=tuple)
+    requiredSlots: tuple[RequiredSlotAssessment, ...] = field(default_factory=tuple)
 
 
 class GenericRoleFitCalculator:
@@ -190,6 +192,9 @@ class SquadAssessmentService:
             settings.get("unusedStrengthThreshold", 60.0)
         )
         self.alternativeRoleLimit = int(settings.get("alternativeRoleLimit", 3))
+        self.slotAggregationPolicy = str(
+            settings.get("slotAggregationPolicy", "Unavailable")
+        )
 
     ## assessment
 
@@ -272,18 +277,23 @@ class SquadAssessmentService:
                 key=lambda code: self._roleSortKey(code, definitions.get(code)),
             )
         )
+        requiredSlots = RoleDepthService(self.slotAggregationPolicy).depthBuild(
+            loaded.tactic,
+            catalogueByCode,
+        )
         return SquadAssessment(
-            squad,
-            selectedTactic,
-            availableTactics,
-            requiredPositionCount,
-            roles,
-            self.scoringIdentity,
-            allRoles,
-            players,
-            self._weakRolesFind(roles),
-            self._duplicatedRolesFind(roles, players),
-            self._unusedStrengthsFind(roles, players),
+            squad=squad,
+            tacticName=selectedTactic,
+            availableTactics=availableTactics,
+            requiredPositionCount=requiredPositionCount,
+            roles=roles,
+            scoringIdentity=self.scoringIdentity,
+            allRoles=allRoles,
+            players=players,
+            weakRoles=self._weakRolesFind(roles),
+            duplicatedRoles=self._duplicatedRolesFind(roles, players),
+            unusedStrengths=self._unusedStrengthsFind(roles, players),
+            requiredSlots=requiredSlots,
         )
 
     ## analysis
