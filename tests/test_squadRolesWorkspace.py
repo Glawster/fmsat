@@ -1,7 +1,9 @@
 """Regression tests for the role browsing workspace presentation rules."""
 
+from types import SimpleNamespace
+
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QSplitter
+from PySide6.QtWidgets import QSplitter, QWidget
 
 from fmsat.app.presentation import (
     playerNameDisplay,
@@ -209,6 +211,30 @@ def testUnresolvedSemanticRoleCodeDisplaysUnknownAbbreviation() -> None:
     assert roleAbbreviationDisplay("trackingWinger", "trackingWinger") == "Unknown"
     assert roleAbbreviationDisplay("trackingWideMidfielder", "trackingWideMidfielder") == "Unknown"
     assert roleAbbreviationDisplay("trackingCentreForward", "TCF") == "TCF"
+
+
+def testUnknownRolePointsToExistingRoleEditorWorkflow(qtbot) -> None:  # type: ignore[no-untyped-def]
+    class Host(QWidget):
+        def __init__(self) -> None:
+            super().__init__()
+            self.tacticVocabulary = SimpleNamespace(roles={})
+            self.roleImportCount = 0
+
+        def roleProfileImport(self) -> None:
+            self.roleImportCount += 1
+
+    host = Host()
+    qtbot.addWidget(host)
+    role = _role("trackingWinger", "Unknown", "AMR")
+    tab = SquadRolesTab((role,), parent=host)
+
+    item = tab.roleTable.item(0, 0)
+    assert item.text() == "Unknown"
+    assert "Role Editor" in item.toolTip()
+
+    tab._unknownRoleEdit(0, 0)
+
+    assert host.roleImportCount == 1
 
 
 def testPlayerNamePresentationIsSurnameFirstWithoutChangingStoredIdentity() -> None:
