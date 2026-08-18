@@ -54,6 +54,7 @@ class SquadRolesTab(BaseSquadRolesTab):
 
         self.playerPicker.currentIndexChanged.connect(self._playerPickerChanged)
         self.candidateTable.cellClicked.connect(self._candidatePlayerSelect)
+        self.roleTable.cellDoubleClicked.connect(self._unknownRoleEdit)
         self._allCandidatesShow()
         self._rowsCompact()
 
@@ -69,7 +70,11 @@ class SquadRolesTab(BaseSquadRolesTab):
             for column, text in enumerate((ipText, oopText)):
                 item = QTableWidgetItem(text)
                 item.setData(Qt.ItemDataRole.UserRole, role.roleCode)
-                item.setToolTip(role.displayName)
+                item.setToolTip(
+                    f"{role.displayName}: abbreviation is Unknown. Double-click to open the Role Editor."
+                    if text == "Unknown"
+                    else role.displayName
+                )
                 self.roleTable.setItem(row, column, item)
 
             coverageText = self._roleCoverageRender(role)
@@ -141,6 +146,26 @@ class SquadRolesTab(BaseSquadRolesTab):
             if self.roleSortOrder is Qt.SortOrder.AscendingOrder
             else Qt.SortOrder.AscendingOrder
         )
+
+    def _unknownRoleEdit(self, row: int, column: int) -> None:
+        """Route missing abbreviation knowledge into the existing Role Editor workflow."""
+
+        if column not in (0, 1):
+            return
+        item = self.roleTable.item(row, column)
+        if item is None or item.text() != "Unknown":
+            return
+        roleCode = str(item.data(Qt.ItemDataRole.UserRole) or "")
+        window = self.window()
+        vocabulary = getattr(window, "tacticVocabulary", None)
+        if vocabulary is not None and roleCode in getattr(vocabulary, "roles", {}):
+            roleShow = getattr(window, "roleShow", None)
+            if callable(roleShow):
+                roleShow(roleCode)
+                return
+        roleImport = getattr(window, "roleProfileImport", None)
+        if callable(roleImport):
+            roleImport()
 
     def _candidateTablePrepare(self) -> None:
         self.candidateTable.setWordWrap(False)
@@ -379,7 +404,8 @@ class SquadRolesTab(BaseSquadRolesTab):
     def _tooltipsApply(
         table: QTableWidget,
         column: int,
-        *,        preserve: bool = False,
+        *,
+        preserve: bool = False,
     ) -> None:
         for row in range(table.rowCount()):
             item = table.item(row, column)
