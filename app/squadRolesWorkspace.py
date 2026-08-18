@@ -40,6 +40,7 @@ class SquadRolesTab(BaseSquadRolesTab):
     ) -> None:
         # Build the base tables first so their shared palette and role metadata stay reused.
         self.attributes = attributes
+        self.roleSortOrder = Qt.SortOrder.AscendingOrder
         super().__init__(roles, parent)
         if not hasattr(self, "candidateTable"):
             return
@@ -74,10 +75,23 @@ class SquadRolesTab(BaseSquadRolesTab):
         header = self.roleTable.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        header.setSectionsClickable(True)
+        header.sectionClicked.connect(self._roleHeaderClicked)
         self.roleTable.setMinimumWidth(300)
-        self.roleTable.setSortingEnabled(True)
         self.roleTable.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
         self.roleTable.verticalHeader().setDefaultSectionSize(28)
+
+    def _roleHeaderClicked(self, column: int) -> None:
+        """Sort alphabetically only when the user explicitly clicks the Role header."""
+
+        if column != 0:
+            return
+        self.roleTable.sortItems(0, self.roleSortOrder)
+        self.roleSortOrder = (
+            Qt.SortOrder.DescendingOrder
+            if self.roleSortOrder is Qt.SortOrder.AscendingOrder
+            else Qt.SortOrder.AscendingOrder
+        )
 
     def _candidateTablePrepare(self) -> None:
         self.candidateTable.setWordWrap(False)
