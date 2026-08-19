@@ -30,13 +30,13 @@ def _displaySlots(roles: list[str]) -> tuple[DisplaySlot, ...]:
         row = index // 4
         slots.append(
             DisplaySlot(
-                f"slot-{index + 1:02d}",
-                role,
-                "TEST",
-                "",
-                0.15 + (column * 0.23),
-                0.15 + (row * 0.30),
-                "unknown",
+                slotId=f"slot-{index + 1:02d}",
+                position="TEST",
+                role=role,
+                duty="",
+                x=0.15 + (column * 0.23),
+                y=0.15 + (row * 0.30),
+                row="unknown",
             )
         )
     return tuple(slots)
