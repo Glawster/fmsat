@@ -1,0 +1,49 @@
+fixture: libero1974
+screenshots:
+  formation: tests/screenshots/tactics/libero1974/formation.png
+  inPossession: tests/screenshots/tactics/libero1974/inPossession.png
+  outOfPossession: tests/screenshots/tactics/libero1974/outOfPossession.png
+expected:
+  inPossessionRoles:
+    - CFD
+    - IF
+    - SS
+    - W
+    - PW
+    - PW
+    - HB
+    - BBM
+    - CB
+    - CB
+    - BGK
+  outOfPossessionRoles:
+    - TCF
+    - TW
+    - TAM
+    - TW
+    - TWM
+    - TWM
+    - DDM
+    - PDM
+    - CB
+    - CB
+    - SK
+  instructions:
+    inPossession:
+      Passing Directness: Shorter
+      Tempo: Higher
+      Attacking Transition: Hold Shape
+      Attacking Width: Wider
+      Pass Reception: Pass to Feet
+      Shots from Distance: Encourage
+      GK Distribution (Speed): Balanced
+    outOfPossession:
+      Line of Engagement: High Press
+      Defensive Line: Lower
+      Trigger Press: More Often
+      Defensive Transition: Counter-Press
+      Tackling: Stay On Feet
+      Cross Engagement: Balanced
+      Pressing Trap: Balanced
+      Short Goalkeeper Distr: Yes
+      Defensive Line Behaviour: Step Up More
