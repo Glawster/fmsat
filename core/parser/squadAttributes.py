@@ -246,7 +246,15 @@ class SquadAttributesParser:
                 parsed = self._attributeParse(
                     cells.get(attributeName, _Cell("", 0.0)).text
                 )
-                if parsed is not None:
+                observedValues = {
+                    value
+                    for value in (
+                        self._attributeParse(result.text)
+                        for result in rowCells.get(attributeName, ())
+                    )
+                    if value is not None
+                }
+                if parsed is not None and len(observedValues) <= 1:
                     continue
                 recovered = self._focusedAttributeRead(
                     image,
@@ -480,7 +488,7 @@ class SquadAttributesParser:
         spacing: float,
         rowTolerance: float,
     ) -> _Cell:
-        """Retry a missing numeric attribute with a tightly cropped enlarged cell."""
+        """Retry a missing or conflicting numeric attribute in a tightly cropped cell."""
 
         height, width = image.shape[:2]
         halfWidth = max(10.0, spacing * 0.34)
@@ -600,8 +608,29 @@ class SquadAttributesParser:
         return min(matches, key=lambda result: result.center[0], default=None)
 
     def _positionedCellRead(self, results: list[OcrResult]) -> _Cell:
+        """Read one cell while discarding lower-confidence overlapping OCR duplicates."""
+
+        selected: list[OcrResult] = []
+        for result in sorted(results, key=lambda item: item.confidence, reverse=True):
+            if result.bounds is None:
+                selected.append(result)
+                continue
+            left, _, right, _ = result.bounds
+            width = max(1.0, right - left)
+            overlaps = False
+            for existing in selected:
+                if existing.bounds is None:
+                    continue
+                existingLeft, _, existingRight, _ = existing.bounds
+                intersection = max(0.0, min(right, existingRight) - max(left, existingLeft))
+                if intersection / min(width, max(1.0, existingRight - existingLeft)) >= 0.5:
+                    overlaps = True
+                    break
+            if not overlaps:
+                selected.append(result)
+
         ordered, seenTokens = [], set()
-        for result in sorted(results, key=lambda item: item.center[0]):
+        for result in sorted(selected, key=lambda item: item.center[0] if item.center else 0.0):
             token = self._tokenNormalize(result.text)
             if token and token in seenTokens:
                 continue
@@ -631,8 +660,8 @@ class SquadAttributesParser:
         best = min(
             candidates,
             key=lambda result: (
-                -result.confidence,
                 abs(result.center[0] - columnX),
+                -result.confidence,
             ),
         )
         return _Cell(best.text.strip(), best.confidence)
