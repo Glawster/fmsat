@@ -424,32 +424,52 @@ class SquadAssessmentService:
         squad: SquadModel,
         definitions: dict[str, StoredRoleDefinition],
     ) -> tuple[RequiredRoleAssessment, ...]:
-        """Assess the complete canonical role catalogue independently of the tactic."""
+        """Assess packaged and user-confirmed semantic roles as one complete catalogue."""
 
+        roleCodes = set(self.vocabulary.roles) | set(definitions)
         return tuple(
             self._roleAssess(
                 roleCode,
-                set(role.positions),
+                set(
+                    self.vocabulary.roles[roleCode].positions
+                    if roleCode in self.vocabulary.roles
+                    else definitions[roleCode].positions
+                ),
                 set(),
                 squad,
                 definitions.get(roleCode),
             )
-            for roleCode, role in sorted(
-                self.vocabulary.roles.items(),
-                key=lambda item: self._roleSortKey(item[0], definitions.get(item[0])),
+            for roleCode in sorted(
+                roleCodes,
+                key=lambda code: self._roleSortKey(code, definitions.get(code)),
             )
         )
 
     ## roles
 
     def _canonicalRoleResolve(self, position: Position) -> str | None:
-        """Resolve the exact Football Manager role, never its broad position domain."""
+        """Resolve exact semantic role identity while preserving confirmed custom roles."""
 
-        if position.canonicalRole:
-            return position.canonicalRole
+        canonical = str(position.canonicalRole or "").strip()
+        if canonical:
+            normalized = self.vocabulary.roleNormalize(canonical)
+            if getattr(normalized, "resolved", False) is True:
+                return str(normalized.value)
+            return canonical
+
         observed = position.roleProfile.description.split(" (", 1)[0].strip()
         normalized = self.vocabulary.roleNormalize(observed)
-        return normalized.value if normalized.resolved else None
+        if getattr(normalized, "resolved", False) is True:
+            return str(normalized.value)
+
+        folded = observed.casefold()
+        matches = [
+            definition.roleCode
+            for definition in self.roleKnowledge.definitionsList()
+            if definition.displayName.casefold() == folded
+            or any(abbreviation.casefold() == folded for abbreviation in definition.abbreviations)
+        ]
+        return matches[0] if len(matches) == 1 else None
 
     def _definitionsByCode(self) -> dict[str, StoredRoleDefinition]:
         """Return confirmed definitions keyed by their stable canonical role code."""
