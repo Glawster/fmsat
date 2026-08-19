@@ -1,11 +1,28 @@
 """FM26 squad attribute header recovery regressions."""
 
+import numpy as np
+
 from fmsat.core.ocr import OcrResult
 from fmsat.core.parser.squadAttributesFm26 import SquadAttributesParser
 
 
 class _OcrStub:
     suppliesGeometry = True
+
+    def recognize(self, image):  # type: ignore[no-untyped-def]
+        del image
+        return []
+
+
+class _OcrSequenceStub:
+    suppliesGeometry = True
+
+    def __init__(self, batches: list[list[OcrResult]]) -> None:
+        self.batches = iter(batches)
+
+    def recognize(self, image):  # type: ignore[no-untyped-def]
+        del image
+        return next(self.batches, [])
 
 
 def testPhysicalHeadersInferBetweenTechniqueAndBalance() -> None:
@@ -105,3 +122,55 @@ def testAttributeCellChoosesSingleNearestCandidate() -> None:
     cell = parser._positionedAttributeCellRead([wrongFragment, expectedValue], 104.0)
 
     assert cell.text == "7"
+
+
+def testFocusedAttributeRetryCanCorrectAmbiguousOneWithConsensus() -> None:
+    parser = SquadAttributesParser(
+        _OcrSequenceStub(
+            [
+                [OcrResult("7", 0.91, None)],
+                [OcrResult("7", 0.93, None)],
+                [OcrResult("1", 0.97, None)],
+            ]
+        ),
+        {},
+        (),
+    )
+    image = np.zeros((120, 160, 3), dtype=np.uint8)
+
+    cell = parser._focusedAttributeRead(
+        image,
+        columnX=80.0,
+        rowY=60.0,
+        spacing=40.0,
+        rowTolerance=16.0,
+        originalValue=1,
+    )
+
+    assert cell.text == "7"
+
+
+def testFocusedAttributeRetryPreservesOneWithoutDifferentConsensus() -> None:
+    parser = SquadAttributesParser(
+        _OcrSequenceStub(
+            [
+                [OcrResult("7", 0.91, None)],
+                [OcrResult("1", 0.95, None)],
+                [OcrResult("1", 0.96, None)],
+            ]
+        ),
+        {},
+        (),
+    )
+    image = np.zeros((120, 160, 3), dtype=np.uint8)
+
+    cell = parser._focusedAttributeRead(
+        image,
+        columnX=80.0,
+        rowY=60.0,
+        spacing=40.0,
+        rowTolerance=16.0,
+        originalValue=1,
+    )
+
+    assert cell.text == "1"
