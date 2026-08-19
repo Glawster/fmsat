@@ -76,5 +76,8 @@ class PitchWidget(QWidget):
         detailFont.setBold(False)
         detailFont.setPointSize(7)
         painter.setFont(detailFont)
-        detail = f"{slot.position}  ·  {slot.duty.title()}"
-        painter.drawText(card.adjusted(3, 23, -3, -3), Qt.AlignmentFlag.AlignCenter, detail)
+        painter.drawText(
+            card.adjusted(3, 23, -3, -3),
+            Qt.AlignmentFlag.AlignCenter,
+            slot.position,
+        )
