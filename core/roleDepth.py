@@ -269,18 +269,29 @@ class RoleDepthService:
             for phase, _positions in nonEmpty:
                 position = phaseBySlot[phase][slotId]
                 positionName = positionName or self._positionName(position)
-                roleCode = getattr(position, "canonicalRole", None)
+                observedAbbreviation = self._observedRoleAbbreviation(position)
+                roleCode = self._roleCodeResolve(position, roleCatalogue)
                 role = roleCatalogue.get(roleCode) if roleCode else None
                 if roleCode is None:
                     slotReason = f"{phase} roleCode is unavailable"
                     requirements.append(
-                        SlotRoleRequirement(phase, None, "Unavailable", "Unavailable")
+                        SlotRoleRequirement(
+                            phase,
+                            None,
+                            observedAbbreviation or "Unknown role",
+                            observedAbbreviation or "Unknown",
+                        )
                     )
                     continue
                 if role is None:
                     slotReason = f"{phase} roleCode {roleCode} has no role assessment evidence"
                     requirements.append(
-                        SlotRoleRequirement(phase, roleCode, roleCode, roleCode)
+                        SlotRoleRequirement(
+                            phase,
+                            roleCode,
+                            roleCode,
+                            observedAbbreviation or roleCode,
+                        )
                     )
                     continue
                 requirements.append(
@@ -465,6 +476,40 @@ class RoleDepthService:
                 ),
             )
         )
+
+    @staticmethod
+    def _observedRoleAbbreviation(position: object) -> str:
+        """Return the exact role text retained from FM when semantic role knowledge is absent."""
+
+        profile = getattr(position, "roleProfile", None)
+        value = str(getattr(profile, "name", "") or "").strip()
+        return "" if value.casefold() in {"", "observed role", "unresolved"} else value
+
+    @classmethod
+    def _roleCodeResolve(
+        cls,
+        position: object,
+        roleCatalogue: Mapping[str, object],
+    ) -> str | None:
+        """Resolve legacy abbreviation identities to the catalogue without inventing roles."""
+
+        canonical = str(getattr(position, "canonicalRole", "") or "").strip()
+        observed = cls._observedRoleAbbreviation(position)
+        for candidate in (canonical, observed):
+            if not candidate:
+                continue
+            if candidate in roleCatalogue:
+                return candidate
+            folded = candidate.casefold()
+            matches = [
+                roleCode
+                for roleCode, role in roleCatalogue.items()
+                if str(getattr(role, "abbreviation", "") or "").casefold() == folded
+                or str(getattr(role, "displayName", "") or "").casefold() == folded
+            ]
+            if len(matches) == 1:
+                return matches[0]
+        return canonical or None
 
     @staticmethod
     def _positionName(position: object) -> str:
