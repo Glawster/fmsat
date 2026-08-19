@@ -1,0 +1,47 @@
+fixture: highPress2
+screenshots:
+  formation: tests/screenshots/tactics/highPress2/formation.png
+  inPossession: tests/screenshots/tactics/highPress2/inPossession.png
+  outOfPossession: tests/screenshots/tactics/highPress2/outOfPossession.png
+expected:
+  inPossessionRoles:
+    - CHF
+    - IF
+    - FR
+    - IF
+    - AWB
+    - DLP
+    - DLP
+    - AWB
+    - CB
+    - CB
+    - BGK
+  outOfPossessionRoles:
+    - OCF
+    - TW
+    - TAM
+    - TW
+    - DM
+    - FB
+    - CB
+    - CCB
+    - CB
+    - FB
+    - SK
+  instructions:
+    inPossession:
+      Passing Directness: Shorter
+      Tempo: Higher
+      Time Wasting: Less Often
+      Attacking Transition: Counter-Attack
+      Attacking Width: Much Wider
+    outOfPossession:
+      Line of Engagement: High Press
+      Defensive Line: Higher
+      Trigger Press: More Often
+      Defensive Transition: Counter-Press
+      Tackling: Standard
+      Cross Engagement: Stop Crosses
+      Pressing Trap: Trap Inside
+      Short Goalkeeper Distr: No
+      Defensive Line Behaviour: Step Up More
