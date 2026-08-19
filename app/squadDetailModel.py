@@ -178,7 +178,7 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
             resolutionReason = "No assessment weights are defined for this role."
 
         if role.uncovered:
-            coverage = "Uncovered — no player has a calculable role fit"
+            coverage = "No Candidates found"
         elif role.backupCandidate is None:
             coverage = (
                 f"Best: {playerNameDisplay(role.bestCandidate or '')} · "
@@ -205,7 +205,7 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
 
     # Required Role Depth retains phase requirements even when role assessment
     # evidence is absent. Surface every such requirement in Roles so each
-    # Unknown shown in Analysis has an actionable counterpart.
+    # observed but unresolved role has an actionable counterpart.
     knownRoleCodes = {role.roleCode for role in roles}
     unresolved: dict[str, dict[str, object]] = {}
     for slot in assessment.requiredSlots:
@@ -216,6 +216,13 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
             if semanticCode.startswith("capturedRole"):
                 continue
 
+            observedAbbreviation = str(requirement.abbreviation or "").strip()
+            if observedAbbreviation.casefold() in {"unknown", "unavailable"}:
+                observedAbbreviation = ""
+            observedDisplay = str(requirement.displayName or "").strip()
+            if observedDisplay.casefold() in {"unknown role", "unavailable"}:
+                observedDisplay = ""
+
             unresolvedKey = (
                 semanticCode
                 if semanticCode
@@ -224,17 +231,20 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
             displayName = (
                 _roleCodeDisplay(semanticCode, requirement.displayName)
                 if semanticCode
-                else f"Unknown {requirement.phase} role at {slot.position}"
+                else observedDisplay or f"Unknown {requirement.phase} role at {slot.position}"
             )
             entry = unresolved.setdefault(
                 unresolvedKey,
                 {
                     "displayName": displayName,
+                    "abbreviation": observedAbbreviation,
                     "positions": [],
                     "phases": [],
                     "semanticCode": semanticCode,
                 },
             )
+            if not entry.get("abbreviation") and observedAbbreviation:
+                entry["abbreviation"] = observedAbbreviation
             positions = entry["positions"]
             phases = entry["phases"]
             if isinstance(positions, list) and slot.position not in positions:
@@ -246,21 +256,23 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
         positions = tuple(str(value) for value in entry["positions"])
         phases = tuple(str(value) for value in entry["phases"])
         semanticCode = str(entry["semanticCode"])
+        observedAbbreviation = str(entry.get("abbreviation") or "")
         reason = (
             f"Role code {semanticCode} is required by the tactic but has no confirmed role "
             "assessment evidence."
             if semanticCode
-            else "This tactic slot has no semantic roleCode evidence; capture and confirm the "
-            "Football Manager role profile for this exact slot/phase."
+            else "The Football Manager role abbreviation was observed, but its semantic role "
+            "definition is not confirmed; capture and confirm the role profile for this exact "
+            "slot/phase."
         )
         roles.append(
             RoleDisplay(
                 roleCode=unresolvedKey,
                 displayName=str(entry["displayName"]),
-                abbreviation="Unknown",
+                abbreviation=observedAbbreviation or "Unknown",
                 positions=", ".join(positions),
                 phases=", ".join(phases),
-                coverage="Unavailable — role definition is not confirmed",
+                coverage="No Candidates found",
                 candidates=(),
                 resolutionState="unknownRole",
                 resolutionReason=reason,
@@ -413,13 +425,18 @@ def _requiredSlotDisplay(slot) -> RequiredSlotDisplay:
 
 
 def _slotRoleLabel(role) -> str:
-    """Distinguish unresolved role identity from a missing abbreviation."""
+    """Prefer exact observed FM text when semantic role knowledge is incomplete."""
 
-    if role.roleCode is None:
-        return "Unknown role"
-    roleCode = str(role.roleCode)
+    roleCode = str(role.roleCode or "").strip()
+    abbreviation = str(role.abbreviation or "").strip()
+    if not roleCode:
+        return abbreviation if abbreviation and abbreviation != "Unknown" else "Unknown role"
     displayName = str(role.displayName or "")
-    abbreviation = str(role.abbreviation or "")
+    if (
+        abbreviation
+        and abbreviation.casefold() not in {roleCode.casefold(), "unknown", "unavailable"}
+    ):
+        return abbreviation
     if (
         displayName.casefold() == roleCode.casefold()
         and abbreviation.casefold() == roleCode.casefold()
