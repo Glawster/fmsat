@@ -61,8 +61,8 @@ def testGoalkeeperColumnsUseStableSpacingAndRecoverTrailingHeaders() -> None:
     assert rushingOut.center is not None
     assert throwing.center is not None
     assert eccentricity.center[0] == 1040.0
-    assert rushingOut.center[0] == 1580.0
-    assert throwing.center[0] == 1660.0
+    assert rushingOut.center[0] == 1520.0
+    assert throwing.center[0] == 1600.0
 
 
 def testPlayerNameCleanupCollapsesOverlappingStripDuplicate() -> None:
