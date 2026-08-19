@@ -72,3 +72,36 @@ def testPlayerNameCleanupCollapsesOverlappingStripDuplicate() -> None:
         )
         == "Romane Enguehard"
     )
+
+
+def testRowSeedsCanRecoverFromPaWhenCaFragmentIsMissing() -> None:
+    parser = SquadAttributesParser(_OcrStub(), {}, ())
+    ca = OcrResult("120", 0.99, (450.0, 90.0, 480.0, 110.0))
+    paSameRow = OcrResult("133", 0.99, (510.0, 91.0, 540.0, 111.0))
+    paOnlyRow = OcrResult("111", 0.99, (510.0, 122.0, 540.0, 142.0))
+
+    seeds = parser._rowSeedsBuild(
+        [(ca, "ca"), (paSameRow, "pa"), (paOnlyRow, "pa")]
+    )
+
+    assert seeds == [ca, paOnlyRow]
+
+
+def testOverlappingTextFragmentsAreNotConcatenated() -> None:
+    parser = SquadAttributesParser(_OcrStub(), {}, ())
+    preferred = OcrResult("Romane Enguehard", 0.99, (100.0, 90.0, 240.0, 110.0))
+    duplicate = OcrResult("Romane Engueharde", 0.92, (101.0, 90.0, 245.0, 110.0))
+
+    cell = parser._positionedCellRead([preferred, duplicate])
+
+    assert cell.text == "Romane Enguehard"
+
+
+def testAttributeCellChoosesSingleNearestCandidate() -> None:
+    parser = SquadAttributesParser(_OcrStub(), {}, ())
+    wrongFragment = OcrResult("1", 0.99, (90.0, 90.0, 100.0, 110.0))
+    expectedValue = OcrResult("7", 0.95, (99.0, 90.0, 109.0, 110.0))
+
+    cell = parser._positionedAttributeCellRead([wrongFragment, expectedValue], 104.0)
+
+    assert cell.text == "7"
