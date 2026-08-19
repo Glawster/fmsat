@@ -184,20 +184,20 @@ class RoleKnowledgeService:
         if roleCode is not None:
             path = self.directory.parent / "requirements" / f"{roleCode}.yaml"
             weights = self._weightsFromPath(path)
-            if weights is not None:
+            if weights:
                 return weights
             role = self.vocabulary.roles.get(roleCode)
             if role is not None:
                 legacy = self.directory.parent / "requirements" / f"role-{role.roleID:03d}.yaml"
                 weights = self._weightsFromPath(legacy)
-                if weights is not None:
+                if weights:
                     return weights
             return dict(self.defaultWeights.get(roleCode, {}))
 
         if isinstance(roleIdentity, int):
             legacy = self.directory.parent / "requirements" / f"role-{roleIdentity:03d}.yaml"
             weights = self._weightsFromPath(legacy)
-            if weights is not None:
+            if weights:
                 return weights
         return {}
 
@@ -487,7 +487,11 @@ class RoleKnowledgeService:
 
     def _roleCodeFromIdentity(self, roleIdentity: str | int) -> str | None:
         if isinstance(roleIdentity, str) and roleIdentity.strip():
-            return roleIdentity.strip()
+            raw = roleIdentity.strip()
+            if raw in self.vocabulary.roles:
+                return raw
+            normalized = self.vocabulary.roleNormalize(raw)
+            return str(normalized.value) if normalized.resolved else raw
         if isinstance(roleIdentity, int):
             role = next(
                 (candidate for candidate in self.vocabulary.roles.values() if candidate.roleID == roleIdentity),
@@ -532,11 +536,12 @@ class RoleKnowledgeService:
         weights = content.get("attributeWeights") if isinstance(content, dict) else None
         if not isinstance(weights, dict):
             return None
-        return {
+        parsed = {
             str(attribute): int(weight)
             for attribute, weight in weights.items()
             if isinstance(weight, int) and 0 <= weight <= 5
         }
+        return parsed or None
 
     @staticmethod
     def _tupleStrings(value: object) -> tuple[str, ...]:
