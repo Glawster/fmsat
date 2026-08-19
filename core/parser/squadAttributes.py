@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections import Counter
 from dataclasses import dataclass
 from statistics import median
 from typing import Any
@@ -254,7 +255,12 @@ class SquadAttributesParser:
                     )
                     if value is not None
                 }
-                if parsed is not None and len(observedValues) <= 1:
+                needsRetry = (
+                    parsed is None
+                    or len(observedValues) > 1
+                    or parsed == 1
+                )
+                if not needsRetry:
                     continue
                 recovered = self._focusedAttributeRead(
                     image,
@@ -262,6 +268,7 @@ class SquadAttributesParser:
                     rowY,
                     attributeSpacing,
                     rowTolerance,
+                    originalValue=parsed,
                 )
                 if recovered.text:
                     cells[attributeName] = recovered
@@ -487,8 +494,9 @@ class SquadAttributesParser:
         rowY: float,
         spacing: float,
         rowTolerance: float,
+        originalValue: int | None = None,
     ) -> _Cell:
-        """Retry a missing or conflicting numeric attribute in a tightly cropped cell."""
+        """Retry an ambiguous numeric attribute using several independent image treatments."""
 
         height, width = image.shape[:2]
         halfWidth = max(10.0, spacing * 0.34)
@@ -499,23 +507,68 @@ class SquadAttributesParser:
         if right <= left or bottom <= top:
             return _Cell("", 0.0)
 
-        scale = 3.0
-        enlarged = cv2.resize(
-            image[top:bottom, left:right],
-            None,
-            fx=scale,
-            fy=scale,
-            interpolation=cv2.INTER_CUBIC,
+        crop = image[top:bottom, left:right]
+        variants: list[np.ndarray] = []
+        for scale, interpolation in (
+            (3.0, cv2.INTER_CUBIC),
+            (4.0, cv2.INTER_NEAREST),
+        ):
+            variants.append(
+                cv2.resize(
+                    crop,
+                    None,
+                    fx=scale,
+                    fy=scale,
+                    interpolation=interpolation,
+                )
+            )
+
+        gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+        _, threshold = cv2.threshold(
+            gray,
+            0,
+            255,
+            cv2.THRESH_BINARY + cv2.THRESH_OTSU,
         )
-        candidates = [
-            result
-            for result in self.ocr.recognize(enlarged)
-            if self._attributeParse(result.text) is not None
-        ]
-        if not candidates:
+        thresholdBgr = cv2.cvtColor(threshold, cv2.COLOR_GRAY2BGR)
+        variants.append(
+            cv2.resize(
+                thresholdBgr,
+                None,
+                fx=4.0,
+                fy=4.0,
+                interpolation=cv2.INTER_NEAREST,
+            )
+        )
+
+        votes: list[tuple[int, float]] = []
+        for variant in variants:
+            candidates = [
+                result
+                for result in self.ocr.recognize(variant)
+                if self._attributeParse(result.text) is not None
+            ]
+            if not candidates:
+                continue
+            best = max(candidates, key=lambda result: result.confidence)
+            value = self._attributeParse(best.text)
+            if value is not None:
+                votes.append((value, best.confidence))
+
+        if not votes:
             return _Cell("", 0.0)
-        best = max(candidates, key=lambda result: result.confidence)
-        return _Cell(best.text.strip(), best.confidence)
+
+        counts = Counter(value for value, _ in votes)
+        value, count = counts.most_common(1)[0]
+        if originalValue is not None and value != originalValue and count < 2:
+            return _Cell(str(originalValue), 0.0)
+
+        confidence = max(
+            confidence
+            for candidateValue, confidence in votes
+            if candidateValue == value
+        )
+        return _Cell(str(value), confidence)
 
     def _resultDuplicate(
         self,
@@ -616,14 +669,17 @@ class SquadAttributesParser:
                 selected.append(result)
                 continue
             left, _, right, _ = result.bounds
-            width = max(1.0, right - left)
+            resultWidth = max(1.0, right - left)
             overlaps = False
             for existing in selected:
                 if existing.bounds is None:
                     continue
                 existingLeft, _, existingRight, _ = existing.bounds
                 intersection = max(0.0, min(right, existingRight) - max(left, existingLeft))
-                if intersection / min(width, max(1.0, existingRight - existingLeft)) >= 0.5:
+                if intersection / min(
+                    resultWidth,
+                    max(1.0, existingRight - existingLeft),
+                ) >= 0.5:
                     overlaps = True
                     break
             if not overlaps:
