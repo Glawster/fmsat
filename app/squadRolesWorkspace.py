@@ -101,7 +101,8 @@ class SquadRolesTab(BaseSquadRolesTab):
     @staticmethod
     def _roleLabel(role: RoleDisplay) -> str:
         if role.resolutionState == "unknownRole":
-            return "Unknown role"
+            observed = role.abbreviation.strip()
+            return observed if observed and observed != "Unknown" else "Unknown role"
         if role.resolutionState == "missingAbbreviation":
             return "Unknown abbreviation"
         return role.abbreviation
@@ -141,14 +142,9 @@ class SquadRolesTab(BaseSquadRolesTab):
 
     @classmethod
     def _roleCoverageRender(cls, role: RoleDisplay) -> str:
-        if role.resolutionState == "unknownRole":
-            return "Unavailable — role definition missing"
-        if role.resolutionState == "missingWeights":
-            return "Unavailable — weights not defined"
         candidates = cls._roleCoverageCandidates(role)
         if not candidates:
-            hasEligible = any(_candidateEligible(role, candidate) for candidate in role.candidates)
-            return "Unavailable" if hasEligible else "Uncovered"
+            return "No Candidates found"
         return " - ".join(playerSurnameDisplay(candidate.name) for candidate in candidates)
 
     def _roleHeaderClicked(self, column: int) -> None:
