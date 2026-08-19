@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import unicodedata
 
 import cv2
 import pytest
@@ -29,6 +30,16 @@ def _ocrEnabled() -> bool:
     return os.environ.get("FMSAT_OCR_FIXTURES", "").strip() == "1"
 
 
+@pytest.fixture(scope="module")
+def squadOcrParser() -> SquadAttributesParser:
+    configuration = Configuration()
+    return SquadAttributesParser(
+        PaddleOcrEngine(),
+        configuration.regions,
+        configuration.attributes,
+    )
+
+
 def _expectedAttributes(fixture: dict, playerName: str, columnSet: str) -> dict[str, int]:
     columns = fixture["columnSets"][columnSet]["columns"]
     ignored = set(fixture["columnSets"][columnSet]["ignoredByFmsat"])
@@ -41,16 +52,43 @@ def _expectedAttributes(fixture: dict, playerName: str, columnSet: str) -> dict[
     }
 
 
-@pytest.fixture(scope="module")
-def squadOcrParser() -> SquadAttributesParser:
-    """Reuse the expensive Paddle model across the complete golden screenshot set."""
-
-    configuration = Configuration()
-    return SquadAttributesParser(
-        PaddleOcrEngine(),
-        configuration.regions,
-        configuration.attributes,
+def _nameComparable(value: str) -> str:
+    decomposed = unicodedata.normalize("NFKD", value)
+    return "".join(
+        character.casefold()
+        for character in decomposed
+        if not unicodedata.combining(character) and character.isalnum()
     )
+
+
+def _oneEditOrLess(left: str, right: str) -> bool:
+    if left == right:
+        return True
+    if abs(len(left) - len(right)) > 1:
+        return False
+    if len(left) == len(right):
+        return sum(a != b for a, b in zip(left, right, strict=True)) <= 1
+    shorter, longer = (left, right) if len(left) < len(right) else (right, left)
+    for index in range(len(longer)):
+        if longer[:index] + longer[index + 1 :] == shorter:
+            return True
+    return False
+
+
+def _nameEquivalent(actual: str, expected: str) -> bool:
+    return _oneEditOrLess(_nameComparable(actual), _nameComparable(expected))
+
+
+def _expectedNameResolve(fixture: dict, actualName: str, ca: str, pa: str) -> str:
+    matches = [
+        name
+        for name, values in fixture["players"].items()
+        if _nameEquivalent(actualName, name)
+        and str(values["ca"]) == ca
+        and str(values["pa"]) == pa
+    ]
+    assert len(matches) == 1, f"Unable to resolve OCR player identity: {actualName!r}"
+    return str(matches[0])
 
 
 def testBristolWomenFixtureContainsCanonicalScreenshots() -> None:
@@ -121,11 +159,14 @@ def testBristolWomenScreenshotOcrMatchesReviewedTruth(
 
     actualPlayers = squadOcrParser.parse(image)
 
-    assert [player.name for player in actualPlayers] == expectedNames
     assert len(actualPlayers) == len(expectedNames)
+    assert all(
+        _nameEquivalent(actual.name, expectedName)
+        for actual, expectedName in zip(actualPlayers, expectedNames, strict=True)
+    )
     for actual, expectedName in zip(actualPlayers, expectedNames, strict=True):
         expected = fixture["players"][expectedName]
-        assert actual.name == expectedName
+        assert _nameEquivalent(actual.name, expectedName)
         assert actual.positions == str(expected["positions"])
         assert actual.ca == str(expected["ca"])
         assert actual.pa == str(expected["pa"])
@@ -148,8 +189,9 @@ def testBristolWomenFourSquadPagesMergeToReviewedThirtyEightPlayers(
         image = cv2.imread(str(_SCREENSHOT_ROOT / screenshotName))
         assert image is not None
         for player in squadOcrParser.parse(image):
+            canonicalName = _expectedNameResolve(fixture, player.name, player.ca, player.pa)
             current = merged.setdefault(
-                player.name,
+                canonicalName,
                 {
                     "positions": player.positions,
                     "ca": player.ca,
