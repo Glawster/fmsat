@@ -2,5 +2,6 @@
 # Replace unresolved fields only from confirmed Football Manager role-profile evidence.
 roleCode: trackingWinger
 confirmationState: unresolved
+evidence: null
 expectedDefinition: null
 expectedRequirements: null
