@@ -91,6 +91,21 @@ def _expectedNameResolve(fixture: dict, actualName: str, ca: str, pa: str) -> st
     return str(matches[0])
 
 
+def _attributeDifferences(
+    actual: dict[str, int | None],
+    expected: dict[str, int],
+) -> list[str]:
+    differences = []
+    for attribute in sorted(set(actual) | set(expected)):
+        actualValue = actual.get(attribute, "<missing>")
+        expectedValue = expected.get(attribute, "<not expected>")
+        if actualValue != expectedValue:
+            differences.append(
+                f"{attribute}: expected={expectedValue!r} actual={actualValue!r}"
+            )
+    return differences
+
+
 def testBristolWomenFixtureContainsCanonicalScreenshots() -> None:
     fixture = _fixtureLoad()
 
@@ -158,19 +173,51 @@ def testBristolWomenScreenshotOcrMatchesReviewedTruth(
     assert image is not None
 
     actualPlayers = squadOcrParser.parse(image)
+    actualNames = [player.name for player in actualPlayers]
 
-    assert len(actualPlayers) == len(expectedNames)
-    assert all(
-        _nameEquivalent(actual.name, expectedName)
-        for actual, expectedName in zip(actualPlayers, expectedNames, strict=True)
-    )
-    for actual, expectedName in zip(actualPlayers, expectedNames, strict=True):
+    if len(actualPlayers) != len(expectedNames):
+        resolved = []
+        unresolved = []
+        for player in actualPlayers:
+            try:
+                resolved.append(_expectedNameResolve(fixture, player.name, player.ca, player.pa))
+            except AssertionError:
+                unresolved.append(player.name)
+        missing = [name for name in expectedNames if name not in resolved]
+        extra = [name for name in resolved if name not in expectedNames]
+        pytest.fail(
+            f"{screenshotName}: expected {len(expectedNames)} players, got {len(actualPlayers)}; "
+            f"missing={missing}; extra={extra}; unresolved={unresolved}; actual={actualNames}"
+        )
+
+    rowErrors = []
+    for rowIndex, (actual, expectedName) in enumerate(
+        zip(actualPlayers, expectedNames, strict=True),
+        start=1,
+    ):
         expected = fixture["players"][expectedName]
-        assert _nameEquivalent(actual.name, expectedName)
-        assert actual.positions == str(expected["positions"])
-        assert actual.ca == str(expected["ca"])
-        assert actual.pa == str(expected["pa"])
-        assert actual.attributes == _expectedAttributes(fixture, expectedName, columnSet)
+        if not _nameEquivalent(actual.name, expectedName):
+            rowErrors.append(
+                f"row {rowIndex} name: expected={expectedName!r} actual={actual.name!r}"
+            )
+        if actual.positions != str(expected["positions"]):
+            rowErrors.append(
+                f"{expectedName} positions: expected={expected['positions']!r} actual={actual.positions!r}"
+            )
+        if actual.ca != str(expected["ca"]):
+            rowErrors.append(
+                f"{expectedName} CA: expected={expected['ca']!r} actual={actual.ca!r}"
+            )
+        if actual.pa != str(expected["pa"]):
+            rowErrors.append(
+                f"{expectedName} PA: expected={expected['pa']!r} actual={actual.pa!r}"
+            )
+        expectedAttributes = _expectedAttributes(fixture, expectedName, columnSet)
+        for difference in _attributeDifferences(actual.attributes, expectedAttributes):
+            rowErrors.append(f"{expectedName} {difference}")
+
+    if rowErrors:
+        pytest.fail(f"{screenshotName} OCR mismatches:\n" + "\n".join(rowErrors))
 
 
 @pytest.mark.skipif(
@@ -184,6 +231,7 @@ def testBristolWomenFourSquadPagesMergeToReviewedThirtyEightPlayers(
 
     fixture = _fixtureLoad()
     merged: dict[str, dict[str, object]] = {}
+    mergeErrors = []
 
     for screenshotName in ("squad1.png", "squad2.png", "squad3.png", "squad4.png"):
         image = cv2.imread(str(_SCREENSHOT_ROOT / screenshotName))
@@ -197,27 +245,70 @@ def testBristolWomenFourSquadPagesMergeToReviewedThirtyEightPlayers(
                     "ca": player.ca,
                     "pa": player.pa,
                     "attributes": {},
+                    "sources": {},
                 },
             )
-            assert current["positions"] == player.positions
-            assert current["ca"] == player.ca
-            assert current["pa"] == player.pa
+            if current["positions"] != player.positions:
+                mergeErrors.append(
+                    f"{canonicalName} positions conflict in {screenshotName}: "
+                    f"existing={current['positions']!r} actual={player.positions!r}"
+                )
+            if current["ca"] != player.ca:
+                mergeErrors.append(
+                    f"{canonicalName} CA conflict in {screenshotName}: "
+                    f"existing={current['ca']!r} actual={player.ca!r}"
+                )
+            if current["pa"] != player.pa:
+                mergeErrors.append(
+                    f"{canonicalName} PA conflict in {screenshotName}: "
+                    f"existing={current['pa']!r} actual={player.pa!r}"
+                )
             attributes = current["attributes"]
+            sources = current["sources"]
             assert isinstance(attributes, dict)
+            assert isinstance(sources, dict)
             for attribute, value in player.attributes.items():
-                if attribute in attributes:
-                    assert attributes[attribute] == value
-                attributes[attribute] = value
+                if attribute in attributes and attributes[attribute] != value:
+                    mergeErrors.append(
+                        f"{canonicalName} {attribute} conflict: "
+                        f"{sources[attribute]}={attributes[attribute]!r}, "
+                        f"{screenshotName}={value!r}"
+                    )
+                elif attribute not in attributes or attributes[attribute] is None:
+                    attributes[attribute] = value
+                    sources[attribute] = screenshotName
 
-    assert set(merged) == set(fixture["players"])
-    assert len(merged) == 38
+    missingPlayers = sorted(set(fixture["players"]) - set(merged))
+    extraPlayers = sorted(set(merged) - set(fixture["players"]))
+    if missingPlayers or extraPlayers:
+        mergeErrors.append(
+            f"merged player identity mismatch: missing={missingPlayers}; extra={extraPlayers}"
+        )
+
     for name, expected in fixture["players"].items():
+        if name not in merged:
+            continue
         actual = merged[name]
         expectedAttributes = {
             **_expectedAttributes(fixture, name, "default1"),
             **_expectedAttributes(fixture, name, "default2"),
         }
-        assert actual["positions"] == str(expected["positions"])
-        assert actual["ca"] == str(expected["ca"])
-        assert actual["pa"] == str(expected["pa"])
-        assert actual["attributes"] == expectedAttributes
+        if actual["positions"] != str(expected["positions"]):
+            mergeErrors.append(
+                f"{name} merged positions: expected={expected['positions']!r} actual={actual['positions']!r}"
+            )
+        if actual["ca"] != str(expected["ca"]):
+            mergeErrors.append(
+                f"{name} merged CA: expected={expected['ca']!r} actual={actual['ca']!r}"
+            )
+        if actual["pa"] != str(expected["pa"]):
+            mergeErrors.append(
+                f"{name} merged PA: expected={expected['pa']!r} actual={actual['pa']!r}"
+            )
+        attributes = actual["attributes"]
+        assert isinstance(attributes, dict)
+        for difference in _attributeDifferences(attributes, expectedAttributes):
+            mergeErrors.append(f"{name} merged {difference}")
+
+    if mergeErrors:
+        pytest.fail("Merged squad OCR mismatches:\n" + "\n".join(mergeErrors))
