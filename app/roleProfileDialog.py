@@ -434,6 +434,7 @@ class RoleProfileReviewDialog(QDialog):
                 group = importanceCombo.currentData()
                 if group:
                     importance[attribute] = str(group)
+            draft = None
             for phase in phases:
                 reviewed = RoleProfileEvidence(phase=phase, **reviewedValues)
                 draft = self.service.evidenceVerify(
@@ -449,7 +450,18 @@ class RoleProfileReviewDialog(QDialog):
                     draft,
                     replace=self.replaceExisting,
                 )
-            self.service.weightsConfirm(draft.roleID, weights, importance)
+            if draft is None:
+                raise RoleKnowledgeError("Role definition was not built")
+            normalizedRole = self.service.vocabulary.roleNormalize(draft.displayName)
+            roleCode = (
+                str(normalizedRole.value)
+                if normalizedRole.resolved
+                else self.service.vocabulary.roleCodeCreate(
+                    draft.displayName,
+                    draft.abbreviations[0] if draft.abbreviations else "",
+                )
+            )
+            self.service.weightsConfirm(roleCode, weights, importance)
         except (RoleKnowledgeError, ValueError) as exc:
             QMessageBox.warning(self, "Role profile needs review", str(exc))
             return
