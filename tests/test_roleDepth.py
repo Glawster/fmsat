@@ -44,16 +44,18 @@ def _role(
 
 def _position(
     slotId: str | None,
-    roleCode: str,
+    roleCode: str | None,
     position: str,
     x: float | None = None,
     y: float | None = None,
+    observedRole: str | None = None,
 ):
     return SimpleNamespace(
         slotId=slotId,
         canonicalRole=roleCode,
         canonicalPosition=position,
         identity=SimpleNamespace(value=position),
+        roleProfile=SimpleNamespace(name=observedRole or "Observed role"),
         x=x,
         y=y,
     )
@@ -165,6 +167,51 @@ def testRoleDepthAveragesPhaseRoleFitsAndRetainsEachRoleEvidence() -> None:
     )
     assert alpha.score == 70.0
     assert tuple(item.roleCode for item in alpha.roleFits) == ("inRole", "outRole")
+
+
+def testRoleDepthResolvesLegacyAbbreviationToSemanticCatalogueRole() -> None:
+    """Persisted abbreviation identities must reuse canonical role-fit evidence."""
+
+    halfBack = _role("halfBack", "Half-Back", "HB", {"Alpha": 80.0})
+    tactic = SimpleNamespace(
+        inPossession=SimpleNamespace(
+            positions=(_position("slot-one", "HB", "DM"),)
+        ),
+        outOfPossession=SimpleNamespace(
+            positions=(_position("slot-one", "HB", "DM"),)
+        ),
+    )
+
+    depth = RoleDepthService("phaseMean").depthBuild(tactic, {"halfBack": halfBack})
+
+    assert depth[0].roles[0].roleCode == "halfBack"
+    assert depth[0].roles[0].abbreviation == "HB"
+    assert depth[0].bestCandidate == "Alpha"
+
+
+def testRoleDepthRetainsObservedAbbreviationWhenSemanticRoleIsUnresolved() -> None:
+    """Known FM text such as TW must remain visible even before role knowledge is confirmed."""
+
+    tactic = SimpleNamespace(
+        inPossession=SimpleNamespace(
+            positions=(_position("slot-one", "insideForward", "AML"),)
+        ),
+        outOfPossession=SimpleNamespace(
+            positions=(_position("slot-one", None, "AML", observedRole="TW"),)
+        ),
+    )
+    insideForward = _role("insideForward", "Inside Forward", "IF", {"Alpha": 80.0})
+
+    depth = RoleDepthService("phaseMean").depthBuild(
+        tactic,
+        {"insideForward": insideForward},
+    )
+
+    oop = next(role for role in depth[0].roles if role.phase == "OOP")
+    assert oop.roleCode is None
+    assert oop.abbreviation == "TW"
+    assert depth[0].bestCandidate is None
+    assert "OOP roleCode is unavailable" in depth[0].unavailableReason
 
 
 def testRoleDepthIsUnavailableWhenSlotLinkageEvidenceIsMissing() -> None:
