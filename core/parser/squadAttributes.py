@@ -130,15 +130,15 @@ class SquadAttributesParser:
 
         orderedColumns = sorted(columns.items(), key=lambda item: item[1])
         attributeXs = sorted(columns[name] for name in attributeColumns)
-        attributeTolerance = (
+        attributeSpacing = (
             median(
                 right - left
                 for left, right in zip(attributeXs, attributeXs[1:], strict=False)
             )
-            * 0.48
             if len(attributeXs) >= 2
-            else float("inf")
+            else image.shape[1] * 0.04
         )
+        attributeTolerance = attributeSpacing * 0.48
         rowResults = [
             result
             for result in results
@@ -157,15 +157,7 @@ class SquadAttributesParser:
                 continue
             assigned.append((result, column))
 
-        rowSeeds = sorted(
-            (
-                result
-                for result, column in assigned
-                if column == "ca"
-                and re.fullmatch(r"\d{1,3}", result.text.strip()) is not None
-            ),
-            key=lambda result: result.center[1],
-        )
+        rowSeeds = self._rowSeedsBuild(assigned)
         rowSpacings = [
             right.center[1] - left.center[1]
             for left, right in zip(rowSeeds, rowSeeds[1:], strict=False)
@@ -223,21 +215,52 @@ class SquadAttributesParser:
                 if abs(result.center[1] - rowY) <= rowTolerance:
                     rowCells.setdefault(column, []).append(result)
 
-            cells = {
-                name: self._positionedCellRead(
-                    [
-                        self._playerNameResultClean(value)
-                        if name == "name"
-                        else value
-                        for value in values
-                        if name != "name"
-                        or self._playerNameFragmentValid(value.text)
-                    ]
+            cells: dict[str, _Cell] = {}
+            for name, values in rowCells.items():
+                if name in attributeColumns:
+                    cells[name] = self._positionedAttributeCellRead(values, columns[name])
+                else:
+                    cells[name] = self._positionedCellRead(
+                        [
+                            self._playerNameResultClean(value)
+                            if name == "name"
+                            else value
+                            for value in values
+                            if name != "name"
+                            or self._playerNameFragmentValid(value.text)
+                        ]
+                    )
+
+            if "name" not in cells or not cells["name"].text.strip():
+                recoveredName = self._focusedNameRead(
+                    image,
+                    playerHeader,
+                    columns["positions"],
+                    rowY,
+                    rowTolerance,
                 )
-                for name, values in rowCells.items()
-            }
+                if recoveredName.text:
+                    cells["name"] = recoveredName
+
+            for attributeName in attributeColumns:
+                parsed = self._attributeParse(
+                    cells.get(attributeName, _Cell("", 0.0)).text
+                )
+                if parsed is not None:
+                    continue
+                recovered = self._focusedAttributeRead(
+                    image,
+                    columns[attributeName],
+                    rowY,
+                    attributeSpacing,
+                    rowTolerance,
+                )
+                if recovered.text:
+                    cells[attributeName] = recovered
+
             if (
                 "name" not in cells
+                or not cells["name"].text.strip()
                 or not self._numericCellValid(cells.get("ca"))
                 or not self._numericCellValid(cells.get("pa"))
             ):
@@ -278,6 +301,35 @@ class SquadAttributesParser:
             len(players),
         )
         return players
+
+    def _rowSeedsBuild(
+        self,
+        assigned: list[tuple[OcrResult, str]],
+    ) -> list[OcrResult]:
+        """Build one row seed from either CA or PA evidence, preferring CA when both exist."""
+
+        candidates = sorted(
+            (
+                (result, column)
+                for result, column in assigned
+                if column in {"ca", "pa"}
+                and re.fullmatch(r"\d{1,3}", result.text.strip()) is not None
+            ),
+            key=lambda item: item[0].center[1],
+        )
+        groups: list[list[tuple[OcrResult, str]]] = []
+        for candidate in candidates:
+            if not groups or abs(candidate[0].center[1] - groups[-1][0][0].center[1]) > 8:
+                groups.append([candidate])
+            else:
+                groups[-1].append(candidate)
+        return [
+            next(
+                (result for result, column in group if column == "ca"),
+                group[0][0],
+            )
+            for group in groups
+        ]
 
     def _positionedResults(self, image: np.ndarray) -> list[OcrResult]:
         height, width = image.shape[:2]
@@ -378,6 +430,85 @@ class SquadAttributesParser:
                 names.append(translated)
         return names
 
+    def _focusedNameRead(
+        self,
+        image: np.ndarray,
+        playerHeader: OcrResult | None,
+        positionX: float,
+        rowY: float,
+        rowTolerance: float,
+    ) -> _Cell:
+        """Retry only a missing player name using a tightly cropped enlarged row cell."""
+
+        if playerHeader is None or playerHeader.center is None:
+            return _Cell("", 0.0)
+        height, width = image.shape[:2]
+        playerX = playerHeader.center[0]
+        gap = positionX - playerX
+        if gap <= 0:
+            return _Cell("", 0.0)
+        left = max(0, int(playerHeader.bounds[0] if playerHeader.bounds is not None else playerX))
+        right = min(width, int(positionX - gap * 0.08))
+        top = max(0, int(rowY - rowTolerance * 0.9))
+        bottom = min(height, int(rowY + rowTolerance * 0.9))
+        if right <= left or bottom <= top:
+            return _Cell("", 0.0)
+
+        scale = 3.0
+        enlarged = cv2.resize(
+            image[top:bottom, left:right],
+            None,
+            fx=scale,
+            fy=scale,
+            interpolation=cv2.INTER_CUBIC,
+        )
+        results = [
+            result
+            for result in self.ocr.recognize(enlarged)
+            if self._playerNameFragmentValid(result.text)
+        ]
+        if not results:
+            return _Cell("", 0.0)
+        cleaned = [self._playerNameResultClean(result) for result in results]
+        return self._positionedCellRead(cleaned)
+
+    def _focusedAttributeRead(
+        self,
+        image: np.ndarray,
+        columnX: float,
+        rowY: float,
+        spacing: float,
+        rowTolerance: float,
+    ) -> _Cell:
+        """Retry a missing numeric attribute with a tightly cropped enlarged cell."""
+
+        height, width = image.shape[:2]
+        halfWidth = max(10.0, spacing * 0.34)
+        top = max(0, int(rowY - rowTolerance * 0.85))
+        bottom = min(height, int(rowY + rowTolerance * 0.85))
+        left = max(0, int(columnX - halfWidth))
+        right = min(width, int(columnX + halfWidth))
+        if right <= left or bottom <= top:
+            return _Cell("", 0.0)
+
+        scale = 3.0
+        enlarged = cv2.resize(
+            image[top:bottom, left:right],
+            None,
+            fx=scale,
+            fy=scale,
+            interpolation=cv2.INTER_CUBIC,
+        )
+        candidates = [
+            result
+            for result in self.ocr.recognize(enlarged)
+            if self._attributeParse(result.text) is not None
+        ]
+        if not candidates:
+            return _Cell("", 0.0)
+        best = max(candidates, key=lambda result: result.confidence)
+        return _Cell(best.text.strip(), best.confidence)
+
     def _resultDuplicate(
         self,
         results: list[OcrResult],
@@ -462,8 +593,6 @@ class SquadAttributesParser:
             observed = self._tokenNormalize(result.text)
             if not observed:
                 continue
-            # Three visible characters are enough to establish FM's clipped
-            # heading in narrow columns (for example "Cro..." -> Crossing).
             if observed == expected or (
                 len(observed) >= 3 and expected.startswith(observed)
             ):
@@ -478,10 +607,35 @@ class SquadAttributesParser:
                 continue
             seenTokens.add(token)
             ordered.append(result)
+        if not ordered:
+            return _Cell("", 0.0)
         return _Cell(
             ocrTextClean(" ".join(result.text for result in ordered)),
             sum(result.confidence for result in ordered) / len(ordered),
         )
+
+    def _positionedAttributeCellRead(
+        self,
+        results: list[OcrResult],
+        columnX: float,
+    ) -> _Cell:
+        """Choose one numeric OCR candidate instead of concatenating overlapping fragments."""
+
+        candidates = [
+            result
+            for result in results
+            if result.center is not None and self._attributeParse(result.text) is not None
+        ]
+        if not candidates:
+            return _Cell("", 0.0)
+        best = min(
+            candidates,
+            key=lambda result: (
+                -result.confidence,
+                abs(result.center[0] - columnX),
+            ),
+        )
+        return _Cell(best.text.strip(), best.confidence)
 
     @staticmethod
     def _numericCellValid(cell: _Cell | None) -> bool:
