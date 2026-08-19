@@ -41,6 +41,18 @@ def _expectedAttributes(fixture: dict, playerName: str, columnSet: str) -> dict[
     }
 
 
+@pytest.fixture(scope="module")
+def squadOcrParser() -> SquadAttributesParser:
+    """Reuse the expensive Paddle model across the complete golden screenshot set."""
+
+    configuration = Configuration()
+    return SquadAttributesParser(
+        PaddleOcrEngine(),
+        configuration.regions,
+        configuration.attributes,
+    )
+
+
 def testBristolWomenFixtureContainsCanonicalScreenshots() -> None:
     fixture = _fixtureLoad()
 
@@ -94,7 +106,10 @@ def testBristolWomenFixtureDefinesThirtyEightDistinctPlayersAndFourGoalkeepers()
     not _ocrEnabled(),
     reason="Set FMSAT_OCR_FIXTURES=1 to run real PaddleOCR screenshot regressions",
 )
-def testBristolWomenScreenshotOcrMatchesReviewedTruth(screenshotName: str) -> None:
+def testBristolWomenScreenshotOcrMatchesReviewedTruth(
+    screenshotName: str,
+    squadOcrParser: SquadAttributesParser,
+) -> None:
     """Real OCR must reproduce every reviewed player fact visible on each canonical screenshot."""
 
     fixture = _fixtureLoad()
@@ -104,13 +119,7 @@ def testBristolWomenScreenshotOcrMatchesReviewedTruth(screenshotName: str) -> No
     image = cv2.imread(str(_SCREENSHOT_ROOT / screenshotName))
     assert image is not None
 
-    configuration = Configuration()
-    parser = SquadAttributesParser(
-        PaddleOcrEngine(),
-        configuration.regions,
-        configuration.attributes,
-    )
-    actualPlayers = parser.parse(image)
+    actualPlayers = squadOcrParser.parse(image)
 
     assert [player.name for player in actualPlayers] == expectedNames
     assert len(actualPlayers) == len(expectedNames)
@@ -127,22 +136,18 @@ def testBristolWomenScreenshotOcrMatchesReviewedTruth(screenshotName: str) -> No
     not _ocrEnabled(),
     reason="Set FMSAT_OCR_FIXTURES=1 to run real PaddleOCR screenshot regressions",
 )
-def testBristolWomenFourSquadPagesMergeToReviewedThirtyEightPlayers() -> None:
+def testBristolWomenFourSquadPagesMergeToReviewedThirtyEightPlayers(
+    squadOcrParser: SquadAttributesParser,
+) -> None:
     """The four outfield pages must merge without identity, CA/PA or attribute conflicts."""
 
     fixture = _fixtureLoad()
-    configuration = Configuration()
-    parser = SquadAttributesParser(
-        PaddleOcrEngine(),
-        configuration.regions,
-        configuration.attributes,
-    )
     merged: dict[str, dict[str, object]] = {}
 
     for screenshotName in ("squad1.png", "squad2.png", "squad3.png", "squad4.png"):
         image = cv2.imread(str(_SCREENSHOT_ROOT / screenshotName))
         assert image is not None
-        for player in parser.parse(image):
+        for player in squadOcrParser.parse(image):
             current = merged.setdefault(
                 player.name,
                 {
