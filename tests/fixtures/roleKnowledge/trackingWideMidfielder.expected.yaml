@@ -1,0 +1,10 @@
+# 007B clean-room acceptance fixture.
+# Semantic definition/assessment remains unresolved until confirmed FM role-profile evidence exists.
+# The directly observed abbreviation and phase are valid tactic-screenshot evidence and must be preserved.
+roleCode: trackingWideMidfielder
+confirmationState: unresolved
+observedAbbreviation: TWM
+observedPhase: outOfPossession
+evidence: null
+expectedDefinition: null
+expectedRequirements: null

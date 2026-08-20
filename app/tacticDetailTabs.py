@@ -202,7 +202,7 @@ class ShapeTab(QWidget):
         heading = QLabel(title)
         heading.setObjectName("cardTitle")
         layout.addWidget(heading)
-        hint = QLabel("Role · canonical position · duty")
+        hint = QLabel("Role · canonical position")
         hint.setObjectName("mutedText")
         layout.addWidget(hint)
         layout.addWidget(PitchWidget(slots))

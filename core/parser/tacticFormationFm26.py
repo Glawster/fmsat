@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any
 
 import cv2
@@ -17,96 +18,62 @@ logger = getLogger()
 
 
 class TacticFormationExtractor(BaseTacticFormationExtractor):
-    """Anchor pitch depth to the visible FM field and recover short role labels."""
+    """Recover FM26 role labels while preserving calibrated pitch geometry."""
 
     def _phaseRegionsResolve(self, image: np.ndarray) -> dict[str, Any]:
-        """Refine configured pitch profiles from the visible green pitch extent.
+        """Use the calibrated Planner pitch profiles without green-panel drift.
 
-        The horizontal profile remains useful for distinguishing the compact and
-        wide Planner layouts. The calibrated pitch top is deliberately preserved
-        because it excludes Planner controls above the playing surface; only the
-        lower pitch extent is extended from visible screenshot evidence.
+        FM uses the same green treatment for the pitch and the substitutes panel.
+        Extending a pitch crop from colour alone therefore changes normalized slot
+        depth and can pull the substitutes panel into formation extraction. The
+        reviewed layout profiles are the evidence for pitch geometry; role-tile
+        detection may recover labels inside those bounds but must not redefine the
+        pitch extent from colour.
         """
 
-        configured = super()._phaseRegionsResolve(image)
-        refined: dict[str, Any] = {}
-        changed = False
-        for phase in (TacticalPhase.IN_POSSESSION, TacticalPhase.OUT_OF_POSSESSION):
-            region = configured.get(phase.value)
-            if not isinstance(region, dict):
+        return super()._phaseRegionsResolve(image)
+
+    def _excludedCandidate(
+        self,
+        box: tuple[int, int, int, int],
+        width: int,
+        height: int,
+    ) -> bool:
+        """Keep valid central forwards even when their role bar is near pitch top.
+
+        The historical full-width top exclusion was added for chrome from a badly
+        extended crop. With calibrated pitch bounds restored, a genuine STC role
+        can sit inside that shallow band. Retain the narrower eye-control exclusion
+        and every other configured exclusion, but ignore only the obsolete
+        full-width shallow top strip.
+        """
+
+        centerX = ((box[0] + box[2]) / 2) / width
+        centerY = ((box[1] + box[3]) / 2) / height
+        for region in self.configuration.get("tileDetection", {}).get(
+            "excludedRegions", []
+        ):
+            xMinimum = float(region["x"])
+            yMinimum = float(region["y"])
+            regionWidth = float(region["width"])
+            regionHeight = float(region["height"])
+            if (
+                xMinimum == 0.0
+                and yMinimum == 0.0
+                and regionWidth >= 1.0
+                and regionHeight <= 0.06
+            ):
                 continue
-            detected = self._pitchVerticalRegionDetect(image, region)
-            if detected is not None:
-                refined[phase.value] = detected
-                changed = True
+            if (
+                xMinimum <= centerX <= xMinimum + regionWidth
+                and yMinimum <= centerY <= yMinimum + regionHeight
+            ):
                 logger.info(
-                    "formation pitch extent detected phase=%s y=%.3f height=%.3f",
-                    phase.value,
-                    float(detected["y"]),
-                    float(detected["height"]),
+                    "formation tile candidate excluded as pitch chrome: "
+                    f"center=({centerX:.3f},{centerY:.3f})"
                 )
-            else:
-                refined[phase.value] = region
-                logger.info(
-                    "formation pitch extent unavailable phase=%s; using configured profile",
-                    phase.value,
-                )
-
-        return refined if changed else configured
-
-    @staticmethod
-    def _pitchVerticalRegionDetect(
-        image: np.ndarray,
-        configured: dict[str, Any],
-    ) -> dict[str, float] | None:
-        """Extend the configured pitch region to the visible lower field edge.
-
-        The top of the calibrated region is part of the chrome-rejection contract:
-        moving it upward exposes the In Possession/Out of Possession tabs and eye
-        controls to role-tile detection. Therefore visual detection may extend the
-        bottom edge but must never move the configured top edge upward.
-        """
-
-        height, width = image.shape[:2]
-        if height <= 0 or width <= 0:
-            return None
-        x = float(configured.get("x", 0.0))
-        y = float(configured.get("y", 0.0))
-        regionWidth = float(configured.get("width", 0.0))
-        if regionWidth <= 0:
-            return None
-
-        left = max(0, int((x - 0.015) * width))
-        right = min(width, int((x + regionWidth + 0.015) * width))
-        configuredTop = max(0, min(height - 1, int(y * height)))
-        searchStart = max(0, configuredTop - int(height * 0.03))
-        if right <= left or searchStart >= height:
-            return None
-
-        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-        green = cv2.inRange(
-            hsv,
-            np.array([70, 50, 20], dtype=np.uint8),
-            np.array([105, 255, 160], dtype=np.uint8),
-        )
-        coverage = np.mean(green[searchStart:height, left:right] > 0, axis=1)
-        rows = np.flatnonzero(coverage >= 0.12)
-        if rows.size == 0:
-            return None
-
-        detectedBottom = searchStart + int(rows[-1]) + 1
-        detectedHeight = detectedBottom - configuredTop
-        if detectedHeight < height * 0.50:
-            return None
-        if detectedBottom < height * 0.80:
-            return None
-
-        return {
-            "x": x,
-            "y": y,
-            "width": regionWidth,
-            "height": detectedHeight / height,
-        }
+                return True
+        return False
 
     def _tilesDetect(self, pitch: np.ndarray) -> list[tuple[int, int, int, int]]:
         """Combine conservative contour detection with FM26 role-bar recovery."""
@@ -251,15 +218,17 @@ class TacticFormationExtractor(BaseTacticFormationExtractor):
                 ))
                 results = []
 
-            # A candidate is only a formation tile when its exact coloured role
-            # label contains readable text. The larger card crop can include a
-            # neighbouring player's role, so it is evidence for slot details but
-            # never sufficient evidence that this detected rectangle is itself a
-            # role tile.
             focusedResults = self._roleLabelRecognize(pitch, box)
             if not focusedResults:
                 logger.info(
                     "%s candidate %d rejected: no text inside exact role-label box",
+                    phase.value,
+                    candidateIndex,
+                )
+                continue
+            if self._phaseChromeLabel(focusedResults):
+                logger.info(
+                    "%s candidate %d rejected: focused OCR is phase chrome",
                     phase.value,
                     candidateIndex,
                 )
@@ -291,6 +260,9 @@ class TacticFormationExtractor(BaseTacticFormationExtractor):
             slot, slotIssues = self._slotBuild(
                 results, phase, x, y, sourceImport, acceptedIndex
             )
+            focusedObservedRole = self._focusedObservedRoleFind(focusedResults)
+            if not slot.observedRole and focusedObservedRole:
+                slot = replace(slot, observedRole=focusedObservedRole)
             slots.append(slot)
             issues.extend(slotIssues)
 
@@ -300,6 +272,28 @@ class TacticFormationExtractor(BaseTacticFormationExtractor):
                 f"No {phase.value} role tiles contained readable role-label text",
             ))
         return slots, issues
+
+    @staticmethod
+    def _phaseChromeLabel(results: list[OcrResult]) -> bool:
+        """Identify phase-tab text from exact OCR instead of rejecting by pitch depth."""
+
+        for result in results:
+            compact = "".join(
+                character for character in result.text.casefold() if character.isalnum()
+            )
+            if compact in {"inpossession", "outofpossession"}:
+                return True
+        return False
+
+    @staticmethod
+    def _focusedObservedRoleFind(results: list[OcrResult]) -> str:
+        """Retain exact role-box evidence even when a token also names a position."""
+
+        for result in results:
+            token = result.text.strip().strip("()[]{}.,:;")
+            if token == "GK":
+                return token
+        return ""
 
     def _roleLabelRecognize(
         self,

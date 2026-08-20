@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from collections.abc import Iterable
+import re
 from typing import Any
 
 import yaml
@@ -14,7 +15,12 @@ from ..config import ConfigurationError
 
 @dataclass(frozen=True, slots=True)
 class RoleDefinition:
-    """A role identity and its allowed tactical context."""
+    """A semantic role identity and its allowed tactical context.
+
+    ``code`` is the durable FMSAT identity. ``roleID`` is retained only as a
+    legacy/catalogue surrogate for compatibility with older stored data; it
+    must never be used to decide which role a piece of OCR evidence represents.
+    """
 
     code: str
     roleID: int
@@ -83,6 +89,20 @@ class TacticVocabulary:
                 self._aliasAdd(values, alias, code, "roles")
         return self._normalize(observedText, values)
 
+    @staticmethod
+    def roleCodeCreate(displayName: str, abbreviation: str = "") -> str:
+        """Create a stable lower-camel semantic code from confirmed role evidence."""
+
+        words = re.findall(r"[A-Za-z0-9]+", displayName.strip())
+        if not words:
+            words = re.findall(r"[A-Za-z0-9]+", abbreviation.strip())
+        if not words:
+            raise ConfigurationError("A role code requires a display name or abbreviation")
+        first, *rest = words
+        return first[:1].lower() + first[1:] + "".join(
+            word[:1].upper() + word[1:] for word in rest
+        )
+
     def canonicalRoleDefinitionGaps(
         self,
         definitions: Iterable[object],
@@ -103,40 +123,58 @@ class TacticVocabulary:
         return tuple(sorted(gaps, key=str.casefold))
 
     def capturedRolesAdd(self, definitions: Iterable[object]) -> None:
-        """Add confirmed user role definitions to the live OCR vocabulary.
+        """Add confirmed user roles using semantic role codes, never numeric IDs.
 
-        A persisted role definition may pre-date a role becoming part of the
-        packaged canonical catalogue. In that case its display name or
-        abbreviation already resolves canonically and it must not be added as a
-        second live role identity, otherwise roleNormalize would encounter a
-        duplicate alias such as ``Free Role``.
+        Older persisted definitions may contain numeric role IDs or an inferred
+        ``roleCode`` that was written while numeric IDs still determined role
+        identity. Display name and abbreviation therefore remain the authority
+        when loading captured evidence. A stale supplied code is ignored when
+        it names an existing role whose aliases do not match the capture.
         """
 
         for definition in definitions:
-            roleID = getattr(definition, "roleID", None)
-            roleCode = getattr(definition, "roleCode", None)
-            if not isinstance(roleID, int) or roleID < 1:
+            abbreviations = tuple(
+                str(value).upper()
+                for value in getattr(definition, "abbreviations", ())
+                if str(value).strip()
+            )
+            positions = tuple(str(value) for value in getattr(definition, "positions", ()))
+            displayName = str(getattr(definition, "displayName", "")).strip()
+            if not abbreviations or not displayName:
                 continue
-            code = roleCode or f"capturedRole{roleID}"
+
+            observedAliases = (displayName, *abbreviations)
+            canonicalMatches = {
+                normalized.value
+                for alias in observedAliases
+                if (normalized := self.roleNormalize(alias)).resolved
+            }
+            if len(canonicalMatches) == 1:
+                continue
+
+            suppliedCode = str(getattr(definition, "roleCode", "") or "").strip()
+            if suppliedCode in self.roles and not any(
+                self.roleNormalize(alias).value == suppliedCode for alias in observedAliases
+            ):
+                suppliedCode = ""
+            code = suppliedCode or self.roleCodeCreate(displayName, abbreviations[0])
             if code in self.roles:
-                continue
-            abbreviations = tuple(getattr(definition, "abbreviations", ()))
-            positions = tuple(getattr(definition, "positions", ()))
-            displayName = str(getattr(definition, "displayName", code))
-            if not abbreviations:
-                continue
-
-            observedAliases = (displayName, *tuple(str(value) for value in abbreviations))
-            if any(self.roleNormalize(alias).resolved for alias in observedAliases):
+                existing = self.roles[code]
+                if not any(self.roleNormalize(alias).value == code for alias in observedAliases):
+                    raise ConfigurationError(
+                        f"Role code {code} is already used by {existing.displayName}"
+                    )
                 continue
 
+            usedRoleIDs = {role.roleID for role in self.roles.values()}
+            runtimeRoleID = max(usedRoleIDs, default=0) + 1
             self.roles[code] = RoleDefinition(
                 code=code,
-                roleID=roleID,
+                roleID=runtimeRoleID,
                 displayName=displayName,
-                abbreviations=tuple(str(value).upper() for value in abbreviations),
+                abbreviations=abbreviations,
                 aliases=(),
-                positions=tuple(str(value) for value in positions),
+                positions=positions,
                 duties=(),
             )
 
@@ -260,7 +298,7 @@ class TacticVocabulary:
         dutyCodes = set(self.duties.values())
         roleIDs = [role.roleID for role in self.roles.values()]
         if any(roleID < 1 for roleID in roleIDs) or len(roleIDs) != len(set(roleIDs)):
-            raise ConfigurationError("Role IDs must be unique positive integers")
+            raise ConfigurationError("Catalogue role IDs must be unique positive integers")
         for role in self.roles.values():
             unknownPositions = set(role.positions) - positionCodes
             unknownDuties = set(role.duties) - dutyCodes

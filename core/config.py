@@ -65,10 +65,22 @@ class Configuration:
             "unusedStrengthThreshold",
             "alternativeRoleLimit",
         )
-        return {key: self.roleAssessment[key] for key in keys}
+        result = {key: self.roleAssessment[key] for key in keys}
+        result["slotAggregationPolicy"] = self.roleAssessment.get(
+            "slotAggregationPolicy",
+            "Unavailable",
+        )
+        return result
 
     def roleAssessmentWeights(self) -> dict[str, dict[str, int]]:
-        """Return complete, validated Generic Role Fit weights by canonical role code."""
+        """Return validated Generic Role Fit weights by assessable semantic role code.
+
+        Tactical vocabulary can contain recognition-only roles observed in FM screenshots
+        before FMSAT has an explicit assessment policy for them. Such roles must still
+        normalize correctly during tactic regeneration, but Generic Role Fit remains
+        unavailable until a policy is deliberately added. Set ``assessmentRequired: false``
+        on those vocabulary entries; every other canonical role must retain complete weights.
+        """
 
         roles = self.roleAssessment.get("roles")
         if not isinstance(roles, dict):
@@ -81,17 +93,22 @@ class Configuration:
 
         configuredCodes = {str(roleCode) for roleCode in roles}
         canonicalCodes = {str(roleCode) for roleCode in canonicalRoles}
-        missingRoles = sorted(canonicalCodes - configuredCodes)
+        assessableCodes = {
+            str(roleCode)
+            for roleCode, roleData in canonicalRoles.items()
+            if not isinstance(roleData, dict) or roleData.get("assessmentRequired", True) is not False
+        }
+        missingRoles = sorted(assessableCodes - configuredCodes)
         unknownRoles = sorted(configuredCodes - canonicalCodes)
         if missingRoles or unknownRoles:
             raise ConfigurationError(
-                "Generic Role Fit weights must cover the canonical role catalogue exactly: "
+                "Generic Role Fit weights must cover every assessable canonical role: "
                 f"missing={missingRoles}, unknown={unknownRoles}"
             )
 
         knownAttributes = {attribute.name for attribute in self.attributes}
         result = {}
-        for roleCode in sorted(canonicalCodes):
+        for roleCode in sorted(configuredCodes):
             roleData = roles[roleCode]
             weights = roleData.get("attributeWeights") if isinstance(roleData, dict) else None
             if not isinstance(weights, dict) or not weights:

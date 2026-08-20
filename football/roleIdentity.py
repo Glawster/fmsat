@@ -22,6 +22,7 @@ class RoleIdentity(StrEnum):
     AM = "AM"  # Attacking Midfielder
     IF = "IF"  # Inside Forward
     W = "W"  # Winger
+    SS = "SS"  # Second Striker
     CF = "CF"  # Centre Forward
     GK = "GK"  # Goalkeeper
     UNRESOLVED = "UNRESOLVED"  # Observed role awaiting a user-supplied definition

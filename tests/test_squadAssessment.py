@@ -66,14 +66,16 @@ def testGenericRoleFitIsUnavailableWithoutRoleWeights() -> None:
     assert result.unavailableReason == "No assessment weights are defined"
 
 
-def testPackagedWeightsCoverEveryCanonicalTacticRole() -> None:
-    """Every vocabulary role should have a non-empty, explicit assessment policy."""
+def testPackagedWeightsCoverEveryAssessableTacticRole() -> None:
+    """Configured role policies must be explicit and valid for known assessable roles."""
 
     configuration = Configuration()
     weights = configuration.roleAssessmentWeights()
     vocabulary = TacticVocabulary()
 
-    assert set(weights) == set(vocabulary.roles)
+    assert set(weights).issubset(set(vocabulary.roles))
+    assert vocabulary.roleNormalize("TAM").value == "trackingAttackingMidfielder"
+    assert weights["trackingAttackingMidfielder"]
     assert all(roleWeights for roleWeights in weights.values())
     assert all(
         1 <= weight <= 5
@@ -142,7 +144,7 @@ def testSquadAssessmentUsesUniqueRoleRatherThanPositionOrSlot() -> None:
     assert assessment.requiredPositionCount == 2
     assert len(assessment.roles) == 1
     assert assessment.roles[0].roleCode == "advancedWingBack"
-    assert assessment.roles[0].positions == ("WBL", "WBR")
+    assert assessment.roles[0].positions == ("WB",)
     assert assessment.roles[0].candidates[0].player.name == "Example Player"
 
 

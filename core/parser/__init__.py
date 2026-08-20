@@ -14,7 +14,7 @@ from .tacticFormation import (
     FormationPhaseLinker,
     PitchZoneClassifier,
 )
-from .tacticFormationFm26 import TacticFormationExtractor
+from .tacticFormationFm26Recovery import TacticFormationExtractor
 from .tacticLayoutFm26 import TacticLayoutAnchor
 from .tacticLayout import TacticLayoutResult
 from .tacticInstructions import InstructionExtractResult, TacticInstructionExtractor

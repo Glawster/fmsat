@@ -22,9 +22,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from fmsat.app.squadAnalysisWorkspace import SquadAnalysisTab
 from fmsat.app.squadDetailModel import SquadDetailModel
-from fmsat.app.squadDetailTabOverrides import SquadAnalysisTab, SquadPlayersTab, SquadRolesTab
 from fmsat.app.squadDetailTabs import SquadOverviewTab
+from fmsat.app.squadPlayersWorkspace import SquadPlayersTab
+from fmsat.app.squadRolesWorkspace import SquadRolesTab
 from fmsat.core.config import AttributeDefinition
 from fmsat.core.squadModel import SquadModel
 
@@ -48,6 +50,7 @@ class SquadDetailView(QWidget):
         self.attributes = attributes
         self.model: SquadDetailModel | None = None
         self.squadName = ""
+        self.selectedTabName = "Overview"
         self.regenerationProgress: QProgressDialog | None = None
         self.setObjectName("squadDetailView")
         self.setStyleSheet(
@@ -63,12 +66,17 @@ class SquadDetailView(QWidget):
         self._contentRefresh()
 
     def _contentRefresh(self) -> None:
+        if hasattr(self, "tabs"):
+            currentName = self.tabs.tabText(self.tabs.currentIndex())
+            if currentName:
+                self.selectedTabName = currentName
         self._layoutClear(self.rootLayout)
         if self.model is None:
             return
         self.rootLayout.addLayout(self._headerCreate())
         self.rootLayout.addLayout(self._factsCreate())
-        self.rootLayout.addWidget(self._tabsCreate(), 1)
+        self.tabs = self._tabsCreate()
+        self.rootLayout.addWidget(self.tabs, 1)
         footer = QHBoxLayout()
         footer.addStretch()
         self.regenerateButton = QPushButton("Regenerate Squad Model")
@@ -160,6 +168,18 @@ class SquadDetailView(QWidget):
                 self._requiredRoleRows(),
             ),
             "Analysis",
+        )
+        targetIndex = next(
+            (
+                index
+                for index in range(tabs.count())
+                if tabs.tabText(index) == self.selectedTabName
+            ),
+            0,
+        )
+        tabs.setCurrentIndex(targetIndex)
+        tabs.currentChanged.connect(
+            lambda index: setattr(self, "selectedTabName", tabs.tabText(index))
         )
         return tabs
 
@@ -258,9 +278,11 @@ class SquadDetailView(QWidget):
         if not tactics:
             return None
         dialog = QDialog(self)
-        dialog.setWindowTitle("Assign tactic")
+        dialog.setWindowTitle("Assign Tactic")
+        dialog.resize(520, 160)
         layout = QVBoxLayout(dialog)
-        layout.addWidget(QLabel("Choose an existing tactic to assign to this squad:"))
+        prompt = QLabel("Choose the tactic context to apply to this squad.")
+        layout.addWidget(prompt)
         picker = QComboBox(dialog)
         picker.addItems(tactics)
         layout.addWidget(picker)
@@ -276,8 +298,10 @@ class SquadDetailView(QWidget):
         return picker.currentText().strip() or None
 
     def _tacticAssign(self, tacticName: str) -> None:
+        if self.model is None or not self.squadName:
+            return
         database = getattr(self.window(), "database", None)
-        if database is not None:
+        if database is not None and hasattr(database, "tacticApplyToSquad"):
             try:
                 database.tacticApplyToSquad(self.squadName, tacticName)
                 logger.action(
@@ -288,15 +312,12 @@ class SquadDetailView(QWidget):
                 dataChanged = getattr(self.window(), "dataChanged", None)
                 if dataChanged is not None and hasattr(dataChanged, "emit"):
                     dataChanged.emit()
-            except Exception as exc:
+            except Exception:
                 logger.exception(
                     "unable to assign tactic from squad workspace squad=%r tactic=%r",
                     self.squadName,
                     tacticName,
                 )
-                statusBar = getattr(self.window(), "statusBar", None)
-                if callable(statusBar):
-                    statusBar().showMessage(str(exc), 10000)
                 return
         self.tacticSelected.emit(self.squadName, tacticName)
 
@@ -306,7 +327,10 @@ class SquadDetailView(QWidget):
         database = getattr(self.window(), "database", None)
         if database is not None:
             try:
-                names.update(database.tacticsList())
+                if hasattr(database, "tacticNames"):
+                    names.update(database.tacticNames())
+                elif hasattr(database, "tacticsList"):
+                    names.update(database.tacticsList())
             except Exception:
                 logger.exception("unable to list system tactics for squad workspace")
         return tuple(
@@ -316,8 +340,28 @@ class SquadDetailView(QWidget):
             )
         )
 
+    @staticmethod
+    def _factCardCreate(label: str, value: str) -> QFrame:
+        card = QFrame()
+        card.setObjectName("factCard")
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(12, 9, 12, 9)
+        layout.setSpacing(3)
+        key = QLabel(label)
+        key.setObjectName("factKey")
+        layout.addWidget(key)
+        fieldValue = QLabel(value)
+        fieldValue.setObjectName("factValue")
+        fieldValue.setWordWrap(True)
+        layout.addWidget(fieldValue)
+        return card
+
     def _requiredRoleRows(self) -> tuple[tuple[str, str], ...]:
+        """Build one legacy presentation row per simultaneous tactic slot."""
+
         assert self.model is not None
+        if self.model.requiredSlots:
+            return ()
         if self.model.tacticName in {"No tactic selected", "No tactic assigned"}:
             return ()
         loader = getattr(self.window(), "tacticModelLoader", None)
@@ -334,6 +378,7 @@ class SquadDetailView(QWidget):
         tactic = getattr(loaded, "tactic", None)
         if tactic is None:
             return ()
+
         inPositions = tuple(tactic.inPossession.positions)
         outPositions = tuple(tactic.outOfPossession.positions)
         inIds = {position.slotId for position in inPositions if position.slotId}
@@ -372,6 +417,7 @@ class SquadDetailView(QWidget):
                 roles = slots[key]["roles"]
                 if isinstance(roles, list):
                     roles.append((phase, roleLabel, coverage))
+
         rows: list[tuple[str, str]] = []
         for key in order:
             entry = slots[key]
@@ -397,6 +443,7 @@ class SquadDetailView(QWidget):
                 )
             )
             rows.append((label, coverageText))
+
         if (
             self.model.requiredPositionCount
             and len(rows) != self.model.requiredPositionCount
@@ -444,30 +491,13 @@ class SquadDetailView(QWidget):
         }
         return sideMap.get(position, position)
 
-    @staticmethod
-    def _factCardCreate(label: str, value: str) -> QFrame:
-        card = QFrame()
-        card.setObjectName("factCard")
-        layout = QVBoxLayout(card)
-        layout.setContentsMargins(12, 9, 12, 9)
-        layout.setSpacing(2)
-        labelWidget = QLabel(label)
-        labelWidget.setObjectName("factLabel")
-        valueWidget = QLabel(value)
-        valueWidget.setObjectName("factValue")
-        valueWidget.setWordWrap(True)
-        layout.addWidget(labelWidget)
-        layout.addWidget(valueWidget)
-        return card
-
-    @staticmethod
-    def _layoutClear(layout: QLayout) -> None:
+    @classmethod
+    def _layoutClear(cls, layout: QLayout) -> None:
         while layout.count():
             item = layout.takeAt(0)
-            childLayout = item.layout()
-            childWidget = item.widget()
-            if childLayout is not None:
-                SquadDetailView._layoutClear(childLayout)
-                childLayout.deleteLater()
-            if childWidget is not None:
-                childWidget.deleteLater()
+            child = item.widget()
+            if child is not None:
+                child.deleteLater()
+            nested = item.layout()
+            if nested is not None:
+                cls._layoutClear(nested)

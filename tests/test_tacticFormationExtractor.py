@@ -5,6 +5,7 @@ from __future__ import annotations
 import cv2
 import numpy as np
 
+from fmsat.core.config import Configuration
 from fmsat.core.ocr import OcrResult
 from fmsat.core.parser import (
     FormationPhaseLinker,
@@ -34,6 +35,25 @@ def testPitchZonesClassifyBoundariesFromConfiguration() -> None:
     assert classifier.positionClassify(0.5, 0.49) == "STC"
     assert classifier.positionClassify(0.5, 0.50) == "GK"
     assert classifier.positionClassify(1.2, 0.50) is None
+
+
+def testPackagedGoalkeeperZoneStartsAtGoalkeeperDetectionBoundary() -> None:
+    configuration = Configuration().tacticExtraction
+    goalkeeperYMin = float(configuration["tileDetection"]["goalkeeperYMin"])
+    classifier = PitchZoneClassifier(configuration["pitchZones"])
+
+    assert goalkeeperYMin == 0.86
+    assert classifier.positionClassify(0.5, goalkeeperYMin) == "GK"
+    assert classifier.positionClassify(0.5, goalkeeperYMin - 0.001) == "DC"
+
+
+def testPackagedDefensiveMidfieldZoneStartsAtReviewedBoundary() -> None:
+    classifier = PitchZoneClassifier(Configuration().tacticExtraction["pitchZones"])
+
+    assert classifier.positionClassify(0.5, 0.499) == "MC"
+    assert classifier.positionClassify(0.5, 0.500) == "DM"
+    assert classifier.positionClassify(0.1, 0.562) == "WBL"
+    assert classifier.positionClassify(0.9, 0.562) == "WBR"
 
 
 def testFormationExtractorDetectsTilesWithExactLabelEvidence() -> None:
@@ -106,9 +126,9 @@ def testFormationTileDetectionExcludesPitchControlAndPhaseBadge() -> None:
 
     assert extractor._excludedCandidate((5, 5, 45, 25), 400, 400) is True
     assert extractor._excludedCandidate((5, 365, 90, 390), 400, 400) is True
-    # Phase tabs can sit further across the clipped top of the pitch than the
-    # eye control; the complete shallow top band must therefore be excluded.
-    assert extractor._excludedCandidate((150, 5, 250, 30), 400, 400) is True
+    # FM26 deliberately ignores the obsolete full-width shallow top exclusion:
+    # a genuine central-forward role bar can occupy this calibrated pitch area.
+    assert extractor._excludedCandidate((150, 5, 250, 30), 400, 400) is False
     assert extractor._excludedCandidate((150, 35, 250, 60), 400, 400) is False
 
 
