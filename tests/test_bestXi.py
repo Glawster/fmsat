@@ -1,51 +1,31 @@
 """Regression tests for the 007C whole-team Best XI assignment policy."""
 
-from fmsat.app.squadDetailModel import CandidateDisplay, RequiredSlotDisplay, RoleDisplay
+from types import SimpleNamespace
+
 from fmsat.core.bestXi import BestXiAssignmentService
 
 
-def _candidate(
-    name: str,
-    score: float,
-    positions: str,
-) -> CandidateDisplay:
-    return CandidateDisplay(
+def _candidate(name: str, score: float, positions: str):
+    return SimpleNamespace(
         name=name,
         positions=positions,
         score=f"{score:.1f}",
-        bestRole="Test Role",
-        breakdown="",
         available=True,
     )
 
 
-def _role(
-    code: str,
-    abbreviation: str,
-    phase: str,
-    candidates: tuple[CandidateDisplay, ...],
-) -> RoleDisplay:
-    return RoleDisplay(
+def _role(code: str, abbreviation: str, phase: str, candidates: tuple[object, ...]):
+    return SimpleNamespace(
         roleCode=code,
         displayName=code,
         abbreviation=abbreviation,
-        positions="",
         phases=phase,
-        coverage="",
         candidates=candidates,
     )
 
 
-def _slot(position: str, ipRole: str, oopRole: str) -> RequiredSlotDisplay:
-    return RequiredSlotDisplay(
-        position=position,
-        ipRole=ipRole,
-        oopRole=oopRole,
-        primary="",
-        backup="",
-        primaryEvidence="",
-        backupEvidence="",
-    )
+def _slot(position: str, ipRole: str, oopRole: str):
+    return SimpleNamespace(position=position, ipRole=ipRole, oopRole=oopRole)
 
 
 def testBestXiMovesHempWideWhenFreigangCanCoverSecondStriker() -> None:
@@ -65,10 +45,7 @@ def testBestXiMovesHempWideWhenFreigangCanCoverSecondStriker() -> None:
         _role("insideForward", "IF", "In Possession", (hempWide,)),
         _role("trackingWinger", "TW", "Out Of Possession", (hempWide,)),
     )
-    slots = (
-        _slot("AMC", "SS", "TAM"),
-        _slot("AML", "IF", "TW"),
-    )
+    slots = (_slot("AMC", "SS", "TAM"), _slot("AML", "IF", "TW"))
 
     result = BestXiAssignmentService().assignmentBuild(slots, roles)
 
