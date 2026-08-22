@@ -2,17 +2,17 @@
 
 ## Status
 
-InReview
+Active
 <!-- Options: Active, Idle, Blocked, InReview -->
 
 ## Objective
 
-Deliver requirement 007B: turn the completed Generic Role Fit foundation into dependable
-role-depth and player-role analysis in the existing Squad Analysis tab, with a practical
-player-evidence editing workflow.
+Deliver requirement 007C: turn the dependable Generic Role Fit and simultaneous role-depth
+foundation into an explainable Best XI selection for the currently applied tactic.
 
-The key constraint is that depth represents simultaneous tactical requirements. The same
-player must not be allocated to more than one required slot in the same assignment result.
+Best XI is a whole-team assignment problem. It must not greedily select the strongest player
+for each slot in isolation when moving that player elsewhere produces a stronger or more
+complete XI.
 
 ## Governing References
 
@@ -20,156 +20,131 @@ player must not be allocated to more than one required slot in the same assignme
 - Supporting Requirements:
   - `project/requirements/features/006-structuredTacticExtraction.md`
   - `project/requirements/features/010-positionAttributeRoleDefinitions.md`
+- Living Algorithm Guide: `documentation/bestXi.md`
 - Supporting ADRs: None
-- Milestone / Roadmap: requirement 007B role-depth and player-role analysis
+- Milestone / Roadmap: requirement 007C Best XI analysis
 
-## Role Identity Contract
+## Evidence Contract
 
-- `roleCode` is the durable semantic identity used by OCR normalization, persisted role
-  knowledge and Generic Role Fit policy lookup.
-- Football Manager abbreviations, display names and OCR aliases resolve to `roleCode`; they
-  are evidence and presentation values rather than persistence keys.
-- Historical numeric `roleID` values are compatibility/surrogate metadata only and must never
-  decide which role a captured definition represents.
-- Legacy role files that pre-date `roleCode` are resolved from their confirmed display name
-  and abbreviation before any numeric metadata is considered.
-- A missing role abbreviation is shown as `Unknown`; FMSAT does not invent an acronym. The
-  Roles workspace directs the user to the existing Role Editor workflow to complete the role
-  knowledge.
+- `roleCode` remains the durable semantic role identity.
+- Generic Role Fit remains the player/role scoring evidence; Best XI does not introduce a
+  hidden replacement rating.
+- Simultaneous tactic slots retain their explicit IP/OOP role requirements.
+- A slot score is calculable only when every required phase role has calculable Generic Role
+  Fit evidence.
+- Missing role policy, unresolved role identity or missing player attributes remain
+  `Unavailable`; Best XI must not invent substitute evidence.
+- Captured player-position families are retained as familiarity/training evidence.
+
+## Best XI Assignment Policy
+
+The global optimiser applies these priorities in order:
+
+1. maximise the number of covered simultaneous tactic slots;
+2. assign each player to at most one simultaneous slot;
+3. maximise total selected slot Generic Role Fit;
+4. where totals tie, maximise the weakest selected slot fit;
+5. where role-fit objectives tie, prefer captured positional familiarity;
+6. use deterministic alphabetical identity only as the final tie-break.
+
+A slightly weaker local assignment is therefore valid when it allows a stronger player to
+cover another slot and improves the whole XI. The motivating regression example is selecting
+Laura Freigang at Second Striker so Lauren Hemp can cover AML when that produces a complete
+and stronger global assignment.
 
 ## Delivered Scope
 
-- Calculate Generic Role Fit consistently for every available player/role combination where
-  the required evidence exists.
-- Build required-role depth from the tactic's simultaneous `slotId`-linked positions.
-- Allocate unique players across simultaneous required slots when deriving primary and backup
-  depth.
-- Identify each player's best and alternative roles.
-- Identify calculable weak positions, role duplication and unused squad strengths.
-- Keep transparent calculation breakdowns behind every score and finding.
-- Preserve `Unavailable` whenever evidence or assessment policy is incomplete.
-- Present role depth as IP role, OOP role, primary and backup in the existing Analysis tab.
-- Present Tactic Roles as IP/OOP role abbreviations with compact eligible coverage.
-- Persist the most recently applied tactic as the squad's active/default tactic on reload.
-- Provide a focused Player Editor from the Players tab for factual name, positions, CA/PA,
-  attributes and known-trait corrections. Saving uses the existing squad-model persistence
-  path and immediately rebuilds Roles and Analysis.
-- Keep the Players table as a browse/filter/sort surface rather than a wide inline editor.
-- Recover FM26 Acceleration, Agility and Natural Fitness columns with conservative geometric
-  header inference when OCR drops those headings. Long Shots is only an OCR geometry anchor
-  and is not part of the captured squad model.
+- 007A Generic Role Fit and transparent weighted evidence.
+- 007B simultaneous Required Role Depth, unique-player depth allocation, player best/alternative
+  roles, weak positions, role duplication and unused strengths.
+- Role assessment integrity reporting and editable 0-10 role weights.
+- Recognition of tracking wide roles and explicit reassessment without rerunning OCR.
+- Determinate squad/tactic regeneration progress where extraction milestones are known.
+- Existing Best XI Analysis presentation in the four-quadrant Analysis workspace.
+
+## Current Change Set
+
+- [x] Add a UI-independent global Best XI assignment service.
+- [x] Maximise coverage before role-fit quality.
+- [x] Enforce one player per simultaneous slot.
+- [x] Add total-fit, weakest-link, familiarity and deterministic tie-break priorities.
+- [x] Retain explanatory evidence for global trade-offs.
+- [x] Wire the Analysis Best XI table to the global optimiser rather than the Role Depth
+  primary assignment.
+- [x] Add the Hemp/Freigang global-assignment regression case.
+- [x] Add core tests for coverage, weakest-link, familiarity and deterministic behaviour.
+- [x] Document the algorithm in `documentation/bestXi.md` and link it from the root README.
+- [ ] Run focused Best XI tests.
+- [ ] Run the full automated suite.
+- [ ] Manually reassess the Bristol Women reference squad and verify the resulting Best XI.
 
 ## Explicit Exclusions
 
-- Best XI selection.
-- Tactical Fit and Position Familiarity.
-- Overall Suitability.
+- Dynamic role-attribute comparison columns in the Roles workspace; this is the next UI change
+  set after Best XI is accepted.
+- Renaming provisional `role-newrole` screenshots after OCR resolves their semantic role; this
+  is a later persistence cleanup.
+- Tactical interaction or partnership modifiers.
+- Player traits as tactical-fit modifiers.
+- Form, morale, condition, fatigue, injury, suspension or match-sharpness selection.
+- Opposition-specific selection.
+- Rotation/alternative XI generation.
 - Recruitment analysis or recommendations.
-- Competition-level attribute benchmark colouring until an explicit benchmark evidence model
-  exists.
-- Requirement 009 immutable tactic revision-history work.
-
-## In-Progress Tasks
-
-- [x] Make semantic `roleCode` the role identity used for captured-role reconciliation and
-  Generic Role Fit policy lookup; retain numeric IDs only for legacy compatibility.
-- [x] Confirm the all-player/all-role matrix is complete and consistently filtered by role
-  positional eligibility for presentation.
-- [x] Implement unique-player assignment across simultaneous required tactical slots.
-- [x] Produce primary, backup and uncovered/unavailable status for every required slot.
-- [x] Produce each player's best role and alternative roles from the same Generic Role Fit
-  evidence.
-- [x] Produce weak-position, role-duplication and unused-strength findings and suppress
-  duplicate weak-position noise where the real state is already `Unavailable`.
-- [x] Keep calculation traces available for every displayed score/finding.
-- [x] Add a Player Editor and make accepted player corrections immediately rebuild analysis.
-- [x] Persist the active tactic selection for a squad.
-- [x] Surface missing role abbreviations as `Unknown` and route them to the Role Editor.
-- [x] Add regression coverage for duplicate simultaneous roles, unique-player allocation,
-  tactic persistence, Player Editor behaviour and FM26 attribute-header recovery.
-- [ ] Run the full automated suite after the final 007B presentation/editor changes.
-- [ ] Manually review the current Bristol Women reference squad/tactic, including Natural
-  Fitness regeneration, Player Editor save/refresh, Unknown role editing and active-tactic
-  persistence after restart.
 
 ## Relevant Files & Components
 
-- `config/roleAssessment.yaml`
-- `core/parser/squadAttributesFm26.py`
-- `core/parser/tacticVocabulary.py`
+- `documentation/bestXi.md`
+- `core/bestXi.py`
 - `core/roleDepth.py`
-- `core/roleKnowledge.py`
 - `core/squadAssessment.py`
-- `core/squadModel.py`
-- `app/playerEditorDialog.py`
-- `app/presentation.py`
-- `app/squadPlayersWorkspace.py`
-- `app/squadRolesWorkspace.py`
 - `app/squadAnalysisWorkspace.py`
 - `app/squadDetailModel.py`
-- `app/squadDetailView.py`
-- `database/activeTacticDatabase.py`
-- `tests/test_playerEditorDialog.py`
+- `tests/test_bestXi.py`
+- `tests/test_bestXiWorkspace.py`
 - `tests/test_roleDepth.py`
 - `tests/test_squadAnalysisWorkspace.py`
-- `tests/test_squadRolesWorkspace.py`
-- `tests/test_tacticSelectionPersistence.py`
-- `tests/test_naturalFitnessHeader.py`
-- `project/roadmap.md`
 
 ## Verification Procedures
 
-Run:
+Run focused coverage first:
 
 ```bash
-manageProject --check
+QT_QPA_PLATFORM=offscreen pytest tests/test_bestXi.py tests/test_bestXiWorkspace.py tests/test_squadAnalysisWorkspace.py
+```
+
+Then run the full suite:
+
+```bash
 QT_QPA_PLATFORM=offscreen pytest
 ```
 
-Then regenerate and review the current reference squad against its assigned tactic and confirm:
+Finally reassess the current Bristol Women reference squad without regeneration and confirm:
 
-1. every required tactical slot is shown in the hidden-position tactical order;
-2. repeated roles remain separate simultaneous requirements;
-3. one player is never allocated to two simultaneous slots in the same primary assignment;
-4. backup candidates do not invalidate the primary assignment;
-5. player best/alternative roles use the same Generic Role Fit calculations shown elsewhere;
-6. missing evidence remains `Unavailable` and missing role abbreviations remain `Unknown`;
-7. Natural Fitness is populated from the retained FM26 squad capture where visible;
-8. double-clicking a Players row opens the Player Editor, and Save Player immediately refreshes
-   Roles and Analysis from the corrected facts;
-9. selecting a different tactic, leaving/restarting FMSAT and reopening the squad restores the
-   last selected tactic; and
-10. every displayed score/finding has a transparent calculation/evidence explanation.
-
-For role migration specifically, regenerate `Libero1974` and confirm historical captured roles
-such as TAM resolve from their confirmed name/abbreviation even when an old numeric `roleID`
-collides with a newer packaged catalogue role.
+1. every selected Best XI player is unique;
+2. calculable complete coverage is preferred to a stronger-looking partial XI;
+3. Hemp can be moved from an individually stronger SS assignment to AML when Freigang at SS
+   produces the stronger complete XI;
+4. Required Role Depth remains visible as separate depth evidence rather than being replaced by
+   the Best XI result;
+5. positional familiarity/training status remains explicit;
+6. missing role or player evidence remains `Unavailable`/`Uncovered` rather than guessed; and
+7. selected-player tooltips explain the global assignment evidence and any local-score trade-off.
 
 ## Definition of Done
 
-- Every required tactical slot has a primary candidate, backup or explicit
-  uncovered/unavailable state.
-- Simultaneous slot allocation uses unique players.
-- Every player has a best/alternative role result where evidence permits.
-- Weak positions, duplication and unused strengths are derived from the same explicit role-fit
-  evidence without presenting missing evidence as a calculated weakness.
-- Player-model corrections can be made through the Player Editor and immediately invalidate and
-  rebuild affected analysis.
-- Role identity is semantic (`roleCode`), never inferred from numeric sequence allocation.
-- Unknown abbreviations remain explicit user-resolvable knowledge gaps.
-- No Best XI, Tactical Fit or recruitment judgement is introduced by this increment.
-- The full automated suite and final manual reference-squad review pass.
+- Best XI is selected by a deterministic whole-team assignment rather than tactic-slot order.
+- Coverage, uniqueness, total role fit, weakest-link quality and positional familiarity are
+  applied in the documented priority order.
+- The Hemp/Freigang regression case passes.
+- Best XI explanations retain enough evidence to explain why a locally weaker player may be
+  selected in one slot.
+- Required Role Depth remains a separate analysis surface.
+- Focused and full automated suites pass.
+- Manual Bristol Women reassessment produces a plausible complete XI from current evidence.
 
 ## Handoff
 
-After 007B is accepted, the next increment can consider tactical modifiers and position
-familiarity before any Overall Suitability, Best XI or recruitment recommendation layer.
-
-## Agent Readiness
-
-Run:
-
-```bash
-manageProject --check
-QT_QPA_PLATFORM=offscreen pytest
-```
+After this change set is accepted and squashed, proceed to the Roles workspace attribute-table
+change: selected-role candidates should show the role's required attributes as individual
+columns, and the player-role pane should show the union of attributes required by its displayed
+roles.
