@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 from fmsat.app.presentation import playerNameDisplay
 from fmsat.app.squadDetailModel import SquadDetailModel
 from fmsat.app.squadDetailTabOverrides import SquadAnalysisTab as BaseSquadAnalysisTab
+from fmsat.core.bestXi import BestXiAssignmentService
 from fmsat.core.config import AttributeDefinition
 from fmsat.tactics.positionFamily import playerPositionFamilies, positionFamilyFor
 
@@ -120,10 +121,9 @@ class SquadAnalysisTab(BaseSquadAnalysisTab):
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
 
     def _bestXiBuild(self, model: SquadDetailModel) -> None:
-        """Expose the 007B global primary assignment as an explicit Best XI analysis."""
+        """Build Best XI from a whole-team assignment rather than slot-order greed."""
 
         self.bestXiTable = QTableWidget(0, 5, self)
-        # Reuse the established FMSAT analysis-table style instead of adding a bespoke skin.
         self.bestXiTable.setObjectName("roleDepthAnalysisTable")
         self.bestXiTable.setAlternatingRowColors(True)
         self.bestXiTable.setHorizontalHeaderLabels(
@@ -134,16 +134,41 @@ class SquadAnalysisTab(BaseSquadAnalysisTab):
         self.bestXiTable.verticalHeader().setDefaultSectionSize(28)
         self.bestXiTable.setRowCount(len(model.requiredSlots))
 
+        assignment = BestXiAssignmentService().assignmentBuild(
+            model.requiredSlots,
+            model.roles,
+        )
         playersByDisplayName = {
             playerNameDisplay(player.name).casefold(): player for player in model.squad.players
         }
         for row, slot in enumerate(model.requiredSlots):
-            selectedDisplay, player = self._selectedPlayerResolve(
-                slot.primary,
-                playersByDisplayName,
-            )
+            selection = assignment.selectionFor(row)
+            if selection is not None:
+                selectedDisplay = selection.playerName
+                player = playersByDisplayName.get(selectedDisplay.casefold())
+                selectedEvidence = selection.evidence
+            elif assignment.evidenceAvailable:
+                selectedDisplay = (
+                    "Unavailable"
+                    if str(slot.primary).strip().casefold() == "unavailable"
+                    else "Uncovered"
+                )
+                player = None
+                selectedEvidence = (
+                    "No unique-player global assignment has complete calculable role-fit "
+                    "evidence for this slot."
+                )
+            else:
+                # Preserve legacy presentation only when the optimiser has no role-candidate
+                # evidence at all (primarily old fixtures and incomplete stored models).
+                selectedDisplay, player = self._selectedPlayerResolve(
+                    slot.primary,
+                    playersByDisplayName,
+                )
+                selectedEvidence = slot.primaryEvidence
+
             positionStatus, positionEvidence = self._selectionPositionStatus(
-                slot.primary,
+                selectedDisplay,
                 slot.position,
                 player,
             )
@@ -157,7 +182,7 @@ class SquadAnalysisTab(BaseSquadAnalysisTab):
             for column, value in enumerate(values):
                 item = QTableWidgetItem(value)
                 if column == 3:
-                    item.setToolTip(slot.primaryEvidence)
+                    item.setToolTip(selectedEvidence)
                 elif column == 4:
                     item.setToolTip(positionEvidence)
                 else:
@@ -178,8 +203,6 @@ class SquadAnalysisTab(BaseSquadAnalysisTab):
             return
         context = root.itemAt(0).widget() if root.count() else None
 
-        # The base Analysis tab has already composed its cards. Preserve the tables and
-        # context, discard those wrappers, then rebuild one coherent dashboard.
         for table in (self.bestXiTable, self.depthTable, self.playerTable, self.findingsTable):
             table.setParent(self)
         while root.count():
