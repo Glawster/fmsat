@@ -84,6 +84,7 @@ class MainWindow(QMainWindow):
 
     baseColumns = ("Name", "Positions", "CA", "PA")
     dataChanged = Signal()
+    tacticExtractionProgressChanged = Signal(int, int, str)
 
     def __init__(
         self,
@@ -111,6 +112,8 @@ class MainWindow(QMainWindow):
         self.statusLogDialog: QDialog | None = None
         self.ocrDiagnosticPaths: tuple[str, ...] = ()
         self.ocrDiagnosticWindows: list[ScreenshotWindow] = []
+        self.tacticProgress: QProgressDialog | None = None
+        self.tacticExtractionProgressTotal = 0
         self.tacticModelLoader = TacticModelLoader(database.engine)
         self.squadModelService = SquadModelService(database.engine)
         self.squadAssessmentService = (
@@ -127,9 +130,7 @@ class MainWindow(QMainWindow):
         self.tacticScreenshotExtractor = TacticScreenshotExtractor(
             database.engine,
             roleDefinitionsProvider=(
-                roleKnowledgeService.definitionsList
-                if roleKnowledgeService is not None
-                else None
+                roleKnowledgeService.definitionsList if roleKnowledgeService is not None else None
             ),
         )
         self.currentResult: ImportResult | None = None
@@ -147,6 +148,7 @@ class MainWindow(QMainWindow):
         self._menuCreate()
         self._contentCreate()
         self.dataChanged.connect(self.welcomeView.refresh)
+        self.tacticExtractionProgressChanged.connect(self._tacticExtractionProgressUpdate)
         self.statusBar().messageChanged.connect(self._statusRecord)
         self.statusBar().showMessage(
             "Ready — choose to Import a Tactic or Squad, or view Tactics or Squads "
@@ -363,6 +365,8 @@ class MainWindow(QMainWindow):
             f"{'regenerating' if forceRebuild else 'processing'} tactic model {tacticName}"
         )
         progress = self._tacticProgressCreate()
+        self.tacticProgress = progress
+        self.tacticExtractionProgressTotal = 0
         unresolvedRoles: tuple[str, ...] = ()
         normalizedTacticName = tacticName.casefold()
         if forceRebuild:
@@ -392,13 +396,21 @@ class MainWindow(QMainWindow):
                     "Regenerating structured data from saved captures...",
                     2,
                 )
-                self._progressBusy(progress, "Reading screenshot evidence with OCR...")
                 extraction = self._backgroundRun(
-                    lambda: self.tacticScreenshotExtractor.tacticExtract(tacticName)
+                    lambda: self.tacticScreenshotExtractor.tacticExtract(
+                        tacticName,
+                        self.tacticExtractionProgressChanged.emit,
+                    )
                 )
                 unresolvedRoles = tuple(getattr(extraction, "unresolvedRoles", ()))
                 self._ocrDiagnosticsCapture(extraction)
-                self._progressRestore(progress, "Screenshot extraction finished.", 3)
+                extractionTotal = self.tacticExtractionProgressTotal
+                progress.setRange(0, extractionTotal + 4)
+                self._progressUpdate(
+                    progress,
+                    "Screenshot extraction finished.",
+                    extractionTotal + 1,
+                )
                 logger.info(
                     f"regeneration extraction result: created={extraction.structuredCreated}, "
                     f"complete={extraction.complete}, "
@@ -435,10 +447,14 @@ class MainWindow(QMainWindow):
                 self._progressUpdate(
                     progress,
                     "Building tactic model from regenerated data...",
-                    3,
+                    extractionTotal + 1,
                 )
                 loadResult = self.tacticModelLoader.tacticLoad(tacticName, preferStructured=True)
-                self._progressUpdate(progress, "Built regenerated tactic model.", 4)
+                self._progressUpdate(
+                    progress,
+                    "Built regenerated tactic model.",
+                    extractionTotal + 2,
+                )
                 if loadResult.tactic is None:
                     logger.info("regeneration stopped because model build returned no tactic")
                     self.tacticValidationOverrides[normalizedTacticName] = loadResult
@@ -530,11 +546,13 @@ class MainWindow(QMainWindow):
                         self.tacticShow(tacticName)
                     return
 
-            self._progressUpdate(progress, "Saving tactic model...", 5)
+            saveStage = self.tacticExtractionProgressTotal + 3 if forceRebuild else 5
+            self._progressUpdate(progress, "Saving tactic model...", saveStage)
             TacticStore(self.database.engine).tacticSave(loadResult.tactic)
             self.tacticProcessStatuses.pop(tacticName.casefold(), None)
             self.tacticValidationOverrides.pop(tacticName.casefold(), None)
-            self._progressUpdate(progress, "Tactic model saved.", 6)
+            completeStage = self.tacticExtractionProgressTotal + 4 if forceRebuild else 6
+            self._progressUpdate(progress, "Tactic model saved.", completeStage)
             logger.done(f"tactic model saved for {tacticName}")
 
             self.statusBar().showMessage(
@@ -555,6 +573,7 @@ class MainWindow(QMainWindow):
             self._errorShow("Tactic processing error", str(exc))
         finally:
             progress.close()
+            self.tacticProgress = None
             if openDetail and unresolvedRoles:
                 self._unresolvedRolesOffer(unresolvedRoles)
 
@@ -623,9 +642,7 @@ class MainWindow(QMainWindow):
             loop = QEventLoop(self)
             completionPoll = QTimer(self)
             completionPoll.setInterval(50)
-            completionPoll.timeout.connect(
-                lambda: loop.quit() if future.done() else None
-            )
+            completionPoll.timeout.connect(lambda: loop.quit() if future.done() else None)
             completionPoll.start()
             loop.exec()
             completionPoll.stop()
@@ -642,6 +659,16 @@ class MainWindow(QMainWindow):
         progress.setRange(0, 0)
         progress.repaint()
         QApplication.processEvents()
+
+    def _tacticExtractionProgressUpdate(self, current: int, total: int, message: str) -> None:
+        """Render real worker extraction milestones on the owning UI thread."""
+
+        progress = self.tacticProgress
+        if progress is None or total <= 0:
+            return
+        self.tacticExtractionProgressTotal = total
+        progress.setRange(0, total + 4)
+        self._progressUpdate(progress, message, current + 1)
 
     @staticmethod
     def _progressRestore(
@@ -702,8 +729,7 @@ class MainWindow(QMainWindow):
                     missing.append("source screenshot")
                 if missing:
                     issues.append(
-                        f"{phase} slot {position.slotId or '<unknown>'} lacks "
-                        + ", ".join(missing)
+                        f"{phase} slot {position.slotId or '<unknown>'} lacks " + ", ".join(missing)
                     )
         return tuple(issues)
 
@@ -1019,9 +1045,7 @@ class MainWindow(QMainWindow):
         sourceLabel = (
             "Regeneration Required"
             if loadResult.stale
-            else "Saved Tactic Model"
-            if loadResult.source == "objectModel"
-            else "Built Model"
+            else "Saved Tactic Model" if loadResult.source == "objectModel" else "Built Model"
         )
         self.tacticDetailView.tacticShow(
             loadResult.tactic.name,
@@ -1633,9 +1657,7 @@ class MainWindow(QMainWindow):
         """Retain and expose annotated OCR references produced by extraction."""
 
         self.ocrDiagnosticPaths = tuple(
-            path
-            for path in getattr(extraction, "diagnosticPaths", ())
-            if Path(path).is_file()
+            path for path in getattr(extraction, "diagnosticPaths", ()) if Path(path).is_file()
         )
         self.ocrDiagnosticsAction.setEnabled(bool(self.ocrDiagnosticPaths))
         logger.value("OCR diagnostic images", len(self.ocrDiagnosticPaths))

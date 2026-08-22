@@ -224,10 +224,20 @@ class SquadRolesTab(BaseSquadRolesTab):
         while root.count():
             root.takeAt(0)
 
+        workspaceControls = QHBoxLayout()
         self.clearRoleButton = QPushButton("Show all players / roles", self)
         self.clearRoleButton.setObjectName("secondaryButton")
         self.clearRoleButton.clicked.connect(self._selectionClear)
-        root.addWidget(self.clearRoleButton, 0, Qt.AlignmentFlag.AlignLeft)
+        workspaceControls.addWidget(self.clearRoleButton)
+        workspaceControls.addStretch()
+        self.reassessButton = QPushButton("Reassess Squad", self)
+        self.reassessButton.setObjectName("secondaryButton")
+        self.reassessButton.setToolTip(
+            "Recalculate role fit and squad analysis from saved player evidence without running OCR."
+        )
+        self.reassessButton.clicked.connect(self._reassessRequest)
+        workspaceControls.addWidget(self.reassessButton)
+        root.addLayout(workspaceControls)
 
         mainSplitter = QSplitter(Qt.Orientation.Horizontal, self)
         mainSplitter.setObjectName("roleWorkspaceSplitter")
@@ -284,6 +294,17 @@ class SquadRolesTab(BaseSquadRolesTab):
 
         if oldSplitter is not None and oldSplitter is not mainSplitter:
             oldSplitter.deleteLater()
+
+    def _reassessRequest(self) -> None:
+        """Delegate reassessment to the owning squad detail view."""
+
+        owner = self.parentWidget()
+        while owner is not None:
+            reassess = getattr(owner, "_reassessRequest", None)
+            if callable(reassess):
+                reassess()
+                return
+            owner = owner.parentWidget()
 
     def _roleShow(self, currentRow: int, currentColumn: int, previousRow: int, previousColumn: int) -> None:
         if not hasattr(self, "candidateTable"):

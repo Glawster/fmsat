@@ -1,13 +1,18 @@
 """Squad regeneration UI and service routing tests."""
 
 from datetime import datetime
+import logging
 from types import SimpleNamespace
 from unittest.mock import Mock
 
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QMainWindow
 
 from fmsat.app.squadDetailModel import SquadDetailModel
-from fmsat.app.squadDetailView import SquadDetailView
+from fmsat.app.squadDetailView import (
+    SquadDetailView,
+    _SquadRegenerationProgressHandler,
+)
 from fmsat.core.squadModel import SquadModel, SquadModelService
 
 
@@ -74,6 +79,64 @@ def testRegenerationButtonAppearsForCurrentSquad(qtbot) -> None:  # type: ignore
     assert requested == ["First Team"]
 
 
+def testReassessRefreshesAnalysisWithoutRegeneratingEvidence(qtbot) -> None:  # type: ignore[no-untyped-def]
+    """Reassessment reloads current policy and evidence without model regeneration."""
+
+    window = QMainWindow()
+    qtbot.addWidget(window)
+    window.squadModelService = Mock()
+    window.squadShow = Mock()
+    view = SquadDetailView(window)
+    window.setCentralWidget(view)
+    requested: list[str] = []
+    view.modelReassessRequested.connect(requested.append)
+    view.squadShow("First Team", _detail(_model(regenerationRequired=False)))
+
+    qtbot.mouseClick(view.reassessButton, Qt.MouseButton.LeftButton)
+
+    assert requested == ["First Team"]
+    window.squadShow.assert_called_once_with("First Team", "High Press")
+    window.squadModelService.modelSave.assert_not_called()
+
+
+def testRegenerationProgressUsesExistingOcrMilestones() -> None:
+    """The UI should reuse the production OCR x/y log milestones as determinate progress."""
+
+    progress: list[tuple[int, int, str]] = []
+    handler = _SquadRegenerationProgressHandler(
+        lambda current, total, message: progress.append((current, total, message))
+    )
+    handler.emit(
+        logging.LogRecord(
+            "fmsat",
+            logging.INFO,
+            __file__,
+            1,
+            "...squad regeneration OCR 3/8: screenshot.png",
+            (),
+            None,
+        )
+    )
+
+    assert progress == [(3, 8, "Reading squad screenshot 3 of 8…")]
+
+
+def testRegenerationProgressReservesFinalStageForRoleAssessment(qtbot) -> None:  # type: ignore[no-untyped-def]
+    """Screenshot OCR progress should leave one final step for reassessment/refresh."""
+
+    view = SquadDetailView()
+    qtbot.addWidget(view)
+    view.regenerationProgress = view._regenerationProgressCreate()
+
+    view._regenerationProgressUpdate(4, 8, "Reading squad screenshot 4 of 8…")
+
+    assert view.regenerationProgress.minimum() == 0
+    assert view.regenerationProgress.maximum() == 9
+    assert view.regenerationProgress.value() == 3
+    assert view.regenerationProgress.labelText() == "Reading squad screenshot 4 of 8…"
+    assert view.regenerationProgressTotal == 8
+
+
 def testModelSaveRoutesStaleModelToRegeneration() -> None:
     """The existing save signal path should regenerate instead of superseding new evidence."""
 
@@ -120,8 +183,7 @@ def testRegenerationMergesComplementaryAttributeViewsUsingNewestValues() -> None
 
     player = SquadModelService._playerFromEvidenceRows((newest, older))
     attributes = {
-        attribute.attributeName: attribute.attributeValue
-        for attribute in player.attributes
+        attribute.attributeName: attribute.attributeValue for attribute in player.attributes
     }
 
     assert player.ca == "110"

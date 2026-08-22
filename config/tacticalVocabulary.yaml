@@ -269,6 +269,22 @@ roles:
     positions: [AMC]
     duties: []
     assessmentRequired: false
+  trackingWideMidfielder:
+    roleID: 32
+    displayName: Tracking Wide Midfielder
+    abbreviations: [TWM]
+    aliases: [tracking wide midfielder]
+    positions: [MR, ML]
+    duties: []
+    assessmentRequired: false
+  trackingWinger:
+    roleID: 33
+    displayName: Tracking Winger
+    abbreviations: [TW]
+    aliases: [tracking winger]
+    positions: [AMR, AML]
+    duties: []
+    assessmentRequired: false
 
 instructions:
   inPossession:

@@ -67,16 +67,18 @@ class TacticScreenshotExtractor:
         configuration = Configuration().tacticExtraction
         self.vocabulary = TacticVocabulary()
         self.metadataExtractor = TacticMetadataExtractor(self.ocr)
-        self.formationExtractor = TacticFormationExtractor(
-            self.ocr, self.vocabulary, configuration
-        )
+        self.formationExtractor = TacticFormationExtractor(self.ocr, self.vocabulary, configuration)
         self.instructionExtractor = TacticInstructionExtractor(
             self.ocr, self.vocabulary, configuration
         )
 
     ## tactic
 
-    def tacticExtract(self, tacticName: str) -> TacticScreenshotExtractResult:
+    def tacticExtract(
+        self,
+        tacticName: str,
+        progressCallback: Callable[[int, int, str], None] | None = None,
+    ) -> TacticScreenshotExtractResult:
         """Create or replace one tactic's structured rows from saved captures."""
 
         cleanName = tacticName.strip()
@@ -140,7 +142,29 @@ class TacticScreenshotExtractor:
                 if screenshot.screenType in ScreenType._value2member_map_:
                     byType[ScreenType(screenshot.screenType)] = screenshot
 
+            extractionStages = (
+                ("formation metadata", ScreenType.TACTIC_FORMATION),
+                ("Formation", ScreenType.TACTIC_FORMATION),
+                ("In Possession", ScreenType.TACTIC_IN_POSSESSION),
+                ("Out of Possession", ScreenType.TACTIC_OUT_OF_POSSESSION),
+            )
+            availableStages = tuple(
+                (label, screenType)
+                for label, screenType in extractionStages
+                if screenType in byType
+            )
+            totalStages = len(availableStages)
+            completedStages = 0
+
             metadata, metadataIssues = self._metadataExtract(byType)
+            if ScreenType.TACTIC_FORMATION in byType:
+                completedStages += 1
+                if progressCallback is not None:
+                    progressCallback(
+                        completedStages,
+                        totalStages,
+                        "Extracted saved tactic formation metadata.",
+                    )
             logger.value("extracted tactic metadata fields", len(metadata))
             logger.value("tactic metadata issues", len(metadataIssues))
 
@@ -166,16 +190,35 @@ class TacticScreenshotExtractor:
                     StructuredTacticIssue(code="metadataExtractionIncomplete", message=message)
                 )
             self._formationBuild(definition, byType, diagnosticPaths)
+            if ScreenType.TACTIC_FORMATION in byType:
+                completedStages += 1
+                if progressCallback is not None:
+                    progressCallback(
+                        completedStages,
+                        totalStages,
+                        "Extracted Formation evidence.",
+                    )
             logger.value("extracted formation slots", len(definition.slots))
-            self._instructionsBuild(definition, byType, diagnosticPaths)
+            self._instructionsBuild(
+                definition,
+                byType,
+                diagnosticPaths,
+                progressCallback,
+                completedStages,
+                totalStages,
+            )
             logger.value("extracted team instructions", len(definition.instructions))
             complete = self._completeCalculate(definition)
             definition.complete = complete
-            unresolvedRoles = tuple(sorted({
-                slot.observedRole
-                for slot in definition.slots
-                if slot.observedRole and not slot.role
-            }))
+            unresolvedRoles = tuple(
+                sorted(
+                    {
+                        slot.observedRole
+                        for slot in definition.slots
+                        if slot.observedRole and not slot.role
+                    }
+                )
+            )
             logger.value("tactic extraction issues", len(definition.issues))
             logger.value("tactic extraction complete", complete)
 
@@ -279,20 +322,22 @@ class TacticScreenshotExtractor:
                     f"position={slot.position!r} observed={slot.observedRole!r} "
                     f"canonical={slot.role!r}"
                 )
-            definition.slots.append(StructuredFormationSlot(
-                slotId=slot.slotId,
-                phase=slot.phase.value,
-                position=slot.position,
-                role=slot.role,
-                duty=slot.duty,
-                x=slot.x,
-                y=slot.y,
-                observedRole=slot.observedRole,
-                displayedPlayer=slot.displayedPlayer,
-                confidence=slot.confidence,
-                sourceImportSession=screenshot.importSession,
-                validationState=slot.validationState.value,
-            ))
+            definition.slots.append(
+                StructuredFormationSlot(
+                    slotId=slot.slotId,
+                    phase=slot.phase.value,
+                    position=slot.position,
+                    role=slot.role,
+                    duty=slot.duty,
+                    x=slot.x,
+                    y=slot.y,
+                    observedRole=slot.observedRole,
+                    displayedPlayer=slot.displayedPlayer,
+                    confidence=slot.confidence,
+                    sourceImportSession=screenshot.importSession,
+                    validationState=slot.validationState.value,
+                )
+            )
         for issue in result.issues:
             # Player names/numbers shown by FM are incidental screenshot
             # evidence, not tactic identity. Duplicate player OCR must never
@@ -308,12 +353,23 @@ class TacticScreenshotExtractor:
         definition: ScreenshotDerivedTacticDefinition,
         byType: dict[ScreenType, TacticScreenshot],
         diagnosticPaths: list[str],
+        progressCallback: Callable[[int, int, str], None] | None = None,
+        completedStages: int = 0,
+        totalStages: int = 0,
     ) -> None:
         """Extract only visually selected values from each instruction capture."""
 
-        for phase, screenType in (
-            (TacticalPhase.IN_POSSESSION, ScreenType.TACTIC_IN_POSSESSION),
-            (TacticalPhase.OUT_OF_POSSESSION, ScreenType.TACTIC_OUT_OF_POSSESSION),
+        for phase, screenType, phaseLabel in (
+            (
+                TacticalPhase.IN_POSSESSION,
+                ScreenType.TACTIC_IN_POSSESSION,
+                "In Possession",
+            ),
+            (
+                TacticalPhase.OUT_OF_POSSESSION,
+                ScreenType.TACTIC_OUT_OF_POSSESSION,
+                "Out Of Possession",
+            ),
         ):
             screenshot = byType.get(screenType)
             if screenshot is None:
@@ -330,6 +386,13 @@ class TacticScreenshotExtractor:
                     "instructionImageUnavailable",
                     f"{phase.value} screenshot could not be decoded",
                 )
+                completedStages += 1
+                if progressCallback is not None:
+                    progressCallback(
+                        completedStages,
+                        totalStages,
+                        f"Extracted {phaseLabel} evidence.",
+                    )
                 continue
             result = self.instructionExtractor.instructionsExtract(
                 image, phase, screenshot.importSession.imageFilename
@@ -346,17 +409,26 @@ class TacticScreenshotExtractor:
                 f"{len(result.issues)} issues"
             )
             for instruction in result.instructions:
-                definition.instructions.append(StructuredTeamInstruction(
-                    phase=instruction.phase.value,
-                    category=instruction.category,
-                    canonicalValue=instruction.value,
-                    displayValue=instruction.displayValue,
-                    confidence=instruction.confidence,
-                    sourceImportSession=screenshot.importSession,
-                    validationState=instruction.validationState.value,
-                ))
+                definition.instructions.append(
+                    StructuredTeamInstruction(
+                        phase=instruction.phase.value,
+                        category=instruction.category,
+                        canonicalValue=instruction.value,
+                        displayValue=instruction.displayValue,
+                        confidence=instruction.confidence,
+                        sourceImportSession=screenshot.importSession,
+                        validationState=instruction.validationState.value,
+                    )
+                )
             for issue in result.issues:
                 self._issueAdd(definition, issue.code, issue.message, issue.observedText)
+            completedStages += 1
+            if progressCallback is not None:
+                progressCallback(
+                    completedStages,
+                    totalStages,
+                    f"Extracted {phaseLabel} evidence.",
+                )
 
     @staticmethod
     def _completeCalculate(definition: ScreenshotDerivedTacticDefinition) -> bool:
@@ -421,6 +493,6 @@ class TacticScreenshotExtractor:
             f"tactic extraction issue {code}: {message}"
             + (f"; observed={observedText}" if observedText else "")
         )
-        definition.issues.append(StructuredTacticIssue(
-            code=code, message=message, observedText=observedText
-        ))
+        definition.issues.append(
+            StructuredTacticIssue(code=code, message=message, observedText=observedText)
+        )

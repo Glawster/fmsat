@@ -28,6 +28,7 @@ from fmsat.app.squadDetailTabs import (
 )
 from fmsat.core.config import AttributeDefinition
 from fmsat.core.squadModel import SquadModel
+from fmsat.tactics.positionFamily import PositionFamily, playerPositionFamilies
 
 
 def _breakdownAbbreviate(
@@ -118,61 +119,28 @@ def _playerNameSortKey(name: str) -> tuple[str, str]:
     return (parts[-1].casefold(), " ".join(parts[:-1]).casefold())
 
 
-def _positionUnits(positions: str) -> set[str]:
-    """Return broad FM positional units from compact natural-position text."""
+def _roleFamilies(positions: str) -> set[PositionFamily]:
+    """Read the canonical family codes carried by role assessment presentation."""
 
-    compact = re.sub(r"\s+", "", positions.upper())
-    units: set[str] = set()
-    if "GK" in compact:
-        units.add("GK")
-    if "WB" in compact:
-        units.add("WB")
-    if re.search(r"(?:^|[,/])D(?:\(|[LCR]|$)", compact):
-        units.add("D")
-    if "DM" in compact:
-        units.add("DM")
-    if re.search(r"(?:^|[,/])M(?:\(|[LCR]|$)", compact):
-        units.add("M")
-    if "AM" in compact:
-        units.add("AM")
-    if "ST" in compact:
-        units.add("ST")
-    return units
-
-
-def _roleUnits(positions: str) -> set[str]:
-    """Map canonical role positions to the same broad units used for players."""
-
-    units: set[str] = set()
+    families: set[PositionFamily] = set()
     for value in positions.split(","):
-        compact = re.sub(r"[^A-Z]", "", value.upper())
-        if compact == "GK":
-            units.add("GK")
-        elif compact.startswith("WB"):
-            units.add("WB")
-        elif compact.startswith("DM"):
-            units.add("DM")
-        elif compact.startswith("AM"):
-            units.add("AM")
-        elif compact.startswith("ST"):
-            units.add("ST")
-        elif compact.startswith("D"):
-            units.add("D")
-        elif compact.startswith("M"):
-            units.add("M")
-    return units
+        try:
+            families.add(PositionFamily(value.strip()))
+        except ValueError:
+            continue
+    return families
 
 
 def _candidateEligible(role: RoleDisplay, candidate: CandidateDisplay) -> bool:
-    """Keep role browsing position-aware without changing Generic Role Fit scoring."""
+    """Keep role browsing position-family aware without changing role-fit scoring."""
 
-    required = _roleUnits(role.positions)
-    available = _positionUnits(candidate.positions)
+    required = _roleFamilies(role.positions)
+    available = set(playerPositionFamilies(candidate.positions))
     if not required:
         return True
-    if required == {"GK"}:
-        return "GK" in available
-    return bool(required.intersection(available)) and "GK" not in available
+    if required == {PositionFamily.GK}:
+        return PositionFamily.GK in available
+    return bool(required.intersection(available)) and PositionFamily.GK not in available
 
 
 class SquadPlayersTab(BaseSquadPlayersTab):
