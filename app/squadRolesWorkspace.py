@@ -21,11 +21,7 @@ from PySide6.QtWidgets import (
 
 from fmsat.app.presentation import playerNameSortKey, playerSurnameDisplay
 from fmsat.app.squadDetailModel import CandidateDisplay, RoleDisplay
-from fmsat.app.squadDetailTabOverrides import (
-    _breakdownAbbreviate,
-    _candidateEligible,
-    _columnsLeftAlign,
-)
+from fmsat.app.squadDetailTabOverrides import _candidateEligible, _columnsLeftAlign
 from fmsat.app.squadDetailTabs import SortableTableWidgetItem, SquadRolesTab as BaseSquadRolesTab
 from fmsat.core.config import AttributeDefinition
 
@@ -159,16 +155,15 @@ class SquadRolesTab(BaseSquadRolesTab):
         self.playerPicker.addItem("Select a player…", "")
         for name in sorted(self._allPlayerNames(), key=playerNameSortKey):
             self.playerPicker.addItem(name, name)
-        self.playerRoleTable = QTableWidget(0, 4, self)
+        self.playerRoleTable = QTableWidget(0, 3, self)
         self.playerRoleTable.setObjectName("playerRoleAnalysisTable")
-        self.playerRoleTable.setHorizontalHeaderLabels(("Role", "Name", "Generic Role Fit", "Calculation breakdown"))
+        self.playerRoleTable.setHorizontalHeaderLabels(("Role", "Name", "Generic Role Fit"))
         self.playerRoleTable.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.playerRoleTable.setWordWrap(False)
         header = self.playerRoleTable.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
 
     def _workspaceRebuild(self) -> None:
         root = self.layout()
@@ -294,11 +289,15 @@ class SquadRolesTab(BaseSquadRolesTab):
                 values[name.strip()] = value.strip()
         return values
 
-    def _selectedRoleAttributes(self, candidates: tuple[CandidateDisplay, ...]) -> tuple[str, ...]:
-        present = {name for candidate in candidates for name in self._candidateAttributeValues(candidate)}
+    def _attributeNamesOrder(self, present: set[str]) -> tuple[str, ...]:
+        """Keep dynamic attribute columns in configured FM order, then stable unknown order."""
         configured = [attribute.name for attribute in self.attributes if attribute.name in present]
         configuredSet = set(configured)
         return tuple(configured + sorted(present - configuredSet, key=str.casefold))
+
+    def _selectedRoleAttributes(self, candidates: tuple[CandidateDisplay, ...]) -> tuple[str, ...]:
+        present = {name for candidate in candidates for name in self._candidateAttributeValues(candidate)}
+        return self._attributeNamesOrder(present)
 
     def _candidatesPopulate(self, candidates: tuple[CandidateDisplay, ...], role: RoleDisplay | None = None) -> None:
         self.candidateTable.setSortingEnabled(False)
@@ -362,21 +361,54 @@ class SquadRolesTab(BaseSquadRolesTab):
         self._playerRolesShow(str(self.playerPicker.itemData(index) or ""))
 
     def _playerRolesShow(self, playerName: str) -> None:
-        rows = []
+        rows: list[tuple[RoleDisplay, CandidateDisplay]] = []
         if playerName:
             for role in self.roles:
                 candidate = next((item for item in role.candidates if item.name == playerName), None)
                 if candidate is not None and _candidateEligible(role, candidate):
                     rows.append((role, candidate))
         rows.sort(key=lambda item: (not item[1].available, -(float(item[1].score) if item[1].available else -1.0), item[0].displayName.casefold()))
+
+        # Each row can represent a different role, so use the ordered union of every
+        # attribute required by the currently visible role assessments.
+        attributeValuesByRow = [self._candidateAttributeValues(candidate) for _role, candidate in rows]
+        attributeNames = self._attributeNamesOrder({name for values in attributeValuesByRow for name in values})
+        headers = ["Role", "Name", "Generic Role Fit"]
+        for name in attributeNames:
+            definition = self._attributeDefinition(name)
+            headers.append(definition.abbreviation if definition and definition.abbreviation.strip() else name)
+
+        self.playerRoleTable.setSortingEnabled(False)
+        self.playerRoleTable.clearContents()
+        self.playerRoleTable.setColumnCount(len(headers))
+        self.playerRoleTable.setHorizontalHeaderLabels(headers)
         self.playerRoleTable.setRowCount(len(rows))
-        for row, (role, candidate) in enumerate(rows):
-            for column, value in enumerate((self._roleLabel(role), role.displayName, candidate.score, candidate.breakdown)):
-                self.playerRoleTable.setItem(row, column, QTableWidgetItem(value))
-        _breakdownAbbreviate(self.playerRoleTable, 3, self.attributes)
-        self._tooltipsApply(self.playerRoleTable, 3, preserve=True)
-        for row in range(self.playerRoleTable.rowCount()):
+        for offset, name in enumerate(attributeNames, start=3):
+            definition = self._attributeDefinition(name)
+            headerItem = self.playerRoleTable.horizontalHeaderItem(offset)
+            if headerItem is not None:
+                headerItem.setToolTip(definition.name if definition is not None else name)
+
+        for row, ((role, candidate), attributeValues) in enumerate(zip(rows, attributeValuesByRow)):
+            values = [self._roleLabel(role), role.displayName, candidate.score]
+            values.extend(attributeValues.get(name, "—") for name in attributeNames)
+            for column, value in enumerate(values):
+                if column == 2:
+                    sortValue = float(candidate.score) if candidate.available else -1.0
+                elif column >= 3:
+                    try:
+                        sortValue = float(value)
+                    except ValueError:
+                        sortValue = -1.0
+                else:
+                    sortValue = value.casefold()
+                self.playerRoleTable.setItem(row, column, SortableTableWidgetItem(value, sortValue))
             self.playerRoleTable.setRowHeight(row, 28)
+
+        header = self.playerRoleTable.horizontalHeader()
+        for column in range(self.playerRoleTable.columnCount()):
+            header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
+        self.playerRoleTable.setSortingEnabled(True)
 
     def _rowsCompact(self) -> None:
         for table in (self.roleTable, self.candidateTable):
