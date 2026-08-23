@@ -22,6 +22,7 @@ from fmsat.core.parser import (
     TacticVocabulary,
 )
 from fmsat.core.requirements import TacticScreenshotPlanner
+from fmsat.core.roleAssessmentIntegrity import roleAssessmentIntegrityCheck
 from fmsat.core.roleKnowledge import RoleKnowledgeService
 from fmsat.core.screenshotStore import ScreenshotStore
 from fmsat.core.services import ScreenshotImportService
@@ -111,6 +112,10 @@ def main() -> int:
             roleKnowledgeService,
             tacticVocabulary,
         )
+        integrity = roleAssessmentIntegrityCheck(tacticVocabulary, roleKnowledgeService)
+        integrityText = integrity.text()
+        window.statusHistory.insert(0, integrityText)
+        logger.info("\n%s", integrityText)
     except (ConfigurationError, DatabaseError, OSError, PersistentDataError) as exc:
         logger.exception("Application startup failed")
         QMessageBox.critical(None, "FMSAT startup failed", str(exc))

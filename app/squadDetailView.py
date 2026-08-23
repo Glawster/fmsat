@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import replace
 from importlib.resources import files
+import logging
+import re
 
 from fmsat.core.logUtils import getLogger
 from PySide6.QtCore import Qt, Signal
@@ -28,9 +30,27 @@ from fmsat.app.squadDetailTabs import SquadOverviewTab
 from fmsat.app.squadPlayersWorkspace import SquadPlayersTab
 from fmsat.app.squadRolesWorkspace import SquadRolesTab
 from fmsat.core.config import AttributeDefinition
+from fmsat.core.roleAssessmentIntegrity import roleAssessmentIntegrityCheck
 from fmsat.core.squadModel import SquadModel
 
 logger = getLogger()
+
+
+class _SquadRegenerationProgressHandler(logging.Handler):
+    """Translate existing squad-regeneration log milestones into UI progress."""
+
+    _ocrPattern = re.compile(r"squad regeneration OCR\s+(\d+)/(\d+):")
+
+    def __init__(self, progressEmit) -> None:
+        super().__init__()
+        self.progressEmit = progressEmit
+
+    def emit(self, record: logging.LogRecord) -> None:
+        match = self._ocrPattern.search(record.getMessage())
+        if match is None:
+            return
+        current, total = (int(value) for value in match.groups())
+        self.progressEmit(current, total, f"Reading squad screenshot {current} of {total}…")
 
 
 class SquadDetailView(QWidget):
@@ -39,7 +59,9 @@ class SquadDetailView(QWidget):
     backRequested = Signal()
     modelSaveRequested = Signal(object)
     modelRegenerateRequested = Signal(str)
+    modelReassessRequested = Signal(str)
     tacticSelected = Signal(str, str)
+    regenerationProgressChanged = Signal(int, int, str)
 
     def __init__(
         self,
@@ -52,10 +74,10 @@ class SquadDetailView(QWidget):
         self.squadName = ""
         self.selectedTabName = "Overview"
         self.regenerationProgress: QProgressDialog | None = None
+        self.regenerationProgressTotal = 0
+        self.regenerationProgressChanged.connect(self._regenerationProgressUpdate)
         self.setObjectName("squadDetailView")
-        self.setStyleSheet(
-            files("fmsat.app").joinpath("fmsat.qss").read_text(encoding="utf-8")
-        )
+        self.setStyleSheet(files("fmsat.app").joinpath("fmsat.qss").read_text(encoding="utf-8"))
         self.rootLayout = QVBoxLayout(self)
         self.rootLayout.setContentsMargins(28, 20, 28, 24)
         self.rootLayout.setSpacing(16)
@@ -79,12 +101,6 @@ class SquadDetailView(QWidget):
         self.rootLayout.addWidget(self.tabs, 1)
         footer = QHBoxLayout()
         footer.addStretch()
-        self.regenerateButton = QPushButton("Regenerate Squad Model")
-        self.regenerateButton.setToolTip(
-            "Re-read the saved squad screenshots with the current parser and rebuild the squad model."
-        )
-        self.regenerateButton.clicked.connect(self._regenerateRequest)
-        footer.addWidget(self.regenerateButton)
         self.saveButton = QPushButton("Save Player Changes")
         self.saveButton.setToolTip("Save edits made in the Players tab to the squad model.")
         self.saveButton.setEnabled(False)
@@ -133,9 +149,7 @@ class SquadDetailView(QWidget):
 
     def _factsCreate(self) -> QHBoxLayout:
         assert self.model is not None
-        covered = sum(
-            not role.coverage.startswith("Uncovered") for role in self.model.roles
-        )
+        covered = sum(not role.coverage.startswith("Uncovered") for role in self.model.roles)
         facts = QHBoxLayout()
         tacticName = (
             "No tactic assigned"
@@ -161,20 +175,18 @@ class SquadDetailView(QWidget):
         self.playersTab.changed.connect(lambda: self.saveButton.setEnabled(True))
         tabs.addTab(self.playersTab, "Players")
         tabs.addTab(SquadRolesTab(self.model.roles, self.attributes), "Roles")
-        tabs.addTab(
-            SquadAnalysisTab(
-                self.model,
-                self.attributes,
-                self._requiredRoleRows(),
-            ),
-            "Analysis",
+        self.analysisTab = SquadAnalysisTab(
+            self.model,
+            self.attributes,
+            self._requiredRoleRows(),
         )
+        self.regenerateButton = self.analysisTab.regenerateButton
+        self.reassessButton = self.analysisTab.reassessButton
+        self.analysisTab.regenerateRequested.connect(self._regenerateRequest)
+        self.analysisTab.reassessRequested.connect(self._reassessRequest)
+        tabs.addTab(self.analysisTab, "Analysis")
         targetIndex = next(
-            (
-                index
-                for index in range(tabs.count())
-                if tabs.tabText(index) == self.selectedTabName
-            ),
+            (index for index in range(tabs.count()) if tabs.tabText(index) == self.selectedTabName),
             0,
         )
         tabs.setCurrentIndex(targetIndex)
@@ -188,7 +200,7 @@ class SquadDetailView(QWidget):
         self.modelSaveRequested.emit(model)
 
     def _regenerateRequest(self) -> None:
-        """Re-OCR retained screenshots without blocking the Qt UI thread."""
+        """Re-OCR retained screenshots, then reassess the regenerated model."""
 
         if self.model is None:
             return
@@ -196,7 +208,10 @@ class SquadDetailView(QWidget):
         logger.doing(f"requesting squad model regeneration for {self.squadName}")
         progress = self._regenerationProgressCreate()
         self.regenerationProgress = progress
+        self.regenerationProgressTotal = 0
         progress.show()
+        progressHandler = _SquadRegenerationProgressHandler(self.regenerationProgressChanged.emit)
+        logger.logger.addHandler(progressHandler)
         try:
             self.modelRegenerateRequested.emit(self.squadName)
             window = self.window()
@@ -212,16 +227,35 @@ class SquadDetailView(QWidget):
                 backgroundRun(lambda: service.modelSave(regenerationModel))
             else:
                 service.modelSave(regenerationModel)
+
+            if self.regenerationProgressTotal:
+                progress.setRange(0, self.regenerationProgressTotal + 1)
+                progress.setValue(self.regenerationProgressTotal)
+            progress.setLabelText("Recalculating role assessment from regenerated squad model…")
+
             dataChanged = getattr(window, "dataChanged", None)
             if dataChanged is not None and hasattr(dataChanged, "emit"):
                 dataChanged.emit()
             squadShow = getattr(window, "squadShow", None)
             if callable(squadShow):
                 squadShow(self.squadName, self.model.tacticName)
+
+            knowledge = getattr(window, "roleKnowledgeService", None)
+            vocabulary = getattr(window, "tacticVocabulary", None)
+            if knowledge is not None and vocabulary is not None:
+                integrityText = roleAssessmentIntegrityCheck(vocabulary, knowledge).text()
+                statusHistory = getattr(window, "statusHistory", None)
+                if isinstance(statusHistory, list):
+                    statusHistory.append(integrityText)
+                logger.info("\n%s", integrityText)
+
+            if self.regenerationProgressTotal:
+                progress.setValue(self.regenerationProgressTotal + 1)
+            progress.setLabelText("Squad regeneration and role assessment complete.")
             statusBar = getattr(window, "statusBar", None)
             if callable(statusBar):
                 statusBar().showMessage(
-                    f"Regenerated {self.squadName} from saved screenshot evidence.",
+                    f"Regenerated and reassessed {self.squadName} from saved screenshot evidence.",
                     10000,
                 )
         except Exception as exc:
@@ -230,12 +264,49 @@ class SquadDetailView(QWidget):
             if callable(statusBar):
                 statusBar().showMessage(str(exc), 10000)
         finally:
+            logger.logger.removeHandler(progressHandler)
             progress.close()
             self.regenerateButton.setEnabled(True)
 
+    def _reassessRequest(self) -> None:
+        """Reinterpret persisted evidence without regenerating screenshot data."""
+
+        if self.model is None:
+            return
+        self.reassessButton.setEnabled(False)
+        try:
+            self.modelReassessRequested.emit(self.squadName)
+            squadShow = getattr(self.window(), "squadShow", None)
+            if callable(squadShow):
+                squadShow(self.squadName, self.model.tacticName)
+            statusBar = getattr(self.window(), "statusBar", None)
+            if callable(statusBar):
+                statusBar().showMessage(
+                    f"Reassessed {self.squadName} from saved evidence using current role policy.",
+                    10000,
+                )
+        except Exception as exc:
+            logger.exception("unable to reassess squad %r", self.squadName)
+            statusBar = getattr(self.window(), "statusBar", None)
+            if callable(statusBar):
+                statusBar().showMessage(str(exc), 10000)
+        finally:
+            self.reassessButton.setEnabled(True)
+
+    def _regenerationProgressUpdate(self, current: int, total: int, message: str) -> None:
+        """Reflect worker-thread OCR milestones in the modal progress dialog."""
+
+        progress = self.regenerationProgress
+        if progress is None or total <= 0:
+            return
+        self.regenerationProgressTotal = total
+        progress.setRange(0, total + 1)
+        progress.setValue(max(0, min(current - 1, total)))
+        progress.setLabelText(message)
+
     def _regenerationProgressCreate(self) -> QProgressDialog:
         progress = QProgressDialog(
-            "Regenerating squad model from saved screenshot evidence…",
+            "Preparing saved squad screenshots…",
             None,
             0,
             0,
@@ -391,11 +462,7 @@ class SquadDetailView(QWidget):
         order: list[str] = []
         for phase, positions in (("IP", inPositions), ("OOP", outPositions)):
             for index, position in enumerate(positions):
-                key = (
-                    str(position.slotId)
-                    if useSlotIds and position.slotId
-                    else f"ordinal:{index}"
-                )
+                key = str(position.slotId) if useSlotIds and position.slotId else f"ordinal:{index}"
                 if key not in slots:
                     slots[key] = {"position": "", "roles": []}
                     order.append(key)
@@ -426,10 +493,7 @@ class SquadDetailView(QWidget):
             roleText = (
                 uniqueLabels[0]
                 if len(uniqueLabels) == 1
-                else " / ".join(
-                    f"{phase} {label}"
-                    for phase, label, _coverage in roleFacts
-                )
+                else " / ".join(f"{phase} {label}" for phase, label, _coverage in roleFacts)
             )
             positionText = self._positionDisplay(str(entry["position"]))
             label = f"{roleText} · {positionText}" if positionText else roleText
@@ -438,16 +502,12 @@ class SquadDetailView(QWidget):
                 uniqueCoverage[0]
                 if len(uniqueCoverage) == 1
                 else " | ".join(
-                    f"{phase} {roleLabel}: {coverage}"
-                    for phase, roleLabel, coverage in roleFacts
+                    f"{phase} {roleLabel}: {coverage}" for phase, roleLabel, coverage in roleFacts
                 )
             )
             rows.append((label, coverageText))
 
-        if (
-            self.model.requiredPositionCount
-            and len(rows) != self.model.requiredPositionCount
-        ):
+        if self.model.requiredPositionCount and len(rows) != self.model.requiredPositionCount:
             logger.warning(
                 "squad analysis slot count mismatch tactic=%r expected=%d actual=%d",
                 self.model.tacticName,

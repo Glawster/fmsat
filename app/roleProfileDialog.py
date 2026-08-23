@@ -128,10 +128,8 @@ class RoleProfileReviewDialog(QDialog):
         layout.addLayout(form)
         importance = attributeImportance or {}
         attributes = list(evidence.keyAttributes)
-        self.attributeTable = QTableWidget(len(attributes), 4)
-        self.attributeTable.setHorizontalHeaderLabels(
-            ("Attribute", "Captured Value", "Weight (0–5)", "Importance")
-        )
+        self.attributeTable = QTableWidget(len(attributes), 3)
+        self.attributeTable.setHorizontalHeaderLabels(("Attribute", "Weight (0–10)", "Importance"))
         self.attributeTable.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.attributeTable.setEditTriggers(
             QTableWidget.EditTrigger.DoubleClicked
@@ -141,6 +139,10 @@ class RoleProfileReviewDialog(QDialog):
         self.attributeTable.setShowGrid(True)
         self.attributeTable.setAlternatingRowColors(True)
         self.attributeTable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        attributeRowHeight = max(32, self.attributeTable.fontMetrics().height() + 14)
+        self.attributeTable.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
+        self.attributeTable.verticalHeader().setMinimumSectionSize(attributeRowHeight)
+        self.attributeTable.verticalHeader().setDefaultSectionSize(attributeRowHeight)
         self.attributeTable.setStyleSheet(
             "QTableWidget { gridline-color: #64748b; border: 1px solid #475569; }"
             "QHeaderView::section { font-weight: 700; border: 1px solid #64748b; "
@@ -153,7 +155,6 @@ class RoleProfileReviewDialog(QDialog):
             rowData = {
                 "attribute": attribute,
                 "label": attribute.replace("_", " ").title(),
-                "value": "" if evidence.displayedPlayerAttributes.get(attribute) is None else str(evidence.displayedPlayerAttributes.get(attribute)),
                 "weight": "" if weights.get(attribute) is None else str(weights.get(attribute)),
                 "importance": "topThree" if row < 3 else importance.get(attribute, ""),
             }
@@ -194,13 +195,7 @@ class RoleProfileReviewDialog(QDialog):
         self.attributeTable.setRowCount(row + 1)
         self._attributeRowWrite(
             row,
-            {
-                "attribute": "",
-                "label": "",
-                "value": "",
-                "weight": "",
-                "importance": "",
-            },
+            {"attribute": "", "label": "", "weight": "", "importance": ""},
         )
         self.attributeTable.setCurrentCell(row, 0)
         self._attributeButtonsRefresh()
@@ -236,22 +231,25 @@ class RoleProfileReviewDialog(QDialog):
 
     def _attributeOrderKey(self, rowData: dict[str, str]) -> tuple[int, object, str]:
         groupOrder = {"topThree": 0, "important": 1, "niceToHave": 2}
-        return (
-            groupOrder.get(rowData["importance"], 3),
-            int(rowData.get("orderIndex", "0")),
-        )
+        return (groupOrder.get(rowData["importance"], 3), int(rowData.get("orderIndex", "0")))
 
     def _attributeRowRead(self, row: int) -> dict[str, str]:
         nameItem = self.attributeTable.item(row, 0)
-        valueItem = self.attributeTable.item(row, 1)
-        weightItem = self.attributeTable.item(row, 2)
-        importanceCombo = self.attributeTable.cellWidget(row, 3)
+        weightItem = self.attributeTable.item(row, 1)
+        importanceCombo = self.attributeTable.cellWidget(row, 2)
         return {
-            "attribute": str(nameItem.data(Qt.ItemDataRole.UserRole) or "").strip() if nameItem is not None else "",
+            "attribute": (
+                str(nameItem.data(Qt.ItemDataRole.UserRole) or "").strip()
+                if nameItem is not None
+                else ""
+            ),
             "label": nameItem.text().strip() if nameItem is not None else "",
-            "value": valueItem.text().strip() if valueItem is not None else "",
             "weight": weightItem.text().strip() if weightItem is not None else "",
-            "importance": str(importanceCombo.currentData() or "") if isinstance(importanceCombo, QComboBox) else "",
+            "importance": (
+                str(importanceCombo.currentData() or "")
+                if isinstance(importanceCombo, QComboBox)
+                else ""
+            ),
         }
 
     def _attributeMove(self, offset: int) -> None:
@@ -271,25 +269,27 @@ class RoleProfileReviewDialog(QDialog):
         rows = [self._attributeRowRead(row) for row in range(self.attributeTable.rowCount())]
         for index, rowData in enumerate(rows):
             rowData["orderIndex"] = str(index)
+        # A dropdown promotion is authoritative. Make room before sorting so the
+        # newly promoted row cannot be mistaken for the last existing Top-three row.
+        self._attributeTopThreeLimit(rows, selectedAttribute)
         rows.sort(key=self._attributeOrderKey)
-        self._attributeTopThreeLimit(rows)
         self._attributeRowsWrite(rows, selectedAttribute)
 
     def _attributeRowsWrite(self, rows: list[dict[str, str]], selectedAttribute: str = "") -> None:
         for index, rowData in enumerate(rows):
             rowData["orderIndex"] = str(index)
-
         self._attributeTableRefreshing = True
         self.attributeTable.setRowCount(len(rows))
         for row, rowData in enumerate(rows):
             self._attributeRowWrite(row, rowData)
         self._attributeTableRefreshing = False
-
         if rows:
             selectedRow = 0
             if selectedAttribute:
                 for row, rowData in enumerate(rows):
-                    attributeKey = rowData["attribute"] or self._attributeKeyResolve(rowData["label"])
+                    attributeKey = rowData["attribute"] or self._attributeKeyResolve(
+                        rowData["label"]
+                    )
                     if attributeKey == selectedAttribute or rowData["label"] == selectedAttribute:
                         selectedRow = row
                         break
@@ -297,10 +297,18 @@ class RoleProfileReviewDialog(QDialog):
         self._attributeButtonsRefresh()
 
     @staticmethod
-    def _attributeTopThreeLimit(rows: list[dict[str, str]]) -> None:
+    def _attributeTopThreeLimit(rows: list[dict[str, str]], protectedAttribute: str = "") -> None:
         topThreeRows = [rowData for rowData in rows if rowData["importance"] == "topThree"]
         while len(topThreeRows) > 3:
-            demoted = topThreeRows.pop()
+            demoted = next(
+                (
+                    rowData
+                    for rowData in reversed(topThreeRows)
+                    if (rowData["attribute"] or rowData["label"]) != protectedAttribute
+                ),
+                topThreeRows[-1],
+            )
+            topThreeRows.remove(demoted)
             demoted["importance"] = "important"
 
     @classmethod
@@ -317,8 +325,7 @@ class RoleProfileReviewDialog(QDialog):
         nameItem.setData(Qt.ItemDataRole.UserRole, rowData["attribute"])
         nameItem.setFlags(nameItem.flags() | Qt.ItemFlag.ItemIsEditable)
         self.attributeTable.setItem(row, 0, nameItem)
-        self.attributeTable.setItem(row, 1, QTableWidgetItem(rowData["value"]))
-        self.attributeTable.setItem(row, 2, QTableWidgetItem(rowData["weight"]))
+        self.attributeTable.setItem(row, 1, QTableWidgetItem(rowData["weight"]))
         importanceCombo = QComboBox()
         importanceCombo.addItem("Unassigned", "")
         importanceCombo.addItem("Top three", "topThree")
@@ -328,21 +335,18 @@ class RoleProfileReviewDialog(QDialog):
         importanceCombo.setProperty("attributeLabel", rowData["label"])
         importanceCombo.setCurrentIndex(importanceCombo.findData(rowData["importance"]))
         importanceCombo.currentIndexChanged.connect(self._attributeImportanceChanged)
-        self.attributeTable.setCellWidget(row, 3, importanceCombo)
+        self.attributeTable.setCellWidget(row, 2, importanceCombo)
 
     def _attributeKeyResolve(self, rawAttribute: str) -> str:
         """Map a visible attribute label back to the canonical stored attribute key."""
-
         normalizedText = re.sub(r"[^a-z0-9]+", "_", rawAttribute.strip().casefold()).strip("_")
         if not normalizedText:
             return ""
-
-        knownAttributes = {attribute.casefold(): attribute for attribute in self.service.attributeIds}
+        knownAttributes = {
+            attribute.casefold(): attribute for attribute in self.service.attributeIds
+        }
         if normalizedText in knownAttributes:
             return knownAttributes[normalizedText]
-
-        # Prefer configured attribute labels so typed display names like
-        # "Off The Ball" map back to the expected storage key.
         definitionLookup: dict[str, str] = {}
         for definition in self.attributeDefinitions:
             definitionLookup[definition.name.casefold()] = definition.name
@@ -372,19 +376,13 @@ class RoleProfileReviewDialog(QDialog):
 
     def _definitionConfirm(self) -> None:
         attributes = []
-        values = {}
         for row in range(self.attributeTable.rowCount()):
             nameItem = self.attributeTable.item(row, 0)
             attribute = str(nameItem.data(Qt.ItemDataRole.UserRole) or "").strip()
             if not attribute:
                 attribute = self._attributeKeyResolve(str(nameItem.text() or ""))
-            if not attribute:
-                continue
-            attributes.append(attribute)
-            valueItem = self.attributeTable.item(row, 1)
-            valueText = valueItem.text().strip() if valueItem is not None else ""
-            if valueText.isdigit():
-                values[attribute] = int(valueText)
+            if attribute:
+                attributes.append(attribute)
         phases = self._phasesSelected()
         reviewedValues = dict(
             position=self.positionEdit.text().strip(),
@@ -398,7 +396,7 @@ class RoleProfileReviewDialog(QDialog):
             playerInstructions=tuple(
                 value.strip() for value in self.instructionsEdit.text().split(",") if value.strip()
             ),
-            displayedPlayerAttributes=values,
+            displayedPlayerAttributes={},
             suitabilityStars=self.evidence.suitabilityStars,
             sourceImport=self.evidence.sourceImport,
             confidence=self.evidence.confidence,
@@ -414,8 +412,7 @@ class RoleProfileReviewDialog(QDialog):
             and normalizedDetectedPosition.value != self.expectedPosition
         ):
             expectedPosition = self._expectedPositionResolve(
-                detectedPosition,
-                normalizedDetectedPosition.value,
+                detectedPosition, normalizedDetectedPosition.value
             )
             if not expectedPosition:
                 return
@@ -425,12 +422,15 @@ class RoleProfileReviewDialog(QDialog):
             weights = {}
             importance = {}
             for row, attribute in enumerate(attributes):
-                value = self.attributeTable.item(row, 2).text().strip()
+                value = self.attributeTable.item(row, 1).text().strip()
                 if value:
                     if not value.isdigit():
                         raise RoleKnowledgeError(f"Weight for {attribute} must be an integer")
-                    weights[attribute] = int(value)
-                importanceCombo = self.attributeTable.cellWidget(row, 3)
+                    weight = int(value)
+                    if not 0 <= weight <= 10:
+                        raise RoleKnowledgeError(f"Weight for {attribute} must be between 0 and 10")
+                    weights[attribute] = weight
+                importanceCombo = self.attributeTable.cellWidget(row, 2)
                 group = importanceCombo.currentData()
                 if group:
                     importance[attribute] = str(group)
@@ -446,10 +446,7 @@ class RoleProfileReviewDialog(QDialog):
                 )
                 if self.existingRoleID is not None and not self.expectedRole:
                     draft = replace(draft, roleID=self.existingRoleID)
-                self.savedPath = self.service.definitionConfirm(
-                    draft,
-                    replace=self.replaceExisting,
-                )
+                self.savedPath = self.service.definitionConfirm(draft, replace=self.replaceExisting)
             if draft is None:
                 raise RoleKnowledgeError("Role definition was not built")
             normalizedRole = self.service.vocabulary.roleNormalize(draft.displayName)
@@ -467,9 +464,9 @@ class RoleProfileReviewDialog(QDialog):
             return
         self.accept()
 
-    def _expectedPositionResolve(self, detectedPosition: str, normalizedPosition: str) -> str | None:
-        # Preserve strict verification by default, but let reviewers explicitly
-        # continue when OCR and tactical expectation disagree.
+    def _expectedPositionResolve(
+        self, detectedPosition: str, normalizedPosition: str
+    ) -> str | None:
         result = QMessageBox.question(
             self,
             "Role profile needs review",

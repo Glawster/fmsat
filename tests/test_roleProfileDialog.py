@@ -70,17 +70,17 @@ def testReviewDialogAllowsMissingPhaseAndShowsWeightedAttributeGrid(qtbot, tmp_p
     qtbot.addWidget(dialog)
 
     assert not dialog.phaseGroup.checkedButton()
-    assert dialog.attributeTable.columnCount() == 4
-    assert dialog.attributeTable.horizontalHeaderItem(2).text() == "Weight (0–5)"
+    assert dialog.attributeTable.columnCount() == 3
+    assert dialog.attributeTable.horizontalHeaderItem(1).text() == "Weight (0–10)"
     assert dialog.attributeTable.item(0, 0).text() == "Passing"
-    assert dialog.attributeTable.item(0, 2).text() == "4"
-    assert dialog.attributeTable.cellWidget(0, 3).currentText() == "Top three"
+    assert dialog.attributeTable.item(0, 1).text() == "4"
+    assert dialog.attributeTable.cellWidget(0, 2).currentText() == "Top three"
     assert "gridline-color" in dialog.attributeTable.styleSheet()
     assert cellHeader in dialog.attributeTable.styleSheet()
     assert cellHeaderText in dialog.attributeTable.styleSheet()
 
     dialog.bothPhasesRadio.setChecked(True)
-    dialog.attributeTable.setItem(0, 2, QTableWidgetItem("5"))
+    dialog.attributeTable.setItem(0, 1, QTableWidgetItem("5"))
     dialog.findChild(QDialogButtonBox).button(QDialogButtonBox.StandardButton.Save).click()
 
     assert dialog.result() == dialog.DialogCode.Accepted
@@ -113,9 +113,9 @@ def testReviewDialogAddsAttributeRowAndMarksFirstThreeTopThree(qtbot, tmp_path) 
     qtbot.addWidget(dialog)
 
     assert dialog.attributeTable.rowCount() == 3
-    assert dialog.attributeTable.cellWidget(0, 3).currentText() == "Top three"
-    assert dialog.attributeTable.cellWidget(1, 3).currentText() == "Top three"
-    assert dialog.attributeTable.cellWidget(2, 3).currentText() == "Top three"
+    assert dialog.attributeTable.cellWidget(0, 2).currentText() == "Top three"
+    assert dialog.attributeTable.cellWidget(1, 2).currentText() == "Top three"
+    assert dialog.attributeTable.cellWidget(2, 2).currentText() == "Top three"
 
     addButton = dialog.findChild(QPushButton, "addAttributeButton")
     assert addButton is not None
@@ -123,7 +123,7 @@ def testReviewDialogAddsAttributeRowAndMarksFirstThreeTopThree(qtbot, tmp_path) 
 
     assert dialog.attributeTable.rowCount() == 4
     assert dialog.attributeTable.item(3, 0).text() == ""
-    assert dialog.attributeTable.cellWidget(3, 3).currentText() == "Unassigned"
+    assert dialog.attributeTable.cellWidget(3, 2).currentText() == "Unassigned"
 
 
 def testReviewDialogDeletesSelectedAttributeRow(qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
@@ -201,7 +201,7 @@ def testReviewDialogReordersAttributesWhenImportanceChanges(qtbot, tmp_path) -> 
                 return row
         raise AssertionError(f"Attribute row not found: {name}")
 
-    dialog.attributeTable.cellWidget(rowIndex("Passing"), 3).setCurrentText("Important")
+    dialog.attributeTable.cellWidget(rowIndex("Passing"), 2).setCurrentText("Important")
 
     assert [dialog.attributeTable.item(row, 0).text() for row in range(4)] == [
         "First Touch",
@@ -209,14 +209,14 @@ def testReviewDialogReordersAttributesWhenImportanceChanges(qtbot, tmp_path) -> 
         "Passing",
         "Composure",
     ]
-    assert [dialog.attributeTable.cellWidget(row, 3).currentText() for row in range(4)] == [
+    assert [dialog.attributeTable.cellWidget(row, 2).currentText() for row in range(4)] == [
         "Top three",
         "Top three",
         "Important",
         "Unassigned",
     ]
 
-    dialog.attributeTable.cellWidget(rowIndex("Composure"), 3).setCurrentText("Top three")
+    dialog.attributeTable.cellWidget(rowIndex("Composure"), 2).setCurrentText("Top three")
 
     assert [dialog.attributeTable.item(row, 0).text() for row in range(4)] == [
         "First Touch",
@@ -224,7 +224,7 @@ def testReviewDialogReordersAttributesWhenImportanceChanges(qtbot, tmp_path) -> 
         "Composure",
         "Passing",
     ]
-    assert [dialog.attributeTable.cellWidget(row, 3).currentText() for row in range(4)] == [
+    assert [dialog.attributeTable.cellWidget(row, 2).currentText() for row in range(4)] == [
         "Top three",
         "Top three",
         "Top three",
@@ -272,7 +272,45 @@ def testReviewDialogMoveArrowPromotesRowIntoTopThree(qtbot, tmp_path) -> None:  
         "Composure",
         "Technique",
     ]
-    assert [dialog.attributeTable.cellWidget(row, 3).currentText() for row in range(4)] == [
+    assert [dialog.attributeTable.cellWidget(row, 2).currentText() for row in range(4)] == [
+        "Top three",
+        "Top three",
+        "Top three",
+        "Important",
+    ]
+
+
+def testReviewDialogDropdownPromotionDemotesLastExistingTopThree(qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """The dropdown promotes a fourth attribute and makes deterministic room for it."""
+
+    service = RoleKnowledgeService(
+        tmp_path,
+        TacticVocabulary(),
+        {"first_touch", "passing", "technique", "work_rate"},
+    )
+    evidence = RoleProfileEvidence(
+        position="DM",
+        roleName="Deep-Lying Playmaker",
+        phase=TacticalPhase.IN_POSSESSION,
+        keyAttributes=("first_touch", "passing", "technique", "work_rate"),
+    )
+    dialog = RoleProfileReviewDialog(
+        evidence,
+        "DM",
+        "deepLyingPlaymaker",
+        service,
+    )
+    qtbot.addWidget(dialog)
+
+    dialog.attributeTable.cellWidget(3, 2).setCurrentText("Top three")
+
+    assert [dialog.attributeTable.item(row, 0).text() for row in range(4)] == [
+        "First Touch",
+        "Passing",
+        "Work Rate",
+        "Technique",
+    ]
+    assert [dialog.attributeTable.cellWidget(row, 2).currentText() for row in range(4)] == [
         "Top three",
         "Top three",
         "Top three",
@@ -437,8 +475,7 @@ def testReviewDialogNormalizesTypedAttributeNamesBeforeSave(qtbot, tmp_path) -> 
     addButton.click()
 
     dialog.attributeTable.item(1, 0).setText("Aggression")
-    dialog.attributeTable.item(1, 1).setText("14")
-    dialog.attributeTable.cellWidget(1, 3).setCurrentText("Important")
+    dialog.attributeTable.cellWidget(1, 2).setCurrentText("Important")
     dialog.findChild(QDialogButtonBox).button(QDialogButtonBox.StandardButton.Save).click()
 
     assert dialog.result() == dialog.DialogCode.Accepted
@@ -466,7 +503,9 @@ def testReviewDialogDeletesExistingProfile(qtbot, tmp_path, monkeypatch) -> None
     draft = service.evidenceVerify(evidence, "MC", "advancedPlaymaker")
     rolePath = service.definitionConfirm(draft)
     requirementsPath = service.weightsConfirm(19, {"passing": 5}, {"passing": "topThree"})
-    monkeypatch.setattr(QMessageBox, "question", lambda *args, **kwargs: QMessageBox.StandardButton.Yes)
+    monkeypatch.setattr(
+        QMessageBox, "question", lambda *args, **kwargs: QMessageBox.StandardButton.Yes
+    )
     dialog = RoleProfileReviewDialog(
         evidence,
         "MC",

@@ -13,6 +13,7 @@ from fmsat.app.presentation import (
 )
 from fmsat.app.squadDetailModel import CandidateDisplay, RoleDisplay
 from fmsat.app.squadRolesWorkspace import SquadRolesTab
+from fmsat.core.config import AttributeDefinition
 
 
 def _role(
@@ -163,6 +164,73 @@ def testRoleCoverageUsesEligibleCandidatesAndNativeTableFont(qtbot) -> None:  # 
     assert coverageItem.text() == "Maanum - Stanway"
     assert "Hemp" not in coverageItem.text()
     assert tab.roleTable.cellWidget(0, 2) is None
+
+
+def testPlayerRoleAssessmentUsesUnionOfRequiredAttributes(qtbot) -> None:  # type: ignore[no-untyped-def]
+    playerName = "Freigang, Laura"
+    roles = (
+        RoleDisplay(
+            roleCode="secondStriker",
+            displayName="Second Striker",
+            abbreviation="SS",
+            positions="AMC, STC",
+            phases="In Possession",
+            coverage="",
+            candidates=(
+                CandidateDisplay(
+                    name=playerName,
+                    positions="AM (C), ST (C)",
+                    score="81.0",
+                    bestRole="Second Striker",
+                    breakdown="finishing: 16 × 8 = 128/160; off_the_ball: 15 × 7 = 105/140",
+                    available=True,
+                ),
+            ),
+        ),
+        RoleDisplay(
+            roleCode="centreForward",
+            displayName="Centre Forward",
+            abbreviation="CF",
+            positions="STC",
+            phases="In Possession",
+            coverage="",
+            candidates=(
+                CandidateDisplay(
+                    name=playerName,
+                    positions="AM (C), ST (C)",
+                    score="77.0",
+                    bestRole="Second Striker",
+                    breakdown="finishing: 16 × 7 = 112/140; strength: 11 × 5 = 55/100",
+                    available=True,
+                ),
+            ),
+        ),
+    )
+    attributes = (
+        AttributeDefinition("finishing", "Fin", 1),
+        AttributeDefinition("off_the_ball", "OtB", 2),
+        AttributeDefinition("strength", "Str", 3),
+    )
+    tab = SquadRolesTab(roles, attributes)
+    qtbot.addWidget(tab)
+
+    tab._playerRolesShow(playerName)
+
+    assert [
+        tab.playerRoleTable.horizontalHeaderItem(column).text()
+        for column in range(tab.playerRoleTable.columnCount())
+    ] == ["Role", "Name", "Generic Role Fit", "Fin", "OtB", "Str"]
+    assert [tab.playerRoleTable.item(0, column).text() for column in range(3, 6)] == [
+        "16",
+        "15",
+        "—",
+    ]
+    assert [tab.playerRoleTable.item(1, column).text() for column in range(3, 6)] == [
+        "16",
+        "—",
+        "11",
+    ]
+    assert tab.playerRoleTable.horizontalHeaderItem(4).toolTip() == "off_the_ball"
 
 
 def testRoleOrderStaysTacticalUntilPhaseHeaderIsClicked(qtbot) -> None:  # type: ignore[no-untyped-def]

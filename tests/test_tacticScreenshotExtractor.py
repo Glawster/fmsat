@@ -44,20 +44,26 @@ def testExtractorPersistsOnlyObservedValuesFromSavedScreenshots(tmp_path) -> Non
         ScreenType.TACTIC_OUT_OF_POSSESSION,
     ):
         imagePath = (
-            formationPath
-            if screenType is ScreenType.TACTIC_FORMATION
-            else tmp_path / "x.png"
+            formationPath if screenType is ScreenType.TACTIC_FORMATION else tmp_path / "x.png"
         )
         database.tacticImportSave(str(imagePath), screenType, "High Press")
 
     extractor = TacticScreenshotExtractor(database.engine, FakeOcr())
-    result = extractor.tacticExtract("High Press")
+    progress: list[tuple[int, int, str]] = []
+    result = extractor.tacticExtract("High Press", lambda *stage: progress.append(stage))
 
     assert result.structuredCreated is True
     assert result.complete is False
     assert result.screenshotCount == 3
     assert len(result.diagnosticPaths) == 1
     assert Path(result.diagnosticPaths[0]).is_file()
+    assert [stage[:2] for stage in progress] == [(1, 4), (2, 4), (3, 4), (4, 4)]
+    assert [stage[2] for stage in progress] == [
+        "Extracted saved tactic formation metadata.",
+        "Extracted Formation evidence.",
+        "Extracted In Possession evidence.",
+        "Extracted Out Of Possession evidence.",
+    ]
 
     with Session(database.engine) as session:
         tactic = session.scalar(

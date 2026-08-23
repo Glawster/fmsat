@@ -32,3 +32,5 @@ roles:
   halfBack: [DM]
   deepDefensiveMidfielder: [DM]
   trackingAttackingMidfielder: [AMC]
+  trackingWideMidfielder: [MW]
+  trackingWinger: [AMW]
