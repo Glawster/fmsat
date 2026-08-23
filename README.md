@@ -11,6 +11,7 @@ application.
 ## Documentation
 
 - [Architecture](documentation/architecture.md)
+- [Best XI assignment](documentation/bestXi.md)
 - [Sample screenshot guidance](documentation/sampleScreenshots.md)
 - [Project records and delivery status](project/README.md)
 - [Repository layout](.github/repositoryLayout.md)
