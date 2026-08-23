@@ -963,8 +963,21 @@ class MainWindow(QMainWindow):
                 "The imported role profile does not contain a recognized position.",
             )
             return
+
         expectedRole = role.code if role is not None else ""
-        storageName = role.code if role is not None else "newRole"
+
+        if role is not None:
+            storageName = role.code
+        else:
+            detectedRole = self.tacticVocabulary.roleNormalize(result.roleProfile.roleName)
+            storageName = (
+                str(detectedRole.value) 
+                if detectedRole.resolved 
+                else self.tacticVocabulary.roleCodeCreate(
+                    result.roleProfile.roleName, 
+                    result.roleProfile.abbreviation or "",
+                )
+            )
         try:
             screenshotPath = self._screenshotPersist(result, "role", storageName)
         except ScreenshotStoreError as exc:
