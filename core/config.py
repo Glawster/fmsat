@@ -65,7 +65,12 @@ class Configuration:
             "unusedStrengthThreshold",
             "alternativeRoleLimit",
         )
-        return {key: self.roleAssessment[key] for key in keys}
+        result = {key: self.roleAssessment[key] for key in keys}
+        result["slotAggregationPolicy"] = self.roleAssessment.get(
+            "slotAggregationPolicy",
+            "Unavailable",
+        )
+        return result
 
     def roleAssessmentWeights(self) -> dict[str, dict[str, int]]:
         """Return validated Generic Role Fit weights by assessable semantic role code.

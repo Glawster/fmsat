@@ -18,7 +18,7 @@ def testPackagedAssessmentPolicyCoversEveryAssessableCanonicalRole() -> None:
 
     assert set(weights).issubset(set(vocabulary.roles))
     assert "trackingAttackingMidfielder" in vocabulary.roles
-    assert "trackingAttackingMidfielder" not in weights
+    assert weights["trackingAttackingMidfielder"]
     assert all(roleWeights for roleWeights in weights.values())
     assert all(
         attribute in knownAttributes and 1 <= weight <= 5

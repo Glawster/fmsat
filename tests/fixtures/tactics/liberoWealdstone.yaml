@@ -1,0 +1,80 @@
+fixture: liberoWealdstone
+screenshots:
+  formation: tests/screenshots/tactics/liberoWealdstone/formation.png
+  inPossession: tests/screenshots/tactics/liberoWealdstone/inPossession.png
+  outOfPossession: tests/screenshots/tactics/liberoWealdstone/outOfPossession.png
+expected:
+  inPossessionRoles:
+    - CFD
+    - W
+    - AM
+    - W
+    - WB
+    - DLP
+    - WB
+    - CB
+    - ACB
+    - CB
+    - GK
+  inPossessionPositions:
+    - STC
+    - AML
+    - AMC
+    - AMR
+    - WBL
+    - DM
+    - WBR
+    - DCL
+    - DC
+    - DCR
+    - GK
+  outOfPossessionRoles:
+    - TCF
+    - TW
+    - CM
+    - TW
+    - WB
+    - DM
+    - WB
+    - CB
+    - CB
+    - CB
+    - GK
+  outOfPossessionPositions:
+    - STC
+    - AML
+    - MC
+    - AMR
+    - WBL
+    - DM
+    - WBR
+    - DCL
+    - DC
+    - DCR
+    - GK
+  instructions:
+    inPossession:
+      Passing Directness: Much Shorter
+      Tempo: Standard
+      Time Wasting: Standard
+      Attacking Transition: Counter-Attack
+      Attacking Width: Much Wider
+      Creative Freedom: More Expressive
+      Goal Kicks: Short
+      GK Distribution: Centre-Backs
+      Supporting Runs: Both Flanks
+      Pass Reception: Pass to Feet
+      Progress Through: Both Flanks
+      Patience: Standard
+      Shots from Distance: Discourage
+      GK Distribution (Speed): Slow Pace Down
+    outOfPossession:
+      Line of Engagement: High Press
+      Defensive Line: Standard
+      Trigger Press: More Often
+      Defensive Transition: Counter-Press
+      Tackling: Standard
+      Cross Engagement: Stop Crosses
+      Pressing Trap: Trap Inside
+      Short Goalkeeper Distr: Yes
+      Defensive Line Behaviour: Step Up More

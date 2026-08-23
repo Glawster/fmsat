@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from fmsat.core.logUtils import getLogger
+from fmsat.core.parser import TacticVocabulary
+from fmsat.core.rolePositionCompatibility import RolePositionFamilyPolicy
 from fmsat.database.models import (
     StructuredFormationSlot,
     ScreenshotDerivedTacticDefinition,
@@ -52,6 +54,8 @@ class TacticBuilder:
 
     def __init__(self, engine: Engine) -> None:
         self.engine = engine
+        self.vocabulary = TacticVocabulary()
+        self.positionFamilies = RolePositionFamilyPolicy.load()
 
     ## tactic
 
@@ -217,6 +221,27 @@ class TacticBuilder:
                 )
             )
             return None
+
+        normalizedRole = self.vocabulary.roleNormalize(slot.role or slot.observedRole)
+        if normalizedRole.resolved:
+            roleCode = str(normalizedRole.value)
+            compatible = self.positionFamilies.supports(roleCode, slot.position)
+            if compatible is False:
+                supported = ", ".join(
+                    family.value
+                    for family in sorted(
+                        self.positionFamilies.familiesFor(roleCode),
+                        key=lambda family: family.value,
+                    )
+                )
+                issues.append(
+                    TacticBuildIssue(
+                        "incompatibleRolePosition",
+                        f"{phaseName} slot {slot.slotId!r} has role {roleCode!r} at "
+                        f"{slot.position!r}; supported position families: {supported}",
+                    )
+                )
+                return None
 
         roleIdentity = self._roleIdentityParse(slot.role, slot.observedRole)
         if roleIdentity is None:

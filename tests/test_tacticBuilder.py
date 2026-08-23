@@ -18,6 +18,7 @@ from fmsat.database import (
     Tactic,
 )
 from fmsat.football.roleIdentity import RoleIdentity
+from fmsat.tactics.positionFamily import PositionFamily
 from fmsat.tactics.positionIdentity import PositionIdentity
 
 
@@ -84,12 +85,12 @@ def testBuilderLoadsStructuredTacticIntoObjectModel(tmp_path) -> None:
             for index, (position, role) in enumerate(
                 [
                     ("GK", "goalkeeper"),
-                    ("DL", "wingBack"),
+                    ("DL", "fullBack"),
                     ("DC", "centreBack"),
                     ("DC", "ballPlayingCentreBack"),
-                    ("DR", "wingBack"),
+                    ("DR", "fullBack"),
                     ("ML", "winger"),
-                    ("MC", "halfBack"),
+                    ("DM", "halfBack"),
                     ("MC", "deepLyingPlaymaker"),
                     ("MR", "winger"),
                     ("AMC", "attackingMidfielder"),
@@ -157,6 +158,7 @@ def testBuilderLoadsStructuredTacticIntoObjectModel(tmp_path) -> None:
     assert firstPosition.confidence == 0.95
     assert firstPosition.sourceImportSessionId == imported.id
     assert firstPosition.validationState == "confirmed"
+    assert firstPosition.family is PositionFamily.GK
     inPossessionInstruction = next(iter(result.tactic.inPossession.instructions.keys()))
     outOfPossessionInstruction = next(iter(result.tactic.outOfPossession.instructions.keys()))
     assert inPossessionInstruction is outOfPossessionInstruction
@@ -209,7 +211,31 @@ def testBuilderPreservesPositionWhenDutyIsNotShown() -> None:
     assert position.roleProfile.name == "Observed role"
     assert position.validationState == "extracted"
     assert position.player is None
+    assert position.family is PositionFamily.STC
     assert issues == []
+
+
+def testBuilderRejectsKnownRoleAtIncompatiblePositionFamily() -> None:
+    builder = TacticBuilder(Mock())
+    issues = []
+    slot = StructuredFormationSlot(
+        slotId="gk-01",
+        phase="outOfPossession",
+        position="DC",
+        role="sweeperKeeper",
+        duty=None,
+        x=0.5,
+        y=0.88,
+        observedRole="SK",
+        confidence=0.95,
+        validationState="extracted",
+    )
+
+    position = builder._positionBuild(slot, "outOfPossession", issues, {}, {})
+
+    assert position is None
+    assert [issue.code for issue in issues] == ["incompatibleRolePosition"]
+    assert "supported position families: GK" in issues[0].message
 
 
 def testBuilderMapsCanonicalLateralPositionsToDomainIdentities() -> None:

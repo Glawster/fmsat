@@ -7,10 +7,13 @@ from dataclasses import dataclass, field, replace
 
 from fmsat.core.builder.tacticModelLoader import TacticModelLoader
 from fmsat.core.parser import TacticVocabulary
+from fmsat.core.roleDepth import RequiredSlotAssessment, RoleDepthService
 from fmsat.core.roleKnowledge import RoleKnowledgeService, StoredRoleDefinition
+from fmsat.core.rolePositionCompatibility import RolePositionFamilyPolicy
 from fmsat.core.squadModel import SquadModel, SquadModelPlayer, SquadModelService
 from fmsat.database import Database
 from fmsat.tactics.position import Position
+from fmsat.tactics.positionFamily import positionFamilyFor
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,6 +109,7 @@ class SquadAssessment:
     weakRoles: tuple[AnalysisFinding, ...] = field(default_factory=tuple)
     duplicatedRoles: tuple[AnalysisFinding, ...] = field(default_factory=tuple)
     unusedStrengths: tuple[AnalysisFinding, ...] = field(default_factory=tuple)
+    requiredSlots: tuple[RequiredSlotAssessment, ...] = field(default_factory=tuple)
 
 
 class GenericRoleFitCalculator:
@@ -175,6 +179,7 @@ class SquadAssessmentService:
         self.tacticModels = tacticModels
         self.roleKnowledge = roleKnowledge
         self.vocabulary = vocabulary
+        self.positionFamilies = RolePositionFamilyPolicy.load()
         self.calculator = calculator or GenericRoleFitCalculator()
         candidateSettings = getattr(roleKnowledge, "assessmentSettings", {})
         settings = candidateSettings if isinstance(candidateSettings, Mapping) else {}
@@ -190,6 +195,9 @@ class SquadAssessmentService:
             settings.get("unusedStrengthThreshold", 60.0)
         )
         self.alternativeRoleLimit = int(settings.get("alternativeRoleLimit", 3))
+        self.slotAggregationPolicy = str(
+            settings.get("slotAggregationPolicy", "Unavailable")
+        )
 
     ## assessment
 
@@ -255,9 +263,9 @@ class SquadAssessmentService:
                     roleCode,
                     {"positions": set(), "phases": set()},
                 )
-                context["positions"].add(
-                    position.canonicalPosition or position.identity.value
-                )
+                exactPosition = position.canonicalPosition or position.identity.value
+                family = positionFamilyFor(exactPosition)
+                context["positions"].add(family.value if family is not None else exactPosition)
                 context["phases"].add(phase)
 
         roles = tuple(
@@ -272,18 +280,23 @@ class SquadAssessmentService:
                 key=lambda code: self._roleSortKey(code, definitions.get(code)),
             )
         )
+        requiredSlots = RoleDepthService(self.slotAggregationPolicy).depthBuild(
+            loaded.tactic,
+            catalogueByCode,
+        )
         return SquadAssessment(
-            squad,
-            selectedTactic,
-            availableTactics,
-            requiredPositionCount,
-            roles,
-            self.scoringIdentity,
-            allRoles,
-            players,
-            self._weakRolesFind(roles),
-            self._duplicatedRolesFind(roles, players),
-            self._unusedStrengthsFind(roles, players),
+            squad=squad,
+            tacticName=selectedTactic,
+            availableTactics=availableTactics,
+            requiredPositionCount=requiredPositionCount,
+            roles=roles,
+            scoringIdentity=self.scoringIdentity,
+            allRoles=allRoles,
+            players=players,
+            weakRoles=self._weakRolesFind(roles),
+            duplicatedRoles=self._duplicatedRolesFind(roles, players),
+            unusedStrengths=self._unusedStrengthsFind(roles, players),
+            requiredSlots=requiredSlots,
         )
 
     ## analysis
@@ -414,32 +427,66 @@ class SquadAssessmentService:
         squad: SquadModel,
         definitions: dict[str, StoredRoleDefinition],
     ) -> tuple[RequiredRoleAssessment, ...]:
-        """Assess the complete canonical role catalogue independently of the tactic."""
+        """Assess packaged and user-confirmed semantic roles as one complete catalogue."""
 
+        roleCodes = set(self.vocabulary.roles) | set(definitions)
         return tuple(
             self._roleAssess(
                 roleCode,
-                set(role.positions),
+                self._rolePositionFamilies(roleCode, definitions.get(roleCode)),
                 set(),
                 squad,
                 definitions.get(roleCode),
             )
-            for roleCode, role in sorted(
-                self.vocabulary.roles.items(),
-                key=lambda item: self._roleSortKey(item[0], definitions.get(item[0])),
+            for roleCode in sorted(
+                roleCodes,
+                key=lambda code: self._roleSortKey(code, definitions.get(code)),
             )
         )
+
+    def _rolePositionFamilies(
+        self,
+        roleCode: str,
+        definition: StoredRoleDefinition | None,
+    ) -> set[str]:
+        """Return explicit family compatibility, preserving unknown custom evidence."""
+
+        configured = self.positionFamilies.familiesFor(roleCode)
+        if configured:
+            return {family.value for family in configured}
+        if definition is None:
+            return set()
+        result: set[str] = set()
+        for position in definition.positions:
+            family = positionFamilyFor(position)
+            result.add(family.value if family is not None else position)
+        return result
 
     ## roles
 
     def _canonicalRoleResolve(self, position: Position) -> str | None:
-        """Resolve the exact Football Manager role, never its broad position domain."""
+        """Resolve exact semantic role identity while preserving confirmed custom roles."""
 
-        if position.canonicalRole:
-            return position.canonicalRole
+        canonical = str(position.canonicalRole or "").strip()
+        if canonical:
+            normalized = self.vocabulary.roleNormalize(canonical)
+            if getattr(normalized, "resolved", False) is True:
+                return str(normalized.value)
+            return canonical
+
         observed = position.roleProfile.description.split(" (", 1)[0].strip()
         normalized = self.vocabulary.roleNormalize(observed)
-        return normalized.value if normalized.resolved else None
+        if getattr(normalized, "resolved", False) is True:
+            return str(normalized.value)
+
+        folded = observed.casefold()
+        matches = [
+            definition.roleCode
+            for definition in self.roleKnowledge.definitionsList()
+            if definition.displayName.casefold() == folded
+            or any(abbreviation.casefold() == folded for abbreviation in definition.abbreviations)
+        ]
+        return matches[0] if len(matches) == 1 else None
 
     def _definitionsByCode(self) -> dict[str, StoredRoleDefinition]:
         """Return confirmed definitions keyed by their stable canonical role code."""
@@ -514,25 +561,18 @@ class SquadAssessmentService:
     ) -> tuple[int, str]:
         """Order unique roles by their highest supported tactical line."""
 
-        role = self.vocabulary.roles.get(roleCode)
-        positions = (
-            role.positions
-            if role is not None
-            else definition.positions
-            if definition is not None
-            else ()
-        )
+        positions = self._rolePositionFamilies(roleCode, definition)
         ranks = []
         for position in positions:
-            if position.startswith("ST"):
+            if position == "STC":
                 ranks.append(0)
-            elif position.startswith("AM"):
+            elif position in {"AMC", "AMW"}:
                 ranks.append(1)
-            elif position.startswith("M"):
+            elif position in {"MC", "MW"}:
                 ranks.append(2)
-            elif position.startswith("DM"):
+            elif position == "DM":
                 ranks.append(3)
-            elif position.startswith("D") or position.startswith("WB"):
+            elif position in {"FB", "WB", "DC"}:
                 ranks.append(4)
             elif position == "GK":
                 ranks.append(5)

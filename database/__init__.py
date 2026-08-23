@@ -1,6 +1,7 @@
 """SQLite persistence using SQLAlchemy."""
 
-from .database import Database, DatabaseError
+from .activeTacticDatabase import Database
+from .database import DatabaseError
 from .models import (
     AttributeSnapshot,
     Base,

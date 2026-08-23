@@ -6,6 +6,7 @@ from fmsat.football.instruction import InstructionSet
 from fmsat.football.role import Role
 from fmsat.football.roleProfile import RoleProfile
 
+from .positionFamily import PositionFamily, positionFamilyFor
 from .positionIdentity import PositionIdentity
 
 
@@ -33,3 +34,10 @@ class Position:
     canonicalRole: str | None = None
 
     needs: list = field(default_factory=list)
+
+    @property
+    def family(self) -> PositionFamily | None:
+        """Return the role-compatibility family while retaining exact slot geometry."""
+
+        value = self.canonicalPosition or self.identity.value
+        return positionFamilyFor(value)

@@ -9,6 +9,10 @@ duplicationMinimumPlayers: 3
 unusedStrengthThreshold: 60.0
 alternativeRoleLimit: 3
 
+# Required Role Depth combines the phase-specific Generic Role Fit evidence with
+# an explicit equal-weight arithmetic mean. Missing evidence remains Unavailable.
+slotAggregationPolicy: phaseMean
+
 # Weight scale: 5 essential, 4 very important, 3 important, 2 useful, 1 minor.
 # Omitted attributes do not participate in the calculation.
 roles:
@@ -72,3 +76,5 @@ roles:
     attributeWeights: {positioning: 5, anticipation: 5, tackling: 4, marking: 4, passing: 4, decisions: 4, teamwork: 4, concentration: 4, composure: 3, strength: 3}
   deepDefensiveMidfielder:
     attributeWeights: {positioning: 5, tackling: 5, marking: 4, anticipation: 4, concentration: 4, decisions: 4, teamwork: 4, strength: 4, passing: 3, composure: 3}
+  trackingAttackingMidfielder:
+    attributeWeights: {work_rate: 5, stamina: 5, teamwork: 5, positioning: 4, anticipation: 4, marking: 4, decisions: 4, tackling: 3, acceleration: 3, off_the_ball: 3}

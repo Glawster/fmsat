@@ -8,8 +8,8 @@ from fmsat.core.parser import TacticalPhase, TacticFormationExtractor, TacticVoc
 from fmsat.tests.conftest import FakeOcr
 
 
-def testFormationPitchDepthUsesVisibleFieldInsteadOfConfiguredShortCrop() -> None:
-    """A wide Planner capture must retain the defensive and goalkeeper rows."""
+def testFormationPitchDepthPreservesCalibratedProfileWhenGreenContinuesBelowPitch() -> None:
+    """Substitutes-panel green must not redefine normalized formation depth."""
 
     image = np.zeros((832, 2048, 3), dtype=np.uint8)
     pitchColour = (58, 67, 12)
@@ -27,12 +27,7 @@ def testFormationPitchDepthUsesVisibleFieldInsteadOfConfiguredShortCrop() -> Non
 
     regions = extractor._phaseRegionsResolve(image)
 
-    for phase in ("inPossession", "outOfPossession"):
-        assert regions[phase]["y"] == configured[phase]["y"]
-        assert regions[phase]["height"] > 0.75
-        assert regions[phase]["y"] + regions[phase]["height"] > 0.98
-        assert regions[phase]["x"] == configured[phase]["x"]
-        assert regions[phase]["width"] == configured[phase]["width"]
+    assert regions == configured
 
 
 def testFormationPitchDepthFallsBackWhenVisibleFieldCannotBeEstablished() -> None:
@@ -88,6 +83,70 @@ def testFocusedRoleLabelOcrRecoversAbbreviationMissedByExpandedCrop(monkeypatch)
     assert slots[0].role == "ballPlayingGoalkeeper"
     assert slots[0].observedRole == "BGK"
     assert not [issue for issue in issues if issue.code == "unresolvedRole"]
+
+
+def testFocusedRoleLabelRetainsPlainGoalkeeperEvidence(monkeypatch) -> None:
+    """GK in the exact role box is role evidence even though GK is also a position code."""
+
+    pitch = np.full((200, 300, 3), 40, dtype=np.uint8)
+    ocr = FakeOcr([
+        [OcrResult("Walker", 0.95)],
+        [OcrResult("GK", 0.99)],
+    ])
+    extractor = TacticFormationExtractor(
+        ocr,
+        TacticVocabulary(),
+        {
+            "pitchZones": {
+                "bands": [
+                    {
+                        "yMin": 0.0,
+                        "yMax": 1.01,
+                        "positions": [
+                            {"xMin": 0.0, "xMax": 1.01, "code": "GK"},
+                        ],
+                    }
+                ]
+            }
+        },
+    )
+    monkeypatch.setattr(extractor, "_tilesDetect", lambda _pitch: [(100, 80, 180, 105)])
+
+    slots, _issues = extractor._phaseExtract(
+        pitch,
+        TacticalPhase.IN_POSSESSION,
+        "formation.png",
+    )
+
+    assert len(slots) == 1
+    assert slots[0].position == "GK"
+    assert slots[0].role is None
+    assert slots[0].observedRole == "GK"
+
+
+def testFormationRejectsPhaseLabelFromFocusedOcr(monkeypatch) -> None:
+    """A phase tab inside the calibrated crop is chrome, not a formation slot."""
+
+    pitch = np.full((200, 300, 3), 40, dtype=np.uint8)
+    ocr = FakeOcr([
+        [OcrResult("In Possession", 0.95)],
+        [OcrResult("In Possession", 0.99)],
+    ])
+    extractor = TacticFormationExtractor(
+        ocr,
+        TacticVocabulary(),
+        {"pitchZones": {"bands": []}},
+    )
+    monkeypatch.setattr(extractor, "_tilesDetect", lambda _pitch: [(80, 5, 210, 35)])
+
+    slots, issues = extractor._phaseExtract(
+        pitch,
+        TacticalPhase.IN_POSSESSION,
+        "formation.png",
+    )
+
+    assert slots == []
+    assert any(issue.code == "missingFormationSlots" for issue in issues)
 
 
 def testHorizontalRoleBarRecoveryFindsLabelAndRejectsCircularIcon() -> None:
