@@ -2,7 +2,7 @@
 
 ## Status
 
-InReview
+Active
 <!-- Options: Active, Idle, Blocked, InReview -->
 
 ## Objective
@@ -61,6 +61,7 @@ player must not be allocated to more than one required slot in the same assignme
 
 ## Explicit Exclusions
 
+- Unique-player simultaneous-slot assignment and role depth (007B).
 - Best XI selection.
 - Tactical Fit and Position Familiarity.
 - Overall Suitability.
