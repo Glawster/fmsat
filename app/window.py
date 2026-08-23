@@ -971,10 +971,10 @@ class MainWindow(QMainWindow):
         else:
             detectedRole = self.tacticVocabulary.roleNormalize(result.roleProfile.roleName)
             storageName = (
-                str(detectedRole.value) 
-                if detectedRole.resolved 
+                str(detectedRole.value)
+                if detectedRole.resolved
                 else self.tacticVocabulary.roleCodeCreate(
-                    result.roleProfile.roleName, 
+                    result.roleProfile.roleName,
                     result.roleProfile.abbreviation or "",
                 )
             )
@@ -1333,6 +1333,22 @@ class MainWindow(QMainWindow):
         )
         self.dataChanged.emit()
 
+    def reviewPlayerRemove(self) -> None:
+        """Remove the selected player from the in-memory import draft."""
+
+        if self.currentResult is None:
+            return
+        selectedRows = self.table.selectionModel().selectedRows()
+        if not selectedRows:
+            return
+        row = selectedRows[0].row()
+        players = self._tablePlayersRead()
+        if row >= len(players):
+            return
+        players.pop(row)
+        self.currentResult.players = players
+        self._resultShow(self.currentResult)
+
     def settingsShow(self) -> None:
         """Describe the Phase 1 configuration location."""
 
@@ -1411,6 +1427,9 @@ class MainWindow(QMainWindow):
         self.contentStack.addWidget(self.squadDetailView)
         self.reviewWidget = QWidget(self)
         layout = QVBoxLayout(self.reviewWidget)
+        self.reviewBackButton = QPushButton("← FMSAT Workspace", self)
+        self.reviewBackButton.clicked.connect(self._tacticDetailBack)
+        layout.addWidget(self.reviewBackButton, alignment=Qt.AlignmentFlag.AlignLeft)
         self.instructions = QLabel(
             "Import three tactic screenshots, then capture one or more Squad Attributes "
             "screenshots in any player-page or attribute-view order. "
@@ -1428,13 +1447,21 @@ class MainWindow(QMainWindow):
         self.table.setHorizontalHeaderLabels(headers)
         self.table.setAlternatingRowColors(True)
         self.table.setSortingEnabled(False)
-        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectItems)
+        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.table.itemChanged.connect(self._reviewItemChanged)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         layout.addWidget(self.table)
         buttonLayout = QHBoxLayout()
         buttonLayout.addStretch()
+        self.removePlayerButton = QPushButton("Remove Player", self)
+        self.removePlayerButton.setEnabled(False)
+        self.removePlayerButton.clicked.connect(self.reviewPlayerRemove)
+        self.table.itemSelectionChanged.connect(
+            lambda: self.removePlayerButton.setEnabled(bool(self.table.selectedItems()))
+        )
+        buttonLayout.addWidget(self.removePlayerButton)
         self.saveButton = QPushButton("Save Confirmed Data", self)
         self.saveButton.setEnabled(self.saveAction.isEnabled())
         self.saveButton.clicked.connect(self.saveAction.trigger)
@@ -1757,7 +1784,9 @@ class MainWindow(QMainWindow):
                         "\n".join(f"{issue.field}: {issue.message}" for issue in rowIssues)
                     )
                 self.table.setItem(row, column, item)
+        self.table.clearSelection()
         del signalBlocker
+        self.removePlayerButton.setEnabled(False)
         self.saveAction.setEnabled(True)
         summary = []
         if sanity.blockingIssues:
@@ -1911,7 +1940,9 @@ class MainWindow(QMainWindow):
         players: list[ExtractedPlayer] = []
         for row in range(self.table.rowCount()):
             original = self.currentResult.players[row]
-            attributes: dict[str, int | None] = {}
+            # Preserve evidence-backed values that are not represented by a visible
+            # configured column while applying any edits made to displayed values.
+            attributes = dict(original.attributes)
             for offset, definition in enumerate(self.currentDisplayedAttributes, start=4):
                 text = self.table.item(row, offset).text().strip()
                 attributes[definition.name] = int(text) if text.isdigit() else None
