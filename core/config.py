@@ -73,14 +73,13 @@ class Configuration:
         return result
 
     def roleAssessmentWeights(self) -> dict[str, dict[str, int]]:
-        """Return validated Generic Role Fit weights by assessable semantic role code.
+        """Return validated 0-10 Generic Role Fit weights by semantic role code."""
 
-        Tactical vocabulary can contain recognition-only roles observed in FM screenshots
-        before FMSAT has an explicit assessment policy for them. Such roles must still
-        normalize correctly during tactic regeneration, but Generic Role Fit remains
-        unavailable until a policy is deliberately added. Set ``assessmentRequired: false``
-        on those vocabulary entries; every other canonical role must retain complete weights.
-        """
+        scale = self.roleAssessment.get("weightScale")
+        if scale != {"minimum": 0, "maximum": 10}:
+            raise ConfigurationError(
+                "roleAssessment.yaml must declare weightScale minimum 0 and maximum 10"
+            )
 
         roles = self.roleAssessment.get("roles")
         if not isinstance(roles, dict):
@@ -96,7 +95,8 @@ class Configuration:
         assessableCodes = {
             str(roleCode)
             for roleCode, roleData in canonicalRoles.items()
-            if not isinstance(roleData, dict) or roleData.get("assessmentRequired", True) is not False
+            if not isinstance(roleData, dict)
+            or roleData.get("assessmentRequired", True) is not False
         }
         missingRoles = sorted(assessableCodes - configuredCodes)
         unknownRoles = sorted(configuredCodes - canonicalCodes)
@@ -117,7 +117,7 @@ class Configuration:
             invalid = {
                 name: value
                 for name, value in weights.items()
-                if not isinstance(value, int) or not 1 <= value <= 5
+                if not isinstance(value, int) or not 0 <= value <= 10
             }
             if unknown or invalid:
                 raise ConfigurationError(

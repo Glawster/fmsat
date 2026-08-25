@@ -67,15 +67,6 @@ class _State:
 class BestXiAssignmentService:
     """Choose the strongest whole XI rather than greedily filling slots in order."""
 
-    _UNAVAILABLE_ROLE_LABELS = {
-        "",
-        "—",
-        "unavailable",
-        "unknown",
-        "unknown role",
-        "unknown abbreviation",
-    }
-
     def assignmentBuild(
         self,
         requiredSlots: Iterable[object],
@@ -96,17 +87,10 @@ class BestXiAssignmentService:
 
         slots = tuple(requiredSlots)
         roleCatalogue = tuple(roles)
-        slotCandidates = tuple(
-            self._slotCandidates(slot, roleCatalogue)
-            for slot in slots
-        )
+        slotCandidates = tuple(self._slotCandidates(slot, roleCatalogue) for slot in slots)
         evidenceAvailable = any(slotCandidates)
         playerNames = sorted(
-            {
-                candidate.playerName
-                for candidates in slotCandidates
-                for candidate in candidates
-            },
+            {candidate.playerName for candidates in slotCandidates for candidate in candidates},
             key=str.casefold,
         )
         byPlayerSlot = {
@@ -118,9 +102,7 @@ class BestXiAssignmentService:
         slotCount = len(slots)
         emptyAssignments: tuple[str | None, ...] = (None,) * slotCount
         emptyScores: tuple[float | None, ...] = (None,) * slotCount
-        states: dict[int, _State] = {
-            0: _State(0.0, inf, 0, emptyAssignments, emptyScores)
-        }
+        states: dict[int, _State] = {0: _State(0.0, inf, 0, emptyAssignments, emptyScores)}
 
         for playerName in playerNames:
             playerKey = playerName.casefold()
@@ -153,9 +135,7 @@ class BestXiAssignmentService:
             if mask.bit_count() > bestMask.bit_count():
                 bestMask, bestState = mask, state
                 continue
-            if mask.bit_count() == bestMask.bit_count() and self._stateBetter(
-                state, bestState
-            ):
+            if mask.bit_count() == bestMask.bit_count() and self._stateBetter(state, bestState):
                 bestMask, bestState = mask, state
 
         covered = bestMask.bit_count()
@@ -205,15 +185,19 @@ class BestXiAssignmentService:
         roles: tuple[object, ...],
     ) -> tuple[BestXiSlotCandidate, ...]:
         requirements = []
-        for phase, attribute in (("IP", "ipRole"), ("OOP", "oopRole")):
-            label = str(getattr(slot, attribute, "") or "").strip()
-            if label.casefold() in self._UNAVAILABLE_ROLE_LABELS:
-                continue
-            role = self._roleResolve(label, phase, roles)
+        for phase, labelAttribute, codeAttribute in (
+            ("IP", "ipRole", "ipRoleCode"),
+            ("OOP", "oopRole", "oopRoleCode"),
+        ):
+            label = str(getattr(slot, labelAttribute, "") or "").strip()
+            roleCode = str(getattr(slot, codeAttribute, "") or "").strip()
+            role = self._roleResolveByCode(roleCode, phase, roles) if roleCode else None
             if role is None:
+                # A slot is indivisible evidence: never optimise from the phase
+                # that happened to resolve while silently dropping the other.
                 return ()
-            requirements.append((phase, label, role))
-        if not requirements:
+            requirements.append((phase, label or roleCode, role))
+        if len(requirements) != 2:
             return ()
 
         candidateMaps = []
@@ -305,7 +289,8 @@ class BestXiAssignmentService:
         matches = [
             role
             for role in roles
-            if cls._phaseMatches(role, phase)
+            if cls._isAssignableRole(role)
+            and cls._phaseMatches(role, phase)
             and folded
             in {
                 str(getattr(role, "abbreviation", "") or "").casefold(),
@@ -316,6 +301,34 @@ class BestXiAssignmentService:
         if len(matches) != 1:
             return None
         return matches[0]
+
+    @classmethod
+    def _roleResolveByCode(
+        cls,
+        roleCode: str,
+        phase: str,
+        roles: tuple[object, ...],
+    ) -> object | None:
+        """Resolve one tactic slot by durable roleCode, ignoring unresolved placeholders."""
+
+        folded = roleCode.casefold()
+        matches = [
+            role
+            for role in roles
+            if cls._isAssignableRole(role)
+            and cls._phaseMatches(role, phase)
+            and str(getattr(role, "roleCode", "") or "").casefold() == folded
+        ]
+        if len(matches) != 1:
+            return None
+        return matches[0]
+
+    @staticmethod
+    def _isAssignableRole(role: object) -> bool:
+        """Exclude unresolved placeholder rows that only exist for Role Editor workflow."""
+
+        state = str(getattr(role, "resolutionState", "ready") or "ready").casefold()
+        return state not in {"unknownrole", "unknown_role"}
 
     @staticmethod
     def _stateBetter(proposed: _State, existing: _State | None) -> bool:
@@ -333,12 +346,8 @@ class BestXiAssignmentService:
         )
         if proposedObjective != existingObjective:
             return proposedObjective > existingObjective
-        proposedKey = tuple(
-            (value or "\uffff").casefold() for value in proposed.assignments
-        )
-        existingKey = tuple(
-            (value or "\uffff").casefold() for value in existing.assignments
-        )
+        proposedKey = tuple((value or "\uffff").casefold() for value in proposed.assignments)
+        existingKey = tuple((value or "\uffff").casefold() for value in existing.assignments)
         return proposedKey < existingKey
 
     @staticmethod

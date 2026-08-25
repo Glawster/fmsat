@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -9,6 +11,7 @@ from fmsat.core.builder.tacticBuilder import TacticBuilder
 from fmsat.core.builder.tacticModelLoader import TacticModelLoader
 from fmsat.core.builder.tacticStore import TacticStore
 from fmsat.core.detection import ScreenType
+from fmsat.core.roleDepth import RoleDepthService
 from fmsat.database import (
     Database,
     ImportSession,
@@ -65,6 +68,112 @@ def _objectModelSample(name: str, inPossessionName: str) -> ModelTactic:
     return ModelTactic(name=name, inPossession=inPossession, outOfPossession=outOfPossession)
 
 
+def _slotIdentitySample(name: str) -> ModelTactic:
+    """Return matching phase positions carrying obsolete, phase-local slot IDs."""
+
+    role = Role(identity=RoleIdentity.GK)
+    profile = RoleProfile(name="Defend", description="Defend duty")
+    return ModelTactic(
+        name=name,
+        inPossession=Formation(
+            name="IP",
+            positions=[
+                Position(
+                    PositionIdentity.GK,
+                    role,
+                    profile,
+                    slotId="ip-slot-1",
+                    canonicalRole="goalkeeper",
+                )
+            ],
+        ),
+        outOfPossession=Formation(
+            name="OOP",
+            positions=[
+                Position(
+                    PositionIdentity.GK,
+                    role,
+                    profile,
+                    slotId="oop-slot-1",
+                    canonicalRole="goalkeeper",
+                )
+            ],
+        ),
+    )
+
+
+def testObjectModelLoadUsesStructuredSlotIdOverLegacyStoredValue(tmp_path) -> None:
+    """Current structured IDs must replace phase-local legacy object-model IDs."""
+
+    database = Database(tmp_path / "test.sqlite3")
+    database.initialize()
+    imported = database.tacticImportSave(
+        "/captures/formation.png",
+        ScreenType.TACTIC_FORMATION,
+        "Linked Press",
+    )
+    with Session(database.engine) as session, session.begin():
+        tactic = session.scalar(select(Tactic).where(Tactic.normalizedName == "linked press"))
+        sourceImport = session.get(ImportSession, imported.id)
+        assert tactic is not None
+        assert sourceImport is not None
+        tactic.structuredDefinition = ScreenshotDerivedTacticDefinition(
+            confirmed=True,
+            complete=True,
+            tacticMetadata={},
+            slots=[
+                StructuredFormationSlot(
+                    slotId="slot-01",
+                    phase=phase,
+                    position="GK",
+                    role="goalkeeper",
+                    duty="defend",
+                    x=0.5,
+                    y=0.9,
+                    observedRole="GK",
+                    confidence=0.95,
+                    sourceImportSession=sourceImport,
+                    validationState="confirmed",
+                )
+                for phase in ("inPossession", "outOfPossession")
+            ],
+        )
+
+    TacticStore(database.engine).tacticSave(_slotIdentitySample("Linked Press"))
+    loaded = TacticModelLoader(database.engine).tacticLoad("Linked Press")
+
+    assert loaded.tactic is not None
+    assert loaded.tactic.inPossession.positions[0].slotId == "slot-01"
+    assert loaded.tactic.outOfPossession.positions[0].slotId == "slot-01"
+
+    roleCatalogue = {
+        "goalkeeper": SimpleNamespace(
+            displayName="Goalkeeper",
+            abbreviation="GK",
+            candidates=(),
+        )
+    }
+    depth = RoleDepthService("phaseMean").depthBuild(loaded.tactic, roleCatalogue)
+
+    assert len(depth) == 1
+    assert depth[0].slotId == "slot-01"
+    assert {requirement.phase for requirement in depth[0].roles} == {"IP", "OOP"}
+
+
+def testObjectModelLoadRetainsStoredSlotIdWithoutStructuredEvidence(tmp_path) -> None:
+    """Legacy object-model IDs remain the fallback when no structured slots exist."""
+
+    database = Database(tmp_path / "test.sqlite3")
+    database.initialize()
+    TacticStore(database.engine).tacticSave(_slotIdentitySample("Legacy Press"))
+
+    loaded = TacticModelLoader(database.engine).tacticLoad("Legacy Press")
+
+    assert loaded.tactic is not None
+    assert loaded.tactic.inPossession.positions[0].slotId == "ip-slot-1"
+    assert loaded.tactic.outOfPossession.positions[0].slotId == "oop-slot-1"
+
+
 def testLoaderPrefersSavedObjectModelOverStructuredDefinition(tmp_path) -> None:
     """When both sources exist, the saved object-model tactic should be loaded."""
 
@@ -87,7 +196,7 @@ def testLoaderPrefersSavedObjectModelOverStructuredDefinition(tmp_path) -> None:
             slots=[
                 StructuredFormationSlot(
                     slotId="slot-1",
-                    phase="formation",
+                    phase="inPossession",
                     position="GK",
                     role="goalkeeper",
                     duty="defend",
@@ -100,7 +209,7 @@ def testLoaderPrefersSavedObjectModelOverStructuredDefinition(tmp_path) -> None:
                 ),
                 StructuredFormationSlot(
                     slotId="slot-2",
-                    phase="formation",
+                    phase="inPossession",
                     position="DC",
                     role="centreBack",
                     duty="defend",
@@ -113,7 +222,7 @@ def testLoaderPrefersSavedObjectModelOverStructuredDefinition(tmp_path) -> None:
                 ),
                 StructuredFormationSlot(
                     slotId="slot-3",
-                    phase="formation",
+                    phase="inPossession",
                     position="ST",
                     role="centreForward",
                     duty="attack",
@@ -139,7 +248,7 @@ def testLoaderPrefersSavedObjectModelOverStructuredDefinition(tmp_path) -> None:
     assert loaded.phaseSlots == {}
     assert loaded.tactic.inPossession.name == "Saved Shape"
     loadedKeeper = loaded.tactic.inPossession.positions[0]
-    assert loadedKeeper.slotId == "in-gk"
+    assert loadedKeeper.slotId == "slot-1"
     assert loadedKeeper.duty == "defend"
     assert loadedKeeper.x == 0.5
     assert loadedKeeper.y == 0.9
@@ -147,6 +256,9 @@ def testLoaderPrefersSavedObjectModelOverStructuredDefinition(tmp_path) -> None:
     assert loadedKeeper.confidence == 0.96
     assert loadedKeeper.sourceImportSessionId == 1
     assert loadedKeeper.validationState == "confirmed"
+    # Legacy object-model rows without slot IDs recover their linkage from the
+    # phase-specific structured evidence used to build the saved model.
+    assert loaded.tactic.inPossession.positions[1].slotId == "slot-2"
     assert loaded.stale is False
 
 
@@ -158,9 +270,7 @@ def testLoaderMarksSavedModelStaleAfterNewScreenshotImport(tmp_path) -> None:
         ScreenType.TACTIC_FORMATION,
         "High Press",
     )
-    TacticStore(database.engine).tacticSave(
-        _objectModelSample("High Press", "Saved Shape")
-    )
+    TacticStore(database.engine).tacticSave(_objectModelSample("High Press", "Saved Shape"))
 
     database.tacticImportSave(
         "/captures/new-in-possession.png",
@@ -179,15 +289,13 @@ def testSavedObjectModelPreservesStructuredExtractionIssues(tmp_path) -> None:
 
     database = Database(tmp_path / "test.sqlite3")
     database.initialize()
-    imported = database.tacticImportSave(
+    database.tacticImportSave(
         "/captures/formation.png",
         ScreenType.TACTIC_FORMATION,
         "Metadata Gap",
     )
     with Session(database.engine) as session, session.begin():
-        tactic = session.scalar(
-            select(Tactic).where(Tactic.normalizedName == "metadata gap")
-        )
+        tactic = session.scalar(select(Tactic).where(Tactic.normalizedName == "metadata gap"))
         assert tactic is not None
         tactic.structuredDefinition = ScreenshotDerivedTacticDefinition(
             confirmed=False,

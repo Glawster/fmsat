@@ -78,7 +78,7 @@ def testPackagedWeightsCoverEveryAssessableTacticRole() -> None:
     assert weights["trackingAttackingMidfielder"]
     assert all(roleWeights for roleWeights in weights.values())
     assert all(
-        1 <= weight <= 5
+        1 <= weight <= 10
         for roleWeights in weights.values()
         for weight in roleWeights.values()
     )

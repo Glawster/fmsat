@@ -36,6 +36,12 @@ def _role(code: str, abbreviation: str, phase: str, candidates) -> RoleDisplay:
 
 
 def _slot(position: str, ipRole: str, oopRole: str, legacyPrimary: str) -> RequiredSlotDisplay:
+    roleCodes = {
+        "SS": "secondStriker",
+        "TAM": "trackingAttackingMidfielder",
+        "IF": "insideForward",
+        "TW": "trackingWinger",
+    }
     return RequiredSlotDisplay(
         position=position,
         ipRole=ipRole,
@@ -44,6 +50,8 @@ def _slot(position: str, ipRole: str, oopRole: str, legacyPrimary: str) -> Requi
         backup="—",
         primaryEvidence="legacy role-depth primary",
         backupEvidence="",
+        ipRoleCode=roleCodes[ipRole],
+        oopRoleCode=roleCodes[oopRole],
     )
 
 

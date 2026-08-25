@@ -153,6 +153,31 @@ The Generic Role Fit analysis increment must:
 Present these results in the existing Analysis tab. Best XI, Tactical Fit,
 Overall Suitability and recruitment recommendations remain later increments.
 
+## Role assessment policy management
+
+1. Provide a user-facing Role Assessment Weight Editor for Generic Role Fit
+   assessment policy rather than requiring every role's weights to be maintained
+   individually through the Role Profile editor.
+2. Use the canonical 0–10 weight scale for all editable and persisted role
+   assessment weights. Legacy 0–5 policy data must be explicitly migrated to
+   0–10 rather than interpreted ambiguously at runtime.
+3. Allow assessment policy to be bulk imported from and exported to a
+   human-readable, versioned file keyed by semantic `roleCode`.
+4. Validate imported policy before application, including unknown role codes,
+   unknown attributes, invalid weights and invalid importance assignments.
+5. Include confirmed runtime-created roles in the editor. A role without an
+   explicit assessment policy remains `Unavailable`; the editor must not invent
+   default weights.
+6. Keep factual FM role-definition evidence separate from FMSAT assessment
+   policy. Captured role attributes describe the role; weights and importance
+   describe FMSAT's scoring policy.
+7. Saving or importing assessment policy must make affected Generic Role Fit,
+   role-depth and Best XI results eligible for explicit reassessment without
+   requiring tactic or squad OCR regeneration.
+
+This is follow-up work within requirement 007 and does not require a separate
+product requirement.
+
 ## Role Cards
 
 Each Role Card must show enough information to understand the role at a glance,
@@ -342,6 +367,9 @@ invent a modifier when the structured tactic provides no supporting evidence.
 - 2026-08-18: recorded 007B role-depth intelligence, active-tactic persistence,
   Player Editor, Unknown-role workflow and final FM26 squad-header recovery as
   implemented pending final verification.
+- 2026-08-24: added Role Assessment Policy Management as requirement 007
+  follow-up work, covering the 0–10 editor, bulk import/export, runtime-created
+  roles and explicit reassessment.
 
 ## Future foundation
 

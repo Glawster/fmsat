@@ -1,0 +1,17 @@
+# Supplementary filtered-squad import contract.
+#
+# This is layout/identity evidence for the 31 + 7 merge, not an OCR golden file.
+# A later screenshot can be added under tests/screenshots/squads/ without changing
+# the merge behaviour locked here.
+
+existingPlayers: 31
+visiblePlayers: 7
+alreadyKnown: 6
+missingPlayer: 1
+resultPlayers: 32
+policy:
+  - Existing players are merged by normalized player name.
+  - Newly observed players are appended.
+  - Absence from the filtered screenshot never deletes a stored player.
+  - Saving the import refreshes the object model; Reassess Squad is enough.
+  - Full squad regeneration is not required to add one player.

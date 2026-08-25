@@ -8,8 +8,8 @@ def testTrackingAttackingMidfielderHasExplicitWeights() -> None:
 
     tracking = weights["trackingAttackingMidfielder"]
 
-    assert tracking["work_rate"] == 5
-    assert tracking["stamina"] == 5
-    assert tracking["teamwork"] == 5
-    assert tracking["positioning"] == 4
-    assert tracking["marking"] == 4
+    assert tracking["work_rate"] == 10
+    assert tracking["stamina"] == 10
+    assert tracking["teamwork"] == 10
+    assert tracking["positioning"] == 8
+    assert tracking["marking"] == 8

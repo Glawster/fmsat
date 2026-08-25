@@ -303,12 +303,14 @@ class SquadRolesTab(BaseSquadRolesTab):
         self.candidateTable.setSortingEnabled(False)
         attributeNames = self._selectedRoleAttributes(candidates) if role is not None else ()
         headers = ["Player", "Natural positions", "Generic Role Fit", "Best role"]
-        if role is None:
-            headers.append("Calculation breakdown")
-        else:
+        if role is not None:
             for name in attributeNames:
                 definition = self._attributeDefinition(name)
-                headers.append(definition.abbreviation if definition and definition.abbreviation.strip() else name)
+                headers.append(
+                    definition.abbreviation
+                    if definition and definition.abbreviation.strip()
+                    else name
+                )
         self.candidateTable.clearContents()
         self.candidateTable.setColumnCount(len(headers))
         self.candidateTable.setHorizontalHeaderLabels(headers)
@@ -322,8 +324,6 @@ class SquadRolesTab(BaseSquadRolesTab):
             attributeValues = self._candidateAttributeValues(candidate)
             values = [candidate.name, candidate.positions, candidate.score, candidate.bestRole]
             values.extend(attributeValues.get(name, "—") for name in attributeNames)
-            if role is None:
-                values.append(candidate.breakdown)
             for column, value in enumerate(values):
                 if column == 2:
                     sortValue = float(candidate.score) if candidate.available else -1.0
@@ -335,15 +335,16 @@ class SquadRolesTab(BaseSquadRolesTab):
                 else:
                     sortValue = value.casefold()
                 item = SortableTableWidgetItem(value, sortValue)
-                if role is None and column == 4:
-                    item.setToolTip(candidate.breakdown)
                 self.candidateTable.setItem(row, column, item)
         _columnsLeftAlign(self.candidateTable, (0, 1))
         header = self.candidateTable.horizontalHeader()
         for column in range(self.candidateTable.columnCount()):
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
-        if role is None and self.candidateTable.columnCount() == 5:
-            header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
+        if self.candidateTable.columnCount() >= 4:
+            header.setSectionResizeMode(
+                self.candidateTable.columnCount() - 1,
+                QHeaderView.ResizeMode.Stretch,
+            )
         self.candidateTable.setSortingEnabled(True)
         self._rowsCompact()
 

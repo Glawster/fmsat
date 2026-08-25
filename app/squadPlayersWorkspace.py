@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QSignalBlocker, Qt, Signal
-from PySide6.QtWidgets import QAbstractItemView, QDialog
+from PySide6.QtWidgets import QAbstractItemView, QDialog, QMessageBox, QPushButton
 
 from fmsat.app.playerEditorDialog import PlayerEditorDialog
 from fmsat.app.presentation import playerNameDisplay, playerNameStorage
@@ -33,10 +33,12 @@ class SquadPlayersTab(BaseSquadPlayersTab):
                 item.setText(playerNameDisplay(item.text()))
                 item.setToolTip("Double-click this row to edit the player")
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSortingEnabled(True)
         del blocker
         self.table.cellDoubleClicked.connect(self._playerEditorOpen)
+        self._removeButtonCreate()
 
     def _text(self, row: int, column: int) -> str:
         """Translate the surname-first display back to stored name order."""
@@ -120,3 +122,55 @@ class SquadPlayersTab(BaseSquadPlayersTab):
         self.table.item(row, traitsColumn).setText(", ".join(player.traits))
         self.table.setSortingEnabled(sorting)
         del blocker
+
+    def _removeButtonCreate(self) -> None:
+        """Expose player removal on the saved-squad Players tab, not only import review."""
+
+        self.removePlayerButton = QPushButton("Remove Player", self)
+        self.removePlayerButton.setEnabled(False)
+        self.removePlayerButton.setToolTip(
+            "Remove this player from the saved squad model and reassess. "
+            "This does not regenerate screenshots."
+        )
+        self.removePlayerButton.clicked.connect(self._playerRemove)
+        self.table.itemSelectionChanged.connect(self._removeButtonUpdate)
+        root = self.layout()
+        controls = root.itemAt(0).layout() if root is not None else None
+        if controls is not None:
+            controls.addWidget(self.removePlayerButton)
+        self._removeButtonUpdate()
+
+    def _removeButtonUpdate(self) -> None:
+        selected = self.table.selectionModel()
+        self.removePlayerButton.setEnabled(
+            selected is not None and bool(selected.selectedRows())
+        )
+
+    def _playerRemove(self) -> None:
+        """Delete the selected player's persisted model entry and reassess the squad."""
+
+        selected = self.table.selectionModel()
+        if selected is None or not selected.selectedRows():
+            return
+        row = selected.selectedRows()[0].row()
+        storedName = self._text(row, 0)
+        displayName = playerNameDisplay(storedName)
+        answer = QMessageBox.question(
+            self,
+            "Remove Player",
+            f"Remove {displayName} from this squad model?\n\n"
+            "Saved player evidence for this person is deleted and Analysis is reassessed. "
+            "Squad screenshots are kept as history and are not regenerated.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        self.table.removeRow(row)
+        self.changed.emit()
+        save = getattr(self.window(), "_squadModelSave", None)
+        if callable(save):
+            save(self.modelBuild())
+        else:
+            self.playerSaveRequested.emit()
+        self._removeButtonUpdate()

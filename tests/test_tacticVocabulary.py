@@ -97,7 +97,7 @@ def testConfiguredRoleProfileAbbreviationsAreCanonicalTacticalRoles() -> None:
         "P": "poacher",
         "F9": "falseNine",
         "HB": "halfBack",
-        "DDM": "deepDefensiveMidfielder",
+        "DDM": "droppingDefensiveMidfielder",
     }
 
     for abbreviation, canonical in expected.items():
@@ -108,7 +108,7 @@ def testConfirmedOcrRoleDefinitionsAreAuditedAgainstTacticalVocabulary() -> None
     vocabulary = TacticVocabulary()
     definitions = (
         SimpleNamespace(displayName="Half-Back", abbreviations=("HB",)),
-        SimpleNamespace(displayName="Deep Defensive Midfielder", abbreviations=("DDM",)),
+        SimpleNamespace(displayName="Dropping Defensive Midfielder", abbreviations=("DDM",)),
         SimpleNamespace(displayName="Unmapped Test Role", abbreviations=("UTR",)),
     )
 
@@ -167,7 +167,7 @@ def testStaleCapturedRoleCodeDoesNotOverrideCapturedAliases() -> None:
         SimpleNamespace(
             roleID=20,
             roleCode="freeRole",
-            displayName="Tracking Attacking Midfielder",
+            displayName="Dropping Defensive Midfielder",
             abbreviations=("TAM",),
             positions=("AMC",),
         ),

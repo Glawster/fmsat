@@ -109,7 +109,7 @@ class RoleProfileParser:
         phase = self._phaseRead(results)
         roleName, abbreviation = self._roleRead(results, image.shape[1])
         behaviours = self._behavioursRead(results, image.shape[1])
-        keyAttributes, displayedValues = self._keyAttributesRead(results)
+        keyAttributes, displayedValues = self._keyAttributesRead(results, image.shape[1])
         if not keyAttributes:
             raise ParserError("No Key Attributes could be extracted from the role profile")
         description = self._descriptionRead(results, image.shape[1], roleName, behaviours)
@@ -199,21 +199,34 @@ class RoleProfileParser:
     def _keyAttributesRead(
         self,
         results: list[OcrResult],
+        imageWidth: int,
     ) -> tuple[tuple[str, ...], dict[str, int]]:
         start = self._headingIndex(results, "key attributes")
-        if start is None:
-            raise ParserError("The Key Attributes heading was not found")
         end = self._headingIndex(results, "player instructions")
+        aliases = self._attributeAliases()
+        if start is None:
+            return self._keyAttributesWithoutHeading(results, end, imageWidth, aliases)
+
+        # Retain the normal heading-anchored extraction when OCR sees the label.
         section = results[start + 1 : end]
-        aliases = {
-            self._textKey(definition.name): definition.name for definition in self.attributes
-        }
-        aliases.update(
-            {
-                self._textKey(definition.name.replace("_", " ")): definition.name
-                for definition in self.attributes
-            }
-        )
+        return self._attributesRead(section, aliases)
+
+    def _attributeAliases(self) -> dict[str, str]:
+        """Return the one attribute vocabulary used by both extraction paths."""
+
+        aliases: dict[str, str] = {}
+        for definition in self.attributes:
+            aliases[self._textKey(definition.name)] = definition.name
+            aliases[self._textKey(definition.name.replace("_", " "))] = definition.name
+        return aliases
+
+    def _attributesRead(
+        self,
+        section: list[OcrResult],
+        aliases: dict[str, str],
+    ) -> tuple[tuple[str, ...], dict[str, int]]:
+        """Read recognized attribute names and their adjacent displayed ratings."""
+
         keys: list[str] = []
         values: dict[str, int] = {}
         for index, result in enumerate(section):
@@ -225,6 +238,75 @@ class RoleProfileParser:
             if rating is not None:
                 values[attribute] = rating
         return tuple(dict.fromkeys(keys)), values
+
+    def _keyAttributesWithoutHeading(
+        self,
+        results: list[OcrResult],
+        instructionsIndex: int | None,
+        imageWidth: int,
+        aliases: dict[str, str],
+    ) -> tuple[tuple[str, ...], dict[str, int]]:
+        """Recover a missing heading only from a coherent detail-panel row block."""
+
+        instructionsY = None
+        if instructionsIndex is not None and results[instructionsIndex].center is not None:
+            instructionsY = results[instructionsIndex].center[1]
+
+        # Keep the original OCR ordering for _ratingNear, but exclude the role list and
+        # everything at or below a recognized Player Instructions boundary.
+        section = [
+            result
+            for result in results[:instructionsIndex]
+            if result.center is not None
+            and result.center[0] >= imageWidth * 0.33
+            and (instructionsY is None or result.center[1] < instructionsY)
+        ]
+        rows: list[tuple[float, float, OcrResult, str, int]] = []
+        for index, result in enumerate(section):
+            attribute = aliases.get(self._textKey(result.text))
+            if attribute is None:
+                continue
+            rating = self._ratingNear(section, index, result)
+            if rating is None:
+                continue
+            x, y = result.center
+            rows.append((y, x, result, attribute, rating))
+
+        # Three rated rows are enough to establish a pattern, while isolated words or
+        # pairs remain deliberately insufficient evidence. Row spacing is derived from
+        # OCR box height, not from the description's changing screen position.
+        rows.sort(key=lambda row: (row[0], row[1]))
+        blocks: list[list[tuple[float, float, OcrResult, str, int]]] = []
+        for row in rows:
+            box = row[2].bounds
+            rowHeight = max(1.0, float(box[3] - box[1]))
+            if not blocks:
+                blocks.append([row])
+                continue
+            previous = blocks[-1][-1]
+            previousBox = previous[2].bounds
+            previousHeight = max(1.0, float(previousBox[3] - previousBox[1]))
+            maximumGap = max(rowHeight, previousHeight) * 4.5
+            if 0 < row[0] - previous[0] <= maximumGap:
+                blocks[-1].append(row)
+            else:
+                blocks.append([row])
+
+        credible = [block for block in blocks if len(block) >= 3]
+        if not credible:
+            raise ParserError(
+                "Neither the Key Attributes heading nor a credible attribute block was found"
+            )
+        largestSize = max(len(block) for block in credible)
+        largest = [block for block in credible if len(block) == largestSize]
+        if len(largest) != 1:
+            raise ParserError("The role-profile attribute block is ambiguous")
+
+        block = largest[0]
+        keys = tuple(dict.fromkeys(row[3] for row in block))
+        if len(keys) < 3:
+            raise ParserError("The role-profile attribute block is ambiguous")
+        return keys, {row[3]: row[4] for row in block}
 
     @staticmethod
     def _ratingNear(

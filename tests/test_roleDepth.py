@@ -150,21 +150,13 @@ def testRoleDepthAveragesPhaseRoleFitsAndRetainsEachRoleEvidence() -> None:
         "outRole": _role("outRole", "Out Role", "OR", {"Alpha": 60.0, "Bravo": 80.0}),
     }
     tactic = SimpleNamespace(
-        inPossession=SimpleNamespace(
-            positions=(_position("slot-one", "inRole", "AMC"),)
-        ),
-        outOfPossession=SimpleNamespace(
-            positions=(_position("slot-one", "outRole", "MC"),)
-        ),
+        inPossession=SimpleNamespace(positions=(_position("slot-one", "inRole", "AMC"),)),
+        outOfPossession=SimpleNamespace(positions=(_position("slot-one", "outRole", "MC"),)),
     )
 
     depth = RoleDepthService("phaseMean").depthBuild(tactic, roles)
 
-    alpha = next(
-        candidate
-        for candidate in depth[0].candidates
-        if candidate.player.name == "Alpha"
-    )
+    alpha = next(candidate for candidate in depth[0].candidates if candidate.player.name == "Alpha")
     assert alpha.score == 70.0
     assert tuple(item.roleCode for item in alpha.roleFits) == ("inRole", "outRole")
 
@@ -174,12 +166,8 @@ def testRoleDepthResolvesLegacyAbbreviationToSemanticCatalogueRole() -> None:
 
     halfBack = _role("halfBack", "Half-Back", "HB", {"Alpha": 80.0})
     tactic = SimpleNamespace(
-        inPossession=SimpleNamespace(
-            positions=(_position("slot-one", "HB", "DM"),)
-        ),
-        outOfPossession=SimpleNamespace(
-            positions=(_position("slot-one", "HB", "DM"),)
-        ),
+        inPossession=SimpleNamespace(positions=(_position("slot-one", "HB", "DM"),)),
+        outOfPossession=SimpleNamespace(positions=(_position("slot-one", "HB", "DM"),)),
     )
 
     depth = RoleDepthService("phaseMean").depthBuild(tactic, {"halfBack": halfBack})
@@ -193,9 +181,7 @@ def testRoleDepthRetainsObservedAbbreviationWhenSemanticRoleIsUnresolved() -> No
     """Known FM text such as TW must remain visible even before role knowledge is confirmed."""
 
     tactic = SimpleNamespace(
-        inPossession=SimpleNamespace(
-            positions=(_position("slot-one", "insideForward", "AML"),)
-        ),
+        inPossession=SimpleNamespace(positions=(_position("slot-one", "insideForward", "AML"),)),
         outOfPossession=SimpleNamespace(
             positions=(_position("slot-one", None, "AML", observedRole="TW"),)
         ),
@@ -214,17 +200,76 @@ def testRoleDepthRetainsObservedAbbreviationWhenSemanticRoleIsUnresolved() -> No
     assert "OOP roleCode is unavailable" in depth[0].unavailableReason
 
 
+def testRoleDepthRecoversObservedRoleAfterRejectingPositionIdentity() -> None:
+    """A leaked AMC position must not hide the retained AM role evidence."""
+
+    tactic = SimpleNamespace(
+        inPossession=SimpleNamespace(
+            positions=(_position("slot-one", "AMC", "AMC", observedRole="AM"),)
+        ),
+        outOfPossession=SimpleNamespace(
+            positions=(_position("slot-one", "trackingAttackingMidfielder", "AMC"),)
+        ),
+    )
+    tracking = _role(
+        "trackingAttackingMidfielder", "Tracking Attacking Midfielder", "TAM", {"Alpha": 80.0}
+    )
+    attacking = _role("attackingMidfielder", "Attacking Midfielder", "AM", {"Alpha": 70.0})
+
+    depth = RoleDepthService("phaseMean").depthBuild(
+        tactic,
+        {
+            "attackingMidfielder": attacking,
+            "trackingAttackingMidfielder": tracking,
+        },
+    )
+
+    assert depth[0].roles[0].roleCode == "attackingMidfielder"
+    assert depth[0].roles[1].roleCode == "trackingAttackingMidfielder"
+    assert depth[0].bestCandidate == "Alpha"
+
+
+def testRoleDepthConsumesEveryTacticPhaseAssignmentBySemanticCode() -> None:
+    """The phase assignments entering Roles and Role Depth must be identical."""
+
+    ipCodes = tuple(f"ipRole{index}" for index in range(8))
+    oopCodes = tuple(f"oopRole{index}" for index in range(8))
+    catalogue = {code: _role(code, code, code, {"Alpha": 70.0}) for code in (*ipCodes, *oopCodes)}
+    tactic = SimpleNamespace(
+        inPossession=SimpleNamespace(
+            positions=tuple(
+                _position(f"slot-{index}", code, f"P{index}") for index, code in enumerate(ipCodes)
+            )
+        ),
+        outOfPossession=SimpleNamespace(
+            positions=tuple(
+                _position(f"slot-{index}", code, f"P{index}") for index, code in enumerate(oopCodes)
+            )
+        ),
+    )
+
+    depth = RoleDepthService("phaseMean").depthBuild(tactic, catalogue)
+
+    consumed = tuple(
+        (slot.slotId, requirement.phase, requirement.roleCode)
+        for slot in depth
+        for requirement in slot.roles
+    )
+    expected = tuple(
+        (f"slot-{index}", phase, codes[index])
+        for index in range(8)
+        for phase, codes in (("IP", ipCodes), ("OOP", oopCodes))
+    )
+    assert consumed == expected
+
+
 def testRoleDepthIsUnavailableWhenSlotLinkageEvidenceIsMissing() -> None:
     """Do not infer simultaneous slots by ordinal when durable slot linkage is absent."""
 
     role = _role("role", "Role", "R", {"Alpha": 80.0})
     tactic = SimpleNamespace(
-        inPossession=SimpleNamespace(
-            positions=(_position(None, "role", "AMC"),)
-        ),
-        outOfPossession=SimpleNamespace(
-            positions=(_position(None, "role", "MC"),)
-        ),
+        inPossession=SimpleNamespace(positions=(_position(None, "role", "AMC"),)),
+        outOfPossession=SimpleNamespace(positions=(_position(None, "role", "MC"),)),
     )
 
     depth = RoleDepthService("phaseMean").depthBuild(tactic, {"role": role})
@@ -233,6 +278,40 @@ def testRoleDepthIsUnavailableWhenSlotLinkageEvidenceIsMissing() -> None:
     assert depth[0].bestCandidate is None
     assert depth[0].uncovered
     assert "slot linkage is unavailable" in depth[0].unavailableReason
+    assert [requirement.roleCode for requirement in depth[0].roles] == ["role"]
+    assert depth[0].roles[0].phase == "IP"
+
+
+def testRoleDepthPreservesTenDurablePairsWhenOnePhaseSlotIsMissing() -> None:
+    """One broken phase link must not invalidate ten independently linked slots."""
+
+    role = _role("role", "Role", "R", {"Alpha": 80.0})
+    tactic = SimpleNamespace(
+        inPossession=SimpleNamespace(
+            positions=tuple(_position(f"slot-{index:02d}", "role", "MC") for index in range(1, 12))
+        ),
+        outOfPossession=SimpleNamespace(
+            positions=(
+                *(_position(f"slot-{index:02d}", "role", "MC") for index in range(1, 11)),
+                _position(None, "role", "MC"),
+            )
+        ),
+    )
+
+    depth = RoleDepthService("phaseMean").depthBuild(tactic, {"role": role})
+
+    linked = [slot for slot in depth if not slot.slotId.startswith("unlinked:")]
+    broken = [slot for slot in depth if slot.slotId.startswith("unlinked:")]
+    assert len(depth) == 11
+    assert [slot.slotId for slot in linked] == [f"slot-{index:02d}" for index in range(1, 11)]
+    assert all(
+        [requirement.phase for requirement in slot.roles] == ["IP", "OOP"] for slot in linked
+    )
+    assert all(slot.candidates for slot in linked)
+    assert len(broken) == 1
+    assert broken[0].roles[0].phase == "IP"
+    assert broken[0].candidates == ()
+    assert "slot linkage is unavailable" in broken[0].unavailableReason
 
 
 def testRoleDepthRecoversGloballyUnambiguousSpatialLinkage() -> None:
@@ -293,6 +372,7 @@ def testRoleDepthRejectsAmbiguousSpatialLinkage() -> None:
     assert len(depth) == 2
     assert all(slot.bestCandidate is None for slot in depth)
     assert all("slot linkage is unavailable" in slot.unavailableReason for slot in depth)
+    assert all(slot.roles and slot.roles[0].roleCode == "role" for slot in depth)
 
 
 def testRoleDepthIsUnavailableWithoutExplicitAggregationPolicy() -> None:
@@ -300,12 +380,8 @@ def testRoleDepthIsUnavailableWithoutExplicitAggregationPolicy() -> None:
 
     role = _role("role", "Role", "R", {"Alpha": 80.0})
     tactic = SimpleNamespace(
-        inPossession=SimpleNamespace(
-            positions=(_position("slot-one", "role", "AMC"),)
-        ),
-        outOfPossession=SimpleNamespace(
-            positions=(_position("slot-one", "role", "MC"),)
-        ),
+        inPossession=SimpleNamespace(positions=(_position("slot-one", "role", "AMC"),)),
+        outOfPossession=SimpleNamespace(positions=(_position("slot-one", "role", "MC"),)),
     )
 
     depth = RoleDepthService().depthBuild(tactic, {"role": role})
@@ -313,3 +389,47 @@ def testRoleDepthIsUnavailableWithoutExplicitAggregationPolicy() -> None:
     assert depth[0].bestCandidate is None
     assert depth[0].uncovered
     assert depth[0].unavailableReason == "Required slot aggregation policy is unavailable"
+
+
+def testRoleDepthRecoversRoleFromObservedProfileDescription() -> None:
+    """Role depth must use the same retained FM role evidence as squad assessment."""
+
+    position = SimpleNamespace(
+        canonicalRole=None,
+        canonicalPosition="STC",
+        identity=SimpleNamespace(value="STC"),
+        roleProfile=SimpleNamespace(
+            name="Observed role",
+            description="CFD (Observed role)",
+        ),
+    )
+
+    roleCatalogue = {
+        "centreForward": SimpleNamespace(
+            abbreviation="CFD",
+            displayName="Centre Forward",
+        )
+    }
+
+    assert RoleDepthService._roleCodeResolve(position, roleCatalogue) == "centreForward"
+
+
+def testRoleDepthDoesNotUsePositionAsRoleIdentity() -> None:
+    position = SimpleNamespace(
+        canonicalRole="AMC",
+        canonicalPosition="AMC",
+        identity=SimpleNamespace(value="AMC"),
+        roleProfile=SimpleNamespace(
+            name="Observed role",
+            description="AM (Observed role)",
+        ),
+    )
+
+    roleCatalogue = {
+        "attackingMidfielder": SimpleNamespace(
+            abbreviation="AM",
+            displayName="Attacking Midfielder",
+        )
+    }
+
+    assert RoleDepthService._roleCodeResolve(position, roleCatalogue) == "attackingMidfielder"

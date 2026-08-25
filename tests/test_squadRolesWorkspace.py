@@ -275,6 +275,22 @@ def testSquadRoleLineOrderingRunsFromForwardsToGoalkeeper() -> None:
     assert positionSortKey("GK")[0] == 5
 
 
+def testAllPlayerViewOmitsCalculationBreakdown(qtbot) -> None:  # type: ignore[no-untyped-def]
+    roles = (
+        _role("insideForward", "IF", "AML", "Hemp, Lauren", "In Possession"),
+        _role("trackingWinger", "TW", "AML", "Hemp, Lauren", "Out Of Possession"),
+    )
+    tab = SquadRolesTab(roles)
+    qtbot.addWidget(tab)
+
+    assert [
+        tab.candidateTable.horizontalHeaderItem(column).text()
+        for column in range(tab.candidateTable.columnCount())
+    ] == ["Player", "Natural positions", "Generic Role Fit", "Best role"]
+    assert tab.candidateTable.rowCount() == 1
+    assert tab.candidateTable.item(0, 0).text() == "Hemp, Lauren"
+
+
 def testUnresolvedSemanticRoleCodeDisplaysUnknownAbbreviation() -> None:
     assert roleAbbreviationDisplay("trackingWinger", "trackingWinger") == "Unknown"
     assert roleAbbreviationDisplay("trackingWideMidfielder", "trackingWideMidfielder") == "Unknown"

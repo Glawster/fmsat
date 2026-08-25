@@ -10,7 +10,7 @@ from fmsat.core.config import AttributeDefinition, Configuration
 from fmsat.core.images import ImagePreprocessor, PreprocessingOptions, imageLoad
 from fmsat.core.logUtils import getLogger
 from fmsat.core.ocr import PaddleOcrEngine
-from fmsat.core.parser import SquadAttributesParser
+from fmsat.core.parser import ExtractedPlayer, SquadAttributesParser
 from fmsat.core.services import ImportResult, squadCapturesMerge
 from fmsat.core.detection import ScreenType
 from fmsat.database.models import (
@@ -56,6 +56,82 @@ class SquadModel:
     regenerationRequired: bool = False
 
 
+def squadPlayersMerge(
+    existing: tuple[SquadModelPlayer, ...],
+    incoming: list[ExtractedPlayer],
+    *,
+    sourceImportSessionId: int | None = None,
+) -> tuple[SquadModelPlayer, ...]:
+    """Update matching players and append new ones. Absence never deletes."""
+
+    merged = list(existing)
+    byName = {player.name.strip().casefold(): index for index, player in enumerate(merged)}
+    for extracted in incoming:
+        normalized = extracted.name.strip().casefold()
+        if not normalized:
+            continue
+        index = byName.get(normalized)
+        if index is None:
+            byName[normalized] = len(merged)
+            merged.append(
+                _extractedPlayerToModel(
+                    extracted,
+                    sourceImportSessionId=sourceImportSessionId,
+                )
+            )
+            continue
+        merged[index] = _playerFactsMerge(
+            merged[index],
+            extracted,
+            sourceImportSessionId=sourceImportSessionId,
+        )
+    return tuple(merged)
+
+
+def _extractedPlayerToModel(
+    extracted: ExtractedPlayer,
+    *,
+    sourceImportSessionId: int | None,
+) -> SquadModelPlayer:
+    """Create one object-model player from a newly observed screenshot row."""
+
+    return SquadModelPlayer(
+        name=extracted.name.strip(),
+        positions=extracted.positions.strip(),
+        ca=extracted.ca.strip(),
+        pa=extracted.pa.strip(),
+        confidence=extracted.confidence,
+        sourceImportSessionId=sourceImportSessionId,
+        validationState="extracted",
+        attributes=tuple(sorted(extracted.attributes.items())),
+    )
+
+
+def _playerFactsMerge(
+    existing: SquadModelPlayer,
+    incoming: ExtractedPlayer,
+    *,
+    sourceImportSessionId: int | None,
+) -> SquadModelPlayer:
+    """Apply newly observed values without clearing unobserved attributes."""
+
+    attributes = dict(existing.attributes)
+    for name, value in incoming.attributes.items():
+        if value is not None or name not in attributes:
+            attributes[name] = value
+    return SquadModelPlayer(
+        name=incoming.name.strip() or existing.name,
+        positions=incoming.positions.strip() or existing.positions,
+        ca=incoming.ca.strip() or existing.ca,
+        pa=incoming.pa.strip() or existing.pa,
+        confidence=incoming.confidence if incoming.confidence is not None else existing.confidence,
+        sourceImportSessionId=sourceImportSessionId or existing.sourceImportSessionId,
+        validationState="extracted",
+        attributes=tuple(sorted(attributes.items())),
+        traits=existing.traits,
+    )
+
+
 class SquadModelService:
     """Keep screenshot evidence separate from the editable current squad model."""
 
@@ -77,6 +153,62 @@ class SquadModelService:
         if not create:
             return None
         return self._modelGenerate(cleanName)
+
+    def modelRefreshFromEvidence(self, squadName: str) -> SquadModel | None:
+        """Rebuild the editable model from saved import rows without re-OCR.
+
+        Supplementary screenshots can add or update players. Players absent from
+        the latest capture remain if earlier captures still contain them.
+        """
+
+        cleanName = squadName.strip()
+        if not cleanName:
+            return None
+        now = datetime.now()
+        with Session(self.engine) as session, session.begin():
+            source = session.scalar(
+                select(Squad)
+                .where(Squad.normalizedName == cleanName.casefold())
+                .options(
+                    selectinload(Squad.screenshots)
+                    .selectinload(SquadScreenshot.importSession)
+                    .selectinload(ImportSession.players)
+                    .selectinload(Player.attributes)
+                )
+            )
+            if source is None:
+                return None
+            stored = self._storedLoad(session, cleanName)
+            traitsByPlayer = {
+                player.normalizedName: tuple(
+                    trait.traitName
+                    for trait in sorted(player.traits, key=lambda item: item.traitName.casefold())
+                )
+                for player in (stored.players if stored is not None else ())
+            }
+            if stored is None:
+                stored = ObjectModelSquad(
+                    name=source.name,
+                    normalizedName=source.normalizedName,
+                    sourceSquad=source,
+                    generatedAt=now,
+                    updatedAt=now,
+                )
+                session.add(stored)
+            else:
+                stored.players.clear()
+                session.flush()
+                stored.sourceSquad = source
+                stored.updatedAt = now
+            for name, evidenceRows in self._playerEvidenceGroups(source):
+                stored.players.append(
+                    self._playerFromEvidenceRows(
+                        evidenceRows,
+                        traits=traitsByPlayer.get(name, ()),
+                    )
+                )
+            session.flush()
+            return self._modelDetach(stored)
 
     def modelSave(self, model: SquadModel) -> SquadModel:
         """Persist edits, or explicitly regenerate a model marked as stale."""

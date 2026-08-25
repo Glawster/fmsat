@@ -1,8 +1,10 @@
 import numpy as np
+import pytest
 
 from fmsat.core.config import AttributeDefinition
 from fmsat.core.ocr import OcrResult
 from fmsat.core.parser import RoleProfileParser, TacticVocabulary
+from fmsat.core.parser.squadAttributes import ParserError
 from fmsat.tests.conftest import FakeOcr
 
 
@@ -179,9 +181,7 @@ def testRoleProfileParserExcludesBehaviourSummaryFromDescription() -> None:
         _result("Box-To-Box Midfielder", 720, 100),
         _result("Role Ability", 620, 140),
         _result("Moves Inside Goal Threat", 700, 156),
-        _result(
-            "The non-stop dynamism of the Box-to-Box Midfielder enables them", 700, 170
-        ),
+        _result("The non-stop dynamism of the Box-to-Box Midfielder enables them", 700, 170),
         _result("to contribute greatly to both attacking play during the build-up", 700, 182),
         _result("and in the final third.", 700, 194),
         _result("Key Attributes", 620, 220),
@@ -269,3 +269,122 @@ def testRoleProfileParserIgnoresLeftColumnTextAfterPlayerInstructionsHeading() -
     evidence = parser.parse(np.zeros((768, 1024, 3), dtype=np.uint8))
 
     assert evidence.playerInstructions == ()
+
+
+def _fallbackParser(results: list[OcrResult]) -> RoleProfileParser:
+    names = (
+        "heading",
+        "marking",
+        "passing",
+        "tackling",
+        "anticipation",
+        "positioning",
+        "strength",
+        "jumping_reach",
+    )
+    return RoleProfileParser(
+        FakeOcr([results], suppliesGeometry=True),
+        TacticVocabulary(),
+        tuple(AttributeDefinition(name, name[:3], index) for index, name in enumerate(names)),
+    )
+
+
+def _roleProfileWithoutKeyHeading(
+    attributeY: float,
+    includeInstructions: bool = True,
+) -> list[OcrResult]:
+    results = [
+        _result("D (C)", 100, 30),
+        _result("In Possession Role", 100, 50),
+        _result("Ball-Playing Centre-Back", 720, 80),
+        _result("Role Ability", 620, 110),
+        _result("A description whose height is controlled by its content", 680, attributeY - 30),
+    ]
+    for offset, name in enumerate(
+        (
+            "Heading",
+            "Marking",
+            "Passing",
+            "Tackling",
+            "Anticipation",
+            "Positioning",
+            "Strength",
+            "Jumping Reach",
+        )
+    ):
+        y = attributeY + offset * 24
+        results.extend((_result(name, 620, y), _result(str(11 + offset % 8), 900, y)))
+    if includeInstructions:
+        results.extend(
+            (
+                _result("Player Instructions", 620, attributeY + 8 * 24 + 10),
+                _result("Marking", 620, attributeY + 9 * 24),
+                _result("20", 900, attributeY + 9 * 24),
+            )
+        )
+    return results
+
+
+@pytest.mark.parametrize("headingY", [115, 180])
+def testRoleProfileParserUsesRecognizedKeyAttributesHeadingAtAnyHeight(
+    headingY: float,
+) -> None:
+    results = _roleProfileWithoutKeyHeading(headingY + 25)
+    results.insert(5, _result("Key Attributes", 620, headingY))
+
+    evidence = _fallbackParser(results).parse(np.zeros((768, 1024, 3), dtype=np.uint8))
+
+    assert evidence.keyAttributes[0] == "heading"
+    assert len(evidence.keyAttributes) == 8
+
+
+@pytest.mark.parametrize("attributeY", [165, 330])
+def testRoleProfileParserRecoversMissingHeadingIndependentOfDescriptionPosition(
+    attributeY: float,
+) -> None:
+    results = _roleProfileWithoutKeyHeading(attributeY)
+
+    evidence = _fallbackParser(results).parse(np.zeros((768, 1024, 3), dtype=np.uint8))
+
+    assert evidence.keyAttributes == (
+        "heading",
+        "marking",
+        "passing",
+        "tackling",
+        "anticipation",
+        "positioning",
+        "strength",
+        "jumping_reach",
+    )
+    assert evidence.displayedPlayerAttributes["jumping_reach"] == 18
+
+
+def testRoleProfileParserBoundsMissingHeadingFallbackAtPlayerInstructions() -> None:
+    evidence = _fallbackParser(_roleProfileWithoutKeyHeading(180)).parse(
+        np.zeros((768, 1024, 3), dtype=np.uint8)
+    )
+
+    assert evidence.displayedPlayerAttributes["marking"] == 12
+
+
+def testRoleProfileParserDoesNotUseLeftRoleListAttributesForFallback() -> None:
+    results = _roleProfileWithoutKeyHeading(180)
+    results[5:9] = [
+        _result("Heading", 180, 130),
+        _result("20", 280, 130),
+        _result("Marking", 180, 154),
+        _result("20", 280, 154),
+    ]
+
+    evidence = _fallbackParser(results).parse(np.zeros((768, 1024, 3), dtype=np.uint8))
+
+    assert "heading" not in evidence.keyAttributes
+    assert "marking" not in evidence.keyAttributes
+
+
+def testRoleProfileParserRejectsInsufficientMissingHeadingEvidence() -> None:
+    results = _roleProfileWithoutKeyHeading(180)
+    del results[9:]
+
+    with pytest.raises(ParserError, match="credible attribute block"):
+        _fallbackParser(results).parse(np.zeros((768, 1024, 3), dtype=np.uint8))

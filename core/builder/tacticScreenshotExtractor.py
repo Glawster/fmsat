@@ -257,7 +257,7 @@ class TacticScreenshotExtractor:
                 f"display={getattr(definition, 'displayName', None)!r} "
                 f"abbreviations={getattr(definition, 'abbreviations', ())!r}"
             )
-        self.vocabulary.capturedRolesAdd(definitions)
+        self.vocabulary.capturedRolesReplace(definitions)
         logger.value("captured role definitions available to OCR", len(definitions))
         refreshedTam = self.vocabulary.roleNormalize("TAM")
         logger.info(
