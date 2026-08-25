@@ -1,5 +1,6 @@
 """Editable squad object-model persistence tests."""
 
+from dataclasses import replace
 from datetime import datetime
 
 from fmsat.core.parser import ExtractedPlayer
@@ -62,9 +63,7 @@ def testSupplementarySevenPlayerImportMergesWithoutDeletingOthers() -> None:
         ExtractedPlayer(f"Player {index:02d}", "M (C)", "111", "125", {"passing": 14}, 0.95)
         for index in (1, 2, 3, 4, 5, 6)
     ]
-    incoming.append(
-        ExtractedPlayer("Player 32", "ST (C)", "130", "140", {"passing": 16}, 0.96)
-    )
+    incoming.append(ExtractedPlayer("Player 32", "ST (C)", "130", "140", {"passing": 16}, 0.96))
 
     merged = squadPlayersMerge(existing, incoming, sourceImportSessionId=99)
 
@@ -111,3 +110,34 @@ def testModelRefreshFromEvidenceAddsMissingPlayerWithoutReOcr(tmp_path) -> None:
     assert dict(byName["Player 01"].attributes)["passing"] == 14
     assert dict(byName["Player 31"].attributes)["passing"] == 10
     assert refreshed.regenerationRequired is False
+
+
+def testManualNameCorrectionSurvivesEvidenceRefresh(tmp_path) -> None:
+    """A corrected model name remains authoritative over later noisy OCR rows."""
+
+    database = Database(tmp_path / "test.sqlite3")
+    database.initialize()
+    noisy = ExtractedPlayer("Smith, Qe Ella", "M (C)", "105", "125", {"passing": 14}, 0.82)
+    database.squadImportBatchSave(["/captures/first.png"], [noisy], "First Team")
+    service = SquadModelService(database.engine)
+    generated = service.modelLoad("First Team")
+    assert generated is not None
+    corrected = replace(
+        generated,
+        players=(
+            replace(
+                generated.players[0],
+                name="Smith, Ella",
+                validationState="corrected",
+            ),
+        ),
+    )
+    service.modelSave(corrected)
+
+    database.squadImportBatchSave(["/captures/second.png"], [noisy], "First Team")
+    refreshed = service.modelRefreshFromEvidence("First Team")
+
+    assert refreshed is not None
+    assert len(refreshed.players) == 1
+    assert refreshed.players[0].name == "Smith, Ella"
+    assert refreshed.players[0].validationState == "corrected"

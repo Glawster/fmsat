@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QSignalBlocker, Qt, Signal
-from PySide6.QtWidgets import QAbstractItemView, QDialog, QMessageBox, QPushButton
+from PySide6.QtWidgets import QAbstractItemView, QDialog, QMessageBox, QPushButton, QStyle
 
 from fmsat.app.playerEditorDialog import PlayerEditorDialog
 from fmsat.app.presentation import playerNameDisplay, playerNameStorage
@@ -31,7 +31,17 @@ class SquadPlayersTab(BaseSquadPlayersTab):
             item = self.table.item(row, 0)
             if item is not None:
                 item.setText(playerNameDisplay(item.text()))
-                item.setToolTip("Double-click this row to edit the player")
+                sourceIndex = int(item.data(Qt.ItemDataRole.UserRole))
+                player = self.model.players[sourceIndex]
+                if player.validationState == "uncertain":
+                    item.setIcon(
+                        self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxWarning)
+                    )
+                    item.setToolTip(
+                        "Name may contain OCR artefacts. Double-click to review and correct it."
+                    )
+                else:
+                    item.setToolTip("Double-click this row to edit the player")
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -142,9 +152,7 @@ class SquadPlayersTab(BaseSquadPlayersTab):
 
     def _removeButtonUpdate(self) -> None:
         selected = self.table.selectionModel()
-        self.removePlayerButton.setEnabled(
-            selected is not None and bool(selected.selectedRows())
-        )
+        self.removePlayerButton.setEnabled(selected is not None and bool(selected.selectedRows()))
 
     def _playerRemove(self) -> None:
         """Delete the selected player's persisted model entry and reassess the squad."""

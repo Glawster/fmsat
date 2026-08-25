@@ -69,6 +69,24 @@ def testComplementarySquadCapturesMergePlayersAndAttributes() -> None:
     assert merged.mergeConflicts == []
 
 
+def testComplementaryCaptureReconcilesOcrNameFragment() -> None:
+    first = ImportResult(
+        "first",
+        ScreenType.SQUAD_ATTRIBUTES,
+        [ExtractedPlayer("Smith, Qe Ella", "M (C)", "105", "125", {"passing": 14}, 0.82)],
+    )
+    second = ImportResult(
+        "second",
+        ScreenType.SQUAD_ATTRIBUTES,
+        [ExtractedPlayer("Smith, Ella", "M (C)", "105", "125", {"vision": 13}, 0.97)],
+    )
+
+    merged = squadCapturesMerge(first, second)
+
+    assert len(merged.players) == 1
+    assert merged.players[0].name == "Smith, Ella"
+
+
 def testComplementarySquadCaptureConflictsAreReported() -> None:
 
     first = ImportResult(

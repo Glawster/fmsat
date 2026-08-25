@@ -76,13 +76,15 @@ class PlayerEditorDialog(QDialog):
         identity.addRow("Natural positions", self.positionsInput)
         identity.addRow("CA", self.caInput)
         identity.addRow("PA", self.paInput)
-        provenance = (
-            f"{player.validationState.title()}"
-            + (
-                f" · source import {player.sourceImportSessionId}"
-                if player.sourceImportSessionId is not None
-                else ""
-            )
+        stateLabel = (
+            "Uncertain name — review recommended"
+            if player.validationState == "uncertain"
+            else player.validationState.title()
+        )
+        provenance = stateLabel + (
+            f" · source import {player.sourceImportSessionId}"
+            if player.sourceImportSessionId is not None
+            else ""
         )
         evidence = QLabel(provenance, identityGroup)
         evidence.setObjectName("playerEvidenceStatus")
