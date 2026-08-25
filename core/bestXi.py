@@ -59,7 +59,6 @@ class BestXiAssignment:
 class _State:
     totalScore: float
     weakestScore: float
-    familiarCount: int
     assignments: tuple[str | None, ...]
     scores: tuple[float | None, ...]
 
@@ -72,15 +71,19 @@ class BestXiAssignmentService:
         requiredSlots: Iterable[object],
         roles: Iterable[object],
     ) -> BestXiAssignment:
-        """Optimise coverage, total fit, weakest fit, familiarity, then stable identity.
+        """Optimise coverage, total fit, weakest fit, then stable identity.
+
+        Candidate eligibility is established before optimisation: a player must
+        have captured familiarity with the tactic slot's position family.  Generic
+        Role Fit alone is deliberately not evidence that the player can reasonably
+        be fielded there now.
 
         Objective priority is deliberately lexicographic:
 
         1. maximise covered simultaneous tactic slots;
         2. maximise summed slot Generic Role Fit;
         3. maximise the weakest selected slot fit;
-        4. maximise familiar-position selections;
-        5. use deterministic alphabetical assignment as the final tie-break.
+        4. use deterministic alphabetical assignment as the final tie-break.
 
         One player can be assigned to at most one simultaneous slot.
         """
@@ -102,7 +105,7 @@ class BestXiAssignmentService:
         slotCount = len(slots)
         emptyAssignments: tuple[str | None, ...] = (None,) * slotCount
         emptyScores: tuple[float | None, ...] = (None,) * slotCount
-        states: dict[int, _State] = {0: _State(0.0, inf, 0, emptyAssignments, emptyScores)}
+        states: dict[int, _State] = {0: _State(0.0, inf, emptyAssignments, emptyScores)}
 
         for playerName in playerNames:
             playerKey = playerName.casefold()
@@ -121,7 +124,6 @@ class BestXiAssignmentService:
                     proposed = _State(
                         totalScore=round(state.totalScore + candidate.score, 6),
                         weakestScore=min(state.weakestScore, candidate.score),
-                        familiarCount=state.familiarCount + int(candidate.familiar),
                         assignments=tuple(assignments),
                         scores=tuple(scores),
                     )
@@ -238,6 +240,12 @@ class BestXiAssignmentService:
             slotScore = round(sum(scores) / len(scores), 1)
             capturedFamilies = playerPositionFamilies(capturedPositions)
             familiar = requiredFamily is not None and requiredFamily in capturedFamilies
+            # Best XI is a current deployability judgement, so position-family
+            # evidence has authority over an otherwise strong Generic Role Fit.
+            # Unfamiliar candidates remain available to role-depth and future
+            # retraining-opportunity analysis; only Best XI excludes them.
+            if not familiar:
+                continue
             results.append(
                 BestXiSlotCandidate(
                     playerName=playerName,
@@ -251,7 +259,6 @@ class BestXiAssignmentService:
                 results,
                 key=lambda candidate: (
                     -candidate.score,
-                    not candidate.familiar,
                     candidate.playerName.casefold(),
                 ),
             )
@@ -337,12 +344,10 @@ class BestXiAssignmentService:
         proposedObjective = (
             proposed.totalScore,
             proposed.weakestScore,
-            proposed.familiarCount,
         )
         existingObjective = (
             existing.totalScore,
             existing.weakestScore,
-            existing.familiarCount,
         )
         if proposedObjective != existingObjective:
             return proposedObjective > existingObjective
@@ -385,11 +390,5 @@ class BestXiAssignmentService:
                         f"{localBest.playerName} scores higher locally at {localBest.score:.1f}, "
                         "but the whole-XI objective favours this assignment."
                     )
-        if selected.familiar:
-            parts.append("Captured positional evidence covers this slot family.")
-        else:
-            parts.append(
-                "Captured positional evidence does not cover this slot family; positional "
-                "training may be required."
-            )
+        parts.append("Captured positional evidence covers this slot family.")
         return " ".join(parts)

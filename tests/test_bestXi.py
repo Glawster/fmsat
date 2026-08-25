@@ -59,9 +59,9 @@ def _slot(
 def testBestXiMovesHempWideWhenFreigangCanCoverSecondStriker() -> None:
     """A slightly weaker local SS choice must be allowed to complete the whole XI."""
 
-    hempCentral = _candidate("Hemp, Lauren", 81.0, "AM (L), ST (C)")
+    hempCentral = _candidate("Hemp, Lauren", 81.0, "AM (LC), ST (C)")
     freigangCentral = _candidate("Freigang, Laura", 77.0, "AM (C), ST (C)")
-    hempWide = _candidate("Hemp, Lauren", 75.0, "AM (L), ST (C)")
+    hempWide = _candidate("Hemp, Lauren", 75.0, "AM (LC), ST (C)")
     roles = (
         _role("secondStriker", "SS", "In Possession", (hempCentral, freigangCentral)),
         _role(
@@ -128,11 +128,11 @@ def testBestXiUsesStrongerWeakestAssignmentWhenTotalsTie() -> None:
     assert result.selectionFor(1).playerName == "Alpha"
 
 
-def testBestXiUsesPositionFamiliarityAsLateTieBreak() -> None:
-    """Familiarity breaks otherwise equal assignments without overriding role fit."""
+def testBestXiExcludesHigherScoringPlayerOutsideThePositionFamily() -> None:
+    """Generic Role Fit alone must not make an unfamiliar player deployable now."""
 
     familiar = _candidate("Familiar", 75.0, "AM (L)")
-    training = _candidate("Training", 75.0, "ST (C)")
+    training = _candidate("Training", 95.0, "ST (C)")
     roles = (
         _role("wideIp", "WI", "In Possession", (training, familiar)),
         _role("wideOop", "WO", "Out Of Possession", (training, familiar)),
@@ -145,6 +145,25 @@ def testBestXiUsesPositionFamiliarityAsLateTieBreak() -> None:
 
     assert result.selectionFor(0).playerName == "Familiar"
     assert result.selectionFor(0).familiar
+
+
+def testBestXiLeavesSlotUncoveredWhenOnlyRetrainingCandidatesFitRole() -> None:
+    """A strong attribute match outside the slot family belongs outside Best XI."""
+
+    russo = _candidate("Russo, Alessia", 94.0, "ST (C)")
+    roles = (
+        _role("roleIp", "RI", "In Possession", (russo,)),
+        _role("roleOop", "RO", "Out Of Possession", (russo,)),
+    )
+
+    result = BestXiAssignmentService().assignmentBuild(
+        (_slot("MC", "RI", "RO"),),
+        roles,
+    )
+
+    assert result.coveredSlots == 0
+    assert not result.evidenceAvailable
+    assert result.selectionFor(0) is None
 
 
 def testBestXiIsDeterministicWhenEveryObjectiveIsEqual() -> None:

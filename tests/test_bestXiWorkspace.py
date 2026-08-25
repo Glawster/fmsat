@@ -61,7 +61,7 @@ def testAnalysisBestXiCanMoveLocalBestToCoverAnotherSlot(qtbot) -> None:  # type
         players=(
             SquadModelPlayer(
                 name="Lauren Hemp",
-                positions="AM (L), ST (C)",
+                positions="AM (LC), ST (C)",
                 ca="",
                 pa="",
                 confidence=1.0,
@@ -80,9 +80,9 @@ def testAnalysisBestXiCanMoveLocalBestToCoverAnotherSlot(qtbot) -> None:  # type
         updatedAt=datetime(2026, 8, 22),
         evidenceSuperseded=False,
     )
-    hempSs = _candidate("Hemp, Lauren", "AM (L), ST (C)", 81.0)
+    hempSs = _candidate("Hemp, Lauren", "AM (LC), ST (C)", 81.0)
     freigangSs = _candidate("Freigang, Laura", "AM (C), ST (C)", 77.0)
-    hempWide = _candidate("Hemp, Lauren", "AM (L), ST (C)", 75.0)
+    hempWide = _candidate("Hemp, Lauren", "AM (LC), ST (C)", 75.0)
     roles = (
         _role("secondStriker", "SS", "In Possession", (hempSs, freigangSs)),
         _role("trackingAttackingMidfielder", "TAM", "Out Of Possession", (hempSs, freigangSs)),
