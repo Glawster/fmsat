@@ -97,11 +97,30 @@ def testMissingFirstTouchHeaderIsInferredBetweenFinishingAndHeading() -> None:
     assert header.center[0] == 150
 
 
+def testPlayerHeaderRecognisesTruncatedPlayeToken() -> None:
+    """FM may clip the Player heading; table geometry still has to lock to it."""
+
+    parser = SquadAttributesParser(FakeOcr([]), {}, ())
+    results = [
+        _result("Playe", 80),
+        _result("Position", 250),
+        _result("CA", 380),
+        _result("PA", 430),
+    ]
+
+    header = parser._headerFind(results, "player")
+
+    assert header is not None
+    assert header.text == "Playe"
+
+
 def testPlayerNameCleanupDropsTrailingOcrPunctuation() -> None:
     parser = SquadAttributesParser(FakeOcr([]), {}, ())
 
     assert parser._playerNameTextClean("Georgia Stanway.") == "Georgia Stanway"
     assert parser._playerNameTextClean("Nerea Eizagirre,") == "Nerea Eizagirre"
+    assert parser._playerNameTextClean("SA Danique Tolhoek") == "Danique Tolhoek"
+    assert parser._playerNameTextClean("AAlessia Russo") == "Alessia Russo"
 
 
 def testPresentationAbbreviationsAreNotAcceptedAsOcrHeaders() -> None:

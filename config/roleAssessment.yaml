@@ -1,5 +1,8 @@
-version: 1
+version: 2
 identity: fm26-generic-role-fit-v1
+weightScale:
+  minimum: 0
+  maximum: 10
 
 # All findings use Generic Role Fit only. They must not be described as tactical
 # suitability, player assignment, Best XI selection or recruitment advice.
@@ -13,68 +16,69 @@ alternativeRoleLimit: 3
 # an explicit equal-weight arithmetic mean. Missing evidence remains Unavailable.
 slotAggregationPolicy: phaseMean
 
-# Weight scale: 5 essential, 4 very important, 3 important, 2 useful, 1 minor.
+# Assessment policy uses an explicit 0-10 scale. These values were migrated from
+# the original 1-5 policy by multiplying every legacy value by two.
 # Omitted attributes do not participate in the calculation.
 roles:
   ballPlayingGoalkeeper:
-    attributeWeights: {handling: 5, reflexes: 5, one_on_ones: 4, aerial_reach: 3, command_of_area: 3, communication: 3, passing: 4, kicking: 4, decisions: 3, composure: 3, agility: 3, positioning: 3}
+    attributeWeights: {handling: 10, reflexes: 10, one_on_ones: 8, aerial_reach: 6, command_of_area: 6, communication: 6, passing: 8, kicking: 8, decisions: 6, composure: 6, agility: 6, positioning: 6}
   sweeperKeeper:
-    attributeWeights: {reflexes: 5, one_on_ones: 5, rushing_out: 5, handling: 4, aerial_reach: 3, communication: 3, kicking: 4, passing: 3, decisions: 4, acceleration: 3}
+    attributeWeights: {reflexes: 10, one_on_ones: 10, rushing_out: 10, handling: 8, aerial_reach: 6, communication: 6, kicking: 8, passing: 6, decisions: 8, acceleration: 6}
   fullBack:
-    attributeWeights: {tackling: 5, positioning: 5, marking: 4, anticipation: 4, concentration: 3, pace: 4, stamina: 4, teamwork: 3, crossing: 2, passing: 2}
+    attributeWeights: {tackling: 10, positioning: 10, marking: 8, anticipation: 8, concentration: 6, pace: 8, stamina: 8, teamwork: 6, crossing: 4, passing: 4}
   wingBack:
-    attributeWeights: {stamina: 5, pace: 5, acceleration: 4, crossing: 5, dribbling: 4, first_touch: 3, off_the_ball: 4, work_rate: 4, tackling: 3, positioning: 3}
+    attributeWeights: {stamina: 10, pace: 10, acceleration: 8, crossing: 10, dribbling: 8, first_touch: 6, off_the_ball: 8, work_rate: 8, tackling: 6, positioning: 6}
   centreBack:
-    attributeWeights: {marking: 5, tackling: 5, positioning: 5, heading: 4, jumping_reach: 4, strength: 4, anticipation: 4, concentration: 4, decisions: 3, composure: 3}
+    attributeWeights: {marking: 10, tackling: 10, positioning: 10, heading: 8, jumping_reach: 8, strength: 8, anticipation: 8, concentration: 8, decisions: 6, composure: 6}
   ballPlayingCentreBack:
-    attributeWeights: {marking: 5, tackling: 5, positioning: 4, heading: 4, jumping_reach: 3, strength: 3, anticipation: 4, composure: 4, passing: 5, technique: 3}
+    attributeWeights: {marking: 10, tackling: 10, positioning: 8, heading: 8, jumping_reach: 6, strength: 6, anticipation: 8, composure: 8, passing: 10, technique: 6}
   deepLyingPlaymaker:
-    attributeWeights: {passing: 5, vision: 5, decisions: 5, first_touch: 4, technique: 4, composure: 4, anticipation: 3, positioning: 3, teamwork: 3, stamina: 2}
+    attributeWeights: {passing: 10, vision: 10, decisions: 10, first_touch: 8, technique: 8, composure: 8, anticipation: 6, positioning: 6, teamwork: 6, stamina: 4}
   boxToBoxMidfielder:
-    attributeWeights: {stamina: 5, work_rate: 5, teamwork: 4, off_the_ball: 4, passing: 3, tackling: 3, dribbling: 3, first_touch: 3, decisions: 3, natural_fitness: 3}
+    attributeWeights: {stamina: 10, work_rate: 10, teamwork: 8, off_the_ball: 8, passing: 6, tackling: 6, dribbling: 6, first_touch: 6, decisions: 6, natural_fitness: 6}
   defensiveMidfielder:
-    attributeWeights: {positioning: 5, tackling: 5, marking: 4, anticipation: 4, concentration: 4, decisions: 4, teamwork: 4, strength: 3, passing: 3, composure: 3}
+    attributeWeights: {positioning: 10, tackling: 10, marking: 8, anticipation: 8, concentration: 8, decisions: 8, teamwork: 8, strength: 6, passing: 6, composure: 6}
   pressingDefensiveMidfielder:
-    attributeWeights: {work_rate: 5, stamina: 5, aggression: 4, tackling: 5, positioning: 4, anticipation: 4, teamwork: 4, strength: 3, acceleration: 3, decisions: 3}
+    attributeWeights: {work_rate: 10, stamina: 10, aggression: 8, tackling: 10, positioning: 8, anticipation: 8, teamwork: 8, strength: 6, acceleration: 6, decisions: 6}
   wideMidfielder:
-    attributeWeights: {work_rate: 5, stamina: 5, teamwork: 4, crossing: 4, passing: 3, first_touch: 3, decisions: 3, positioning: 3, off_the_ball: 3, pace: 3}
+    attributeWeights: {work_rate: 10, stamina: 10, teamwork: 8, crossing: 8, passing: 6, first_touch: 6, decisions: 6, positioning: 6, off_the_ball: 6, pace: 6}
   winger:
-    attributeWeights: {crossing: 5, dribbling: 5, pace: 5, acceleration: 4, off_the_ball: 4, first_touch: 4, technique: 4, flair: 3, agility: 3, stamina: 3, teamwork: 3}
+    attributeWeights: {crossing: 10, dribbling: 10, pace: 10, acceleration: 8, off_the_ball: 8, first_touch: 8, technique: 8, flair: 6, agility: 6, stamina: 6, teamwork: 6}
   insideForward:
-    attributeWeights: {dribbling: 5, finishing: 5, off_the_ball: 5, acceleration: 4, pace: 4, first_touch: 4, technique: 4, composure: 3, flair: 3, decisions: 3, agility: 3, anticipation: 4}
+    attributeWeights: {dribbling: 10, finishing: 10, off_the_ball: 10, acceleration: 8, pace: 8, first_touch: 8, technique: 8, composure: 6, flair: 6, decisions: 6, agility: 6, anticipation: 8}
   attackingMidfielder:
-    attributeWeights: {first_touch: 5, passing: 5, vision: 4, decisions: 4, technique: 4, off_the_ball: 4, dribbling: 3, composure: 3, flair: 3, finishing: 2}
+    attributeWeights: {first_touch: 10, passing: 10, vision: 8, decisions: 8, technique: 8, off_the_ball: 8, dribbling: 6, composure: 6, flair: 6, finishing: 4}
   centreForward:
-    attributeWeights: {finishing: 5, off_the_ball: 5, first_touch: 4, composure: 4, anticipation: 4, strength: 3, heading: 3, pace: 3, technique: 3, decisions: 3, acceleration: 3, work_rate: 2}
+    attributeWeights: {finishing: 10, off_the_ball: 10, first_touch: 8, composure: 8, anticipation: 8, strength: 6, heading: 6, pace: 6, technique: 6, decisions: 6, acceleration: 6, work_rate: 4}
   targetForward:
-    attributeWeights: {strength: 5, heading: 5, jumping_reach: 5, first_touch: 4, off_the_ball: 4, teamwork: 4, anticipation: 3, finishing: 3, composure: 3, passing: 2, balance: 4}
+    attributeWeights: {strength: 10, heading: 10, jumping_reach: 10, first_touch: 8, off_the_ball: 8, teamwork: 8, anticipation: 6, finishing: 6, composure: 6, passing: 4, balance: 8}
   channelForward:
-    attributeWeights: {pace: 5, acceleration: 5, off_the_ball: 5, finishing: 4, dribbling: 4, first_touch: 3, anticipation: 4, composure: 3, stamina: 3, technique: 3, work_rate: 3}
+    attributeWeights: {pace: 10, acceleration: 10, off_the_ball: 10, finishing: 8, dribbling: 8, first_touch: 6, anticipation: 8, composure: 6, stamina: 6, technique: 6, work_rate: 6}
   trackingCentreForward:
-    attributeWeights: {work_rate: 5, stamina: 5, teamwork: 5, aggression: 4, off_the_ball: 4, finishing: 3, anticipation: 4, acceleration: 3, strength: 3, decisions: 3}
+    attributeWeights: {work_rate: 10, stamina: 10, teamwork: 10, aggression: 8, off_the_ball: 8, finishing: 6, anticipation: 8, acceleration: 6, strength: 6, decisions: 6}
   advancedPlaymaker:
-    attributeWeights: {passing: 5, vision: 5, first_touch: 5, technique: 5, decisions: 4, composure: 4, flair: 4, off_the_ball: 3, anticipation: 3, dribbling: 3, teamwork: 3}
+    attributeWeights: {passing: 10, vision: 10, first_touch: 10, technique: 10, decisions: 8, composure: 8, flair: 8, off_the_ball: 6, anticipation: 6, dribbling: 6, teamwork: 6}
   freeRole:
-    attributeWeights: {first_touch: 5, technique: 5, flair: 5, vision: 5, passing: 4, decisions: 4, dribbling: 4, composure: 4, off_the_ball: 3, anticipation: 3}
+    attributeWeights: {first_touch: 10, technique: 10, flair: 10, vision: 10, passing: 8, decisions: 8, dribbling: 8, composure: 8, off_the_ball: 6, anticipation: 6}
   secondStriker:
-    attributeWeights: {finishing: 5, off_the_ball: 5, anticipation: 5, acceleration: 4, pace: 4, first_touch: 4, composure: 4, decisions: 3, technique: 3, dribbling: 3}
+    attributeWeights: {finishing: 10, off_the_ball: 10, anticipation: 10, acceleration: 8, pace: 8, first_touch: 8, composure: 8, decisions: 6, technique: 6, dribbling: 6}
   channelMidfielder:
-    attributeWeights: {off_the_ball: 5, work_rate: 4, stamina: 4, passing: 4, vision: 4, decisions: 4, dribbling: 3, first_touch: 3, acceleration: 3, teamwork: 3}
+    attributeWeights: {off_the_ball: 10, work_rate: 8, stamina: 8, passing: 8, vision: 8, decisions: 8, dribbling: 6, first_touch: 6, acceleration: 6, teamwork: 6}
   playmakingWinger:
-    attributeWeights: {passing: 5, vision: 5, technique: 4, first_touch: 4, dribbling: 4, flair: 4, decisions: 4, off_the_ball: 3, acceleration: 3, crossing: 3}
+    attributeWeights: {passing: 10, vision: 10, technique: 8, first_touch: 8, dribbling: 8, flair: 8, decisions: 8, off_the_ball: 6, acceleration: 6, crossing: 6}
   wideForward:
-    attributeWeights: {finishing: 5, off_the_ball: 5, pace: 5, acceleration: 4, dribbling: 4, first_touch: 4, technique: 3, composure: 3, crossing: 3, anticipation: 3}
+    attributeWeights: {finishing: 10, off_the_ball: 10, pace: 10, acceleration: 8, dribbling: 8, first_touch: 8, technique: 6, composure: 6, crossing: 6, anticipation: 6}
   insideWinger:
-    attributeWeights: {dribbling: 5, passing: 4, vision: 4, first_touch: 4, technique: 4, decisions: 4, off_the_ball: 4, agility: 3, acceleration: 3, flair: 3}
+    attributeWeights: {dribbling: 10, passing: 8, vision: 8, first_touch: 8, technique: 8, decisions: 8, off_the_ball: 8, agility: 6, acceleration: 6, flair: 6}
   deepLyingForward:
-    attributeWeights: {first_touch: 5, passing: 5, vision: 4, technique: 4, off_the_ball: 4, teamwork: 4, composure: 4, decisions: 4, finishing: 3, strength: 3}
+    attributeWeights: {first_touch: 10, passing: 10, vision: 8, technique: 8, off_the_ball: 8, teamwork: 8, composure: 8, decisions: 8, finishing: 6, strength: 6}
   poacher:
-    attributeWeights: {finishing: 5, off_the_ball: 5, anticipation: 5, acceleration: 4, pace: 4, composure: 4, first_touch: 3, decisions: 3, agility: 3, technique: 2}
+    attributeWeights: {finishing: 10, off_the_ball: 10, anticipation: 10, acceleration: 8, pace: 8, composure: 8, first_touch: 6, decisions: 6, agility: 6, technique: 4}
   falseNine:
-    attributeWeights: {first_touch: 5, passing: 5, vision: 5, technique: 5, off_the_ball: 4, decisions: 4, composure: 4, flair: 4, dribbling: 3, finishing: 3}
+    attributeWeights: {first_touch: 10, passing: 10, vision: 10, technique: 10, off_the_ball: 8, decisions: 8, composure: 8, flair: 8, dribbling: 6, finishing: 6}
   halfBack:
-    attributeWeights: {positioning: 5, anticipation: 5, tackling: 4, marking: 4, passing: 4, decisions: 4, teamwork: 4, concentration: 4, composure: 3, strength: 3, heading: 3, jumping_reach: 3}
-  deepDefensiveMidfielder:
-    attributeWeights: {positioning: 5, tackling: 5, marking: 4, anticipation: 4, concentration: 4, decisions: 4, teamwork: 4, strength: 4, passing: 3, composure: 3, work_rate: 3}
+    attributeWeights: {positioning: 10, anticipation: 10, tackling: 8, marking: 8, passing: 8, decisions: 8, teamwork: 8, concentration: 8, composure: 6, strength: 6, heading: 6, jumping_reach: 6}
+  droppingDefensiveMidfielder:
+    attributeWeights: {positioning: 10, tackling: 10, marking: 8, anticipation: 8, concentration: 8, decisions: 8, teamwork: 8, strength: 8, passing: 6, composure: 6, work_rate: 6}
   trackingAttackingMidfielder:
-    attributeWeights: {work_rate: 5, stamina: 5, teamwork: 5, positioning: 4, anticipation: 4, marking: 4, decisions: 4, tackling: 3, acceleration: 3, off_the_ball: 3, aggression: 4}
+    attributeWeights: {work_rate: 10, stamina: 10, teamwork: 10, positioning: 8, anticipation: 8, marking: 8, decisions: 8, tackling: 6, acceleration: 6, off_the_ball: 6, aggression: 8}

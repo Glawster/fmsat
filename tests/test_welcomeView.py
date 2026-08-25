@@ -9,7 +9,6 @@ from PySide6.QtWidgets import (
     QDialog,
     QLabel,
     QInputDialog,
-    QProgressDialog,
     QPushButton,
     QPlainTextEdit,
     QTableWidget,
@@ -33,6 +32,7 @@ def _mainWindowCreate() -> MainWindow:
     database = Mock()
     database.tacticRecords.return_value = []
     database.squadRecords.return_value = []
+    database.tacticRoleCodes.return_value = ("channelForward",)
     return MainWindow(Mock(), database, (), Mock(), Mock(), Mock())
 
 
@@ -119,6 +119,7 @@ def testConfirmedRoleCaptureRefreshesWelcomePanel(qtbot, monkeypatch, tmp_path) 
     database = Mock()
     database.tacticRecords.return_value = []
     database.squadRecords.return_value = []
+    database.tacticRoleCodes.return_value = ("channelForward",)
     roleKnowledge = Mock()
     roleKnowledge.definitionExists.return_value = False
     vocabulary = TacticVocabulary()
@@ -164,6 +165,7 @@ def testRoleImportUsesDetectedScreenshotPosition(qtbot, monkeypatch, tmp_path) -
     database = Mock()
     database.tacticRecords.return_value = []
     database.squadRecords.return_value = []
+    database.tacticRoleCodes.return_value = ("channelForward",)
     roleKnowledge = Mock()
     roleKnowledge.definitionExists.return_value = False
     vocabulary = TacticVocabulary()
@@ -298,7 +300,7 @@ def testWelcomeViewShowsOnlyCapturedRolesInTacticalOrder(qtbot) -> None:  # type
 
     assert "Roles (6)" in labels
     assert groupPositions == sorted(groupPositions, key=WelcomeService.positionSortKey)
-    assert {"STC", "AMC", "MC", "DM", "DC", "GK"}.issubset(groupPositions)
+    assert {"ST", "AM", "M", "DM", "D", "GK"}.issubset(groupPositions)
     assert all(not group.rolesContainer.isVisible() for group in groups)
     assert "Ball-Playing Goalkeeper" not in labels
 
@@ -324,10 +326,10 @@ def testPositionSummaryExpandsItsCapturedRoles(qtbot) -> None:  # type: ignore[n
     group = next(
         group
         for group in view.rolesWidget.findChildren(PositionRoleGroup)
-        if group.property("position") == "AML"
+        if group.property("position") == "AM"
     )
 
-    assert group.summaryButton.text() == "AM (L) — 1 role"
+    assert group.summaryButton.text() == "AM — 1 role"
     assert not group.rolesContainer.isVisible()
 
     qtbot.mouseClick(group.summaryButton, Qt.MouseButton.LeftButton)
@@ -335,8 +337,7 @@ def testPositionSummaryExpandsItsCapturedRoles(qtbot) -> None:  # type: ignore[n
     assert group.rolesContainer.isVisible()
     assert group.summaryButton.arrowType() == Qt.ArrowType.NoArrow
     assert any(
-        card.property("summaryName") == "Inside Forward"
-        for card in group.findChildren(SummaryCard)
+        card.property("summaryName") == "Inside Forward" for card in group.findChildren(SummaryCard)
     )
 
     qtbot.mouseClick(group.summaryButton, Qt.MouseButton.LeftButton)
@@ -364,7 +365,7 @@ def testCapturedRoleCardShowsBehavioursAndOpensEditor(qtbot) -> None:  # type: i
     )
     qtbot.addWidget(view)
     view.show()
-    _positionExpand(view, "AML", qtbot)
+    _positionExpand(view, "AM", qtbot)
     card = next(
         card
         for card in view.findChildren(SummaryCard)
@@ -431,6 +432,112 @@ def testWelcomeViewShowsUserDefinedRolesFromConfirmedYaml(qtbot, tmp_path) -> No
     roleOpen.assert_called_once_with(confirmedRole.roleCode)
 
 
+def testCapturedRolesAreDeduplicatedWithinCanonicalPositionFamilies(qtbot) -> None:  # type: ignore[no-untyped-def]
+    database = Mock()
+    database.tacticRecords.return_value = []
+    database.squadRecords.return_value = []
+    definitions = (
+        SimpleNamespace(
+            roleCode="threeStrikerPositions",
+            displayName="Three Striker Positions",
+            abbreviations=("TSP",),
+            positions=("STC", "STCL", "STCR"),
+            duties=(),
+            behaviours=(),
+            roleID=100,
+        ),
+        SimpleNamespace(
+            roleCode="centralAndWideAttacker",
+            displayName="Central And Wide Attacker",
+            abbreviations=("CWA",),
+            positions=("AMC", "AML"),
+            duties=(),
+            behaviours=(),
+            roleID=101,
+        ),
+        SimpleNamespace(
+            roleCode="attackAndMidfield",
+            displayName="Attack And Midfield",
+            abbreviations=("AAM",),
+            positions=("AMC", "MC"),
+            duties=(),
+            behaviours=(),
+            roleID=102,
+        ),
+    )
+    roleKnowledge = Mock()
+    roleKnowledge.definitionsList.return_value = definitions
+    roleOpen = Mock()
+    view = WelcomeView(
+        WelcomeService(database, TacticVocabulary(), roleKnowledge),
+        (),
+        Mock(),
+        Mock(),
+        Mock(),
+        roleOpen,
+    )
+    qtbot.addWidget(view)
+    view.show()
+
+    groups = {
+        group.property("position"): group
+        for group in view.rolesWidget.findChildren(PositionRoleGroup)
+    }
+    assert groups["ST"].summaryButton.text() == "ST — 1 role"
+    assert groups["AM"].summaryButton.text() == "AM — 2 roles"
+    assert groups["M"].summaryButton.text() == "M — 1 role"
+
+    stCards = groups["ST"].findChildren(SummaryCard)
+    amCards = groups["AM"].findChildren(SummaryCard)
+    mCards = groups["M"].findChildren(SummaryCard)
+    assert [card.property("summaryName") for card in stCards] == ["Three Striker Positions"]
+    assert {card.property("summaryName") for card in amCards} == {
+        "Central And Wide Attacker",
+        "Attack And Midfield",
+    }
+    assert [card.property("summaryName") for card in mCards] == ["Attack And Midfield"]
+    assert any("Positions: STC, STCL, STCR" in text for text in _labelTexts(view))
+
+
+def testMalformedCapturedRoleCardStillOpensBySemanticCode(qtbot) -> None:  # type: ignore[no-untyped-def]
+    database = Mock()
+    database.tacticRecords.return_value = []
+    database.squadRecords.return_value = []
+    roleKnowledge = Mock()
+    roleKnowledge.definitionsList.return_value = (
+        SimpleNamespace(
+            roleCode="secondStrikel",
+            displayName="Second Strikel",
+            abbreviations=("SS",),
+            positions=("STC",),
+            duties=(),
+            behaviours=(),
+            roleID=100,
+        ),
+    )
+    roleOpen = Mock()
+    view = WelcomeView(
+        WelcomeService(database, TacticVocabulary(), roleKnowledge),
+        (),
+        Mock(),
+        Mock(),
+        Mock(),
+        roleOpen,
+    )
+    qtbot.addWidget(view)
+    view.show()
+    group = _positionExpand(view, "ST", qtbot)
+    card = next(
+        card
+        for card in group.findChildren(SummaryCard)
+        if card.property("summaryName") == "Second Strikel"
+    )
+
+    qtbot.mouseClick(card, Qt.MouseButton.LeftButton)
+
+    roleOpen.assert_called_once_with("secondStrikel")
+
+
 def testTacticAndSquadCardsOpenWhenSelected(qtbot) -> None:  # type: ignore[no-untyped-def]
 
     database = Mock()
@@ -474,9 +581,7 @@ def testTacticCardShowsProcessButtonWhenNoExtractedData(qtbot) -> None:  # type:
     qtbot.addWidget(view)
 
     card = next(
-        card
-        for card in view.findChildren(SummaryCard)
-        if card.property("summaryName") == "Press"
+        card for card in view.findChildren(SummaryCard) if card.property("summaryName") == "Press"
     )
     processButton = next(
         button for button in card.findChildren(QToolButton) if button.text() == "Process"
@@ -506,9 +611,7 @@ def testTacticCardHidesProcessButtonWhenModelExists(qtbot) -> None:  # type: ign
     qtbot.addWidget(view)
 
     card = next(
-        card
-        for card in view.findChildren(SummaryCard)
-        if card.property("summaryName") == "Press"
+        card for card in view.findChildren(SummaryCard) if card.property("summaryName") == "Press"
     )
     processButtons = [
         button for button in card.findChildren(QToolButton) if button.text() == "Process"
@@ -533,13 +636,19 @@ def testWelcomeViewRefreshesFromService(qtbot) -> None:  # type: ignore[no-untyp
     assert "Press" in _labelTexts(view)
 
 
-def testExpectedRoleChoicesHideStateAndOrderMissingBeforeKnown(
+def testExpectedRoleChoicesOnlyShowUnprofiledRolesUsedByTactics(
     qtbot, monkeypatch
 ) -> None:  # type: ignore[no-untyped-def]
 
     database = Mock()
     database.tacticRecords.return_value = []
     database.squadRecords.return_value = []
+    database.tacticRoleCodes.return_value = (
+        "channelForward",
+        "advancedPlaymaker",
+        "channelForward",
+        "notInVocabulary",
+    )
     roleKnowledge = Mock()
     roleKnowledge.definitionExists.side_effect = lambda role: role == "advancedPlaymaker"
     vocabulary = TacticVocabulary()
@@ -564,9 +673,7 @@ def testExpectedRoleChoicesHideStateAndOrderMissingBeforeKnown(
 
     window.roleProfileImport()
 
-    assert choices[0] == "New role…"
-    assert choices[-1] == "Advanced Playmaker (AP)"
-    assert not any("Missing" in choice or "Known" in choice for choice in choices)
+    assert choices == ["New role…", "Channel Forward (CHF)"]
 
 
 def testNewRoleChoiceUsesPositionDetectedFromScreenshot(
@@ -673,9 +780,7 @@ def testIncompleteRegenerationRetainsExistingObjectModel(qtbot) -> None:  # type
 
     window = _mainWindowCreate()
     qtbot.addWidget(window)
-    window.tacticModelLoader.tacticLoad = Mock(
-        return_value=SimpleNamespace(source="objectModel")
-    )
+    window.tacticModelLoader.tacticLoad = Mock(return_value=SimpleNamespace(source="objectModel"))
     window.tacticScreenshotExtractor.tacticExtract = Mock(
         return_value=SimpleNamespace(
             structuredCreated=True,
@@ -759,6 +864,29 @@ def testTacticProgressUsesBusyStateDuringOcr(qtbot) -> None:  # type: ignore[no-
     assert progress.minimum() == 0
     assert progress.maximum() == 6
     assert progress.value() == 3
+
+
+def testTacticExtractionProgressNeverMovesBackward(qtbot) -> None:  # type: ignore[no-untyped-def]
+    """Discovering OCR stage count must preserve monotonic visible progress."""
+
+    window = _mainWindowCreate()
+    qtbot.addWidget(window)
+    progress = window._tacticProgressCreate()
+    qtbot.addWidget(progress)
+    window.tacticProgress = progress
+
+    MainWindow._progressUpdate(progress, "Starting extraction...", 2)
+    percentageBefore = progress.value() / progress.maximum()
+
+    window._tacticExtractionProgressUpdate(1, 4, "Extracted metadata.")
+    percentageAfter = progress.value() / progress.maximum()
+
+    assert progress.maximum() == 9
+    assert progress.value() == 3
+    assert percentageAfter >= percentageBefore
+
+    window._tacticExtractionProgressUpdate(4, 4, "Extracted final screenshot.")
+    assert progress.value() == 6
 
 
 def testTacticProcessRejectsUnavailableScreenshotEvidence(qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]

@@ -15,6 +15,18 @@ tests/screenshots/squads/bristolWomen/
 tests/fixtures/squads/bristolWomen.yaml
 ```
 
+Filtered seven-row Default 1 capture:
+
+```text
+tests/screenshots/squads/filteredSeven/default1.png
+tests/fixtures/squads/filteredSeven.yaml
+tests/fixtures/squads/filteredSevenMerge.yaml
+```
+
+OCR must extract all seven visible rows. Merge behaviour for a 31-player squad
+plus this 7-row capture (6 known, 1 missing) is 32 players, without deleting
+the unseen 25.
+
 The Bristol Women fixture contains 38 distinct players. `squad1.png` and `squad2.png` cover the Default 1 attribute view; `squad3.png` and `squad4.png` cover Default 2; `goalkeeper.png` contains all four goalkeepers and goalkeeper-specific attributes.
 
 Expected YAML is reviewed from the visible Football Manager screenshots. It must never be generated from FMSAT OCR output, because that would make the code under test its own oracle.

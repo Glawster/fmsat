@@ -406,6 +406,7 @@ def testSquadReviewReturnsToRefreshedWorkspace(qtbot) -> None:  # type: ignore[n
 
 def testSquadReviewRemovesOnlySelectedDraftPlayerAndSavesRemaining(
     qtbot,
+    monkeypatch,
 ) -> None:  # type: ignore[no-untyped-def]
     """Removing an OCR extra must preserve valid players and all capture evidence."""
 
@@ -422,6 +423,9 @@ def testSquadReviewRemovesOnlySelectedDraftPlayerAndSavesRemaining(
     ]
     window = MainWindow(Mock(), database, attributes, PlayerValidator(), Mock(), screenshotStore)
     qtbot.addWidget(window)
+    monkeypatch.setattr(QMessageBox, "information", Mock())
+    monkeypatch.setattr(QMessageBox, "warning", Mock())
+    monkeypatch.setattr(QMessageBox, "critical", Mock())
     goalkeeper = ExtractedPlayer(
         "Legitimate Keeper",
         "GK",
@@ -490,9 +494,11 @@ def testSquadReviewRemovesOnlySelectedDraftPlayerAndSavesRemaining(
     assert len(window._tablePlayersRead()) == len(result.players)
     assert not window.removePlayerButton.isEnabled()
 
+    window.squadModelService = Mock()
     window.reviewSave()
 
     savedPaths, savedPlayers, savedSquad = database.squadImportBatchSave.call_args.args
+    window.squadModelService.modelRefreshFromEvidence.assert_called_once_with("First Team")
     assert savedPaths == ["/captures/source.png", "/captures/additional.png"]
     assert savedSquad == "First Team"
     assert len(savedPlayers) == 30
@@ -502,6 +508,57 @@ def testSquadReviewRemovesOnlySelectedDraftPlayerAndSavesRemaining(
         "reflexes": 16,
         "goalkeeper_evidence": 14,
     }
+
+
+def testReviewSaveMergesKnownPlayersAndAddsMissingWithoutSkipping(
+    qtbot,
+    monkeypatch,
+) -> None:  # type: ignore[no-untyped-def]
+    """A filtered 7-row capture must update known identities and add the missing player."""
+
+    database = Mock()
+    database.squadImportBatchSave.return_value = SimpleNamespace(id=21)
+    screenshotStore = Mock()
+    screenshotStore.captureSave.return_value = Path("/captures/filtered-seven.png")
+    window = MainWindow(Mock(), database, (), PlayerValidator(), Mock(), screenshotStore)
+    qtbot.addWidget(window)
+    window.currentSquad = "First Team"
+    known = ["Ada One", "Bea Two", "Cara Three", "Dee Four", "Eve Five", "Fay Six"]
+    window.currentSquadExistingNames = {
+        name.casefold() for name in [*known, *[f"Stored {index}" for index in range(25)]]
+    }
+    window.squadModelService = Mock()
+    monkeypatch.setattr(QMessageBox, "information", Mock())
+    monkeypatch.setattr(QMessageBox, "warning", Mock())
+    monkeypatch.setattr(QMessageBox, "critical", Mock())
+    players = [
+        ExtractedPlayer(name, "M (C)", "111", "125", {"passing": 14}, 0.95)
+        for name in known
+    ]
+    players.append(ExtractedPlayer("Gin Seven", "ST (C)", "130", "140", {"passing": 16}, 0.96))
+    window.currentResult = ImportResult(
+        "clipboard",
+        ScreenType.SQUAD_ATTRIBUTES,
+        players,
+        image=np.zeros((10, 10, 3), dtype=np.uint8),
+    )
+    window._resultShow(window.currentResult)
+
+    window.reviewSave()
+
+    savedPlayers = database.squadImportBatchSave.call_args.args[1]
+    assert [player.name for player in savedPlayers] == [
+        "Ada One",
+        "Bea Two",
+        "Cara Three",
+        "Dee Four",
+        "Eve Five",
+        "Fay Six",
+        "Gin Seven",
+    ]
+    window.squadModelService.modelRefreshFromEvidence.assert_called_once_with("First Team")
+    assert "added 1, updated 6" in window.statusBar().currentMessage()
+    assert "gin seven" in window.currentSquadExistingNames
 
 
 def testManualCorrectionImmediatelyClearsBlockingRowHighlight(qtbot) -> None:  # type: ignore[no-untyped-def]

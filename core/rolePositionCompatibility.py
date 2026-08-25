@@ -73,3 +73,43 @@ def roleSupportsPosition(roleCode: str, exactPosition: str) -> bool | None:
     """Convenience validation against the packaged position-family policy."""
 
     return RolePositionFamilyPolicy.load().supports(roleCode, exactPosition)
+
+
+def cataloguePositionFamily(family: PositionFamily) -> str:
+    """Collapse tactical compatibility families into catalogue position lines."""
+
+    if family is PositionFamily.STC:
+        return "ST"
+    if family in {PositionFamily.AMC, PositionFamily.AMW}:
+        return "AM"
+    if family in {PositionFamily.MC, PositionFamily.MW}:
+        return "M"
+    if family is PositionFamily.DM:
+        return "DM"
+    if family is PositionFamily.WB:
+        return "WB"
+    if family in {PositionFamily.FB, PositionFamily.DC}:
+        return "D"
+    return "GK"
+
+
+def capturedRolePositionFamilies(
+    roleCode: str,
+    exactPositions: tuple[str, ...],
+    policy: RolePositionFamilyPolicy,
+) -> tuple[str, ...]:
+    """Return unique catalogue families from role policy or captured positions."""
+
+    families = policy.familiesFor(roleCode)
+    if not families:
+        families = frozenset(
+            family
+            for position in exactPositions
+            if (family := positionFamilyFor(position)) is not None
+        )
+    return tuple(
+        sorted(
+            {cataloguePositionFamily(family) for family in families},
+            key=("ST", "AM", "M", "DM", "WB", "D", "GK").index,
+        )
+    )

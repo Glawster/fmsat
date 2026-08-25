@@ -405,11 +405,11 @@ class MainWindow(QMainWindow):
                 unresolvedRoles = tuple(getattr(extraction, "unresolvedRoles", ()))
                 self._ocrDiagnosticsCapture(extraction)
                 extractionTotal = self.tacticExtractionProgressTotal
-                progress.setRange(0, extractionTotal + 4)
+                progress.setRange(0, extractionTotal + 5)
                 self._progressUpdate(
                     progress,
                     "Screenshot extraction finished.",
-                    extractionTotal + 1,
+                    extractionTotal + 2,
                 )
                 logger.info(
                     f"regeneration extraction result: created={extraction.structuredCreated}, "
@@ -447,13 +447,13 @@ class MainWindow(QMainWindow):
                 self._progressUpdate(
                     progress,
                     "Building tactic model from regenerated data...",
-                    extractionTotal + 1,
+                    extractionTotal + 2,
                 )
                 loadResult = self.tacticModelLoader.tacticLoad(tacticName, preferStructured=True)
                 self._progressUpdate(
                     progress,
                     "Built regenerated tactic model.",
-                    extractionTotal + 2,
+                    extractionTotal + 3,
                 )
                 if loadResult.tactic is None:
                     logger.info("regeneration stopped because model build returned no tactic")
@@ -546,12 +546,12 @@ class MainWindow(QMainWindow):
                         self.tacticShow(tacticName)
                     return
 
-            saveStage = self.tacticExtractionProgressTotal + 3 if forceRebuild else 5
+            saveStage = self.tacticExtractionProgressTotal + 4 if forceRebuild else 5
             self._progressUpdate(progress, "Saving tactic model...", saveStage)
             TacticStore(self.database.engine).tacticSave(loadResult.tactic)
             self.tacticProcessStatuses.pop(tacticName.casefold(), None)
             self.tacticValidationOverrides.pop(tacticName.casefold(), None)
-            completeStage = self.tacticExtractionProgressTotal + 4 if forceRebuild else 6
+            completeStage = self.tacticExtractionProgressTotal + 5 if forceRebuild else 6
             self._progressUpdate(progress, "Tactic model saved.", completeStage)
             logger.done(f"tactic model saved for {tacticName}")
 
@@ -667,8 +667,11 @@ class MainWindow(QMainWindow):
         if progress is None or total <= 0:
             return
         self.tacticExtractionProgressTotal = total
-        progress.setRange(0, total + 4)
-        self._progressUpdate(progress, message, current + 1)
+        # Two setup stages have already completed before extraction starts.
+        # Include those stages in both the value and final range so discovering
+        # the extraction-stage count cannot make displayed progress move back.
+        progress.setRange(0, total + 5)
+        self._progressUpdate(progress, message, current + 2)
 
     @staticmethod
     def _progressRestore(
@@ -928,12 +931,21 @@ class MainWindow(QMainWindow):
         if self.roleKnowledgeService is None or self.tacticVocabulary is None:
             self._errorShow("Role profiles unavailable", "Role-profile knowledge is not configured")
             return
+        try:
+            tacticRoleCodes = self.database.tacticRoleCodes()
+        except DatabaseError as exc:
+            self._errorShow("Role profiles unavailable", str(exc))
+            return
+        if not isinstance(tacticRoleCodes, (list, tuple, set, frozenset)):
+            tacticRoleCodes = ()
         roleEntries = sorted(
-            self.tacticVocabulary.roles.values(),
-            key=lambda role: (
-                self.roleKnowledgeService.definitionExists(role.code),
-                WelcomeService.roleSortKey(role),
+            (
+                role
+                for roleCode in set(tacticRoleCodes)
+                if (role := self.tacticVocabulary.roles.get(roleCode)) is not None
+                and not self.roleKnowledgeService.definitionExists(role.code)
             ),
+            key=WelcomeService.roleSortKey,
         )
         roleLabels = {"New role…": None}
         for role in roleEntries:
@@ -1284,22 +1296,17 @@ class MainWindow(QMainWindow):
                 "FMSAT found data that cannot be saved safely:\n\n" + "\n".join(lines),
             )
             return
-        uniquePlayers: list[ExtractedPlayer] = []
-        seenNames = set(self.currentSquadExistingNames)
-        for player in players:
-            normalizedName = self._playerNameNormalize(player.name)
-            if normalizedName not in seenNames:
-                uniquePlayers.append(player)
-                seenNames.add(normalizedName)
-        skipped = len(players) - len(uniquePlayers)
-        players = uniquePlayers
         if not players:
             QMessageBox.information(
                 self,
-                "No new squad members",
-                f"Every corrected player is already stored for {self.currentSquad}.",
+                "No player rows to save",
+                "Correct at least one complete player row before saving this screenshot.",
             )
             return
+        existingNames = self.currentSquadExistingNames
+        incomingNames = {self._playerNameNormalize(player.name) for player in players}
+        added = len(incomingNames - existingNames)
+        updated = len(incomingNames & existingNames)
         try:
             screenshotPaths = self._squadScreenshotsPersist(
                 self.currentResult,
@@ -1309,27 +1316,33 @@ class MainWindow(QMainWindow):
             self._errorShow("Screenshot storage error", str(exc))
             return
         try:
-            session = self.database.squadImportBatchSave(
+            importSession = self.database.squadImportBatchSave(
                 [str(path) for path in screenshotPaths],
                 players,
                 self.currentSquad,
             )
+            self.squadModelService.modelRefreshFromEvidence(self.currentSquad)
         except DatabaseError as exc:
             self.screenshotStore.capturesRemove(screenshotPaths)
             self._errorShow("Database error", str(exc))
             return
+        except (SQLAlchemyError, ValueError) as exc:
+            self._errorShow("Cannot update squad model", str(exc))
+            return
+        self.currentSquadExistingNames = existingNames | incomingNames
+        self.currentSquadPlayerOffset = len(self.currentSquadExistingNames)
         self.currentResult.source = str(screenshotPaths[0])
         self.saveAction.setEnabled(False)
         self.statusBar().showMessage(
-            f"Saved {self.currentSquad}: import {session.id} with {len(players)} new player(s)"
+            f"Saved {self.currentSquad} (import {importSession.id}): added {added}, updated {updated}"
             + (f"; merged {mergedDuplicates} duplicate row(s)" if mergedDuplicates else "")
-            + (f"; skipped {skipped} existing or duplicate row(s)" if skipped else "")
             + (
                 f"; missing data remains for {len(sanity.missingPlayers)} player(s)"
                 if sanity.missingPlayers
                 else ""
-            ),
-            8000,
+            )
+            + ". Reassess Squad to apply the merged evidence.",
+            10000,
         )
         self.dataChanged.emit()
 

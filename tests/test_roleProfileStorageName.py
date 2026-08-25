@@ -46,6 +46,9 @@ def testNewRoleCaptureUsesOcrResolvedRoleIdentity(monkeypatch) -> None:
     host = SimpleNamespace(
         roleKnowledgeService=RoleKnowledgeStub(),
         tacticVocabulary=vocabulary,
+        database=SimpleNamespace(
+            tacticRoleCodes=lambda: (),
+        ),
         attributes=(),
         screenshotStore=SimpleNamespace(capturesRemove=lambda _paths: None),
         dataChanged=SimpleNamespace(emit=lambda: None),

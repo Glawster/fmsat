@@ -176,33 +176,22 @@ class SquadAttributesParser:
             columns["positions"],
             headerY,
         )
-        focusedRows = {
-            index
-            for result in focusedNames
-            for index, rowSeed in enumerate(rowSeeds)
+        namedSeedYs = {
+            rowSeed.center[1]
+            for result, column in assigned
+            if column == "name" and self._playerNameFragmentValid(result.text)
+            for rowSeed in rowSeeds
             if abs(result.center[1] - rowSeed.center[1]) <= rowTolerance
         }
-        minimumNameCoverage = max(1, int(len(rowSeeds) * 0.7))
-        if len(focusedRows) >= minimumNameCoverage:
-            assigned = [
-                item
-                for item in assigned
-                if item[1] != "name"
-                or not any(
-                    abs(item[0].center[1] - rowSeeds[index].center[1])
-                    <= rowTolerance
-                    for index in focusedRows
-                )
-            ]
-            assigned.extend(
-                (result, "name")
-                for result in focusedNames
-                if any(
-                    abs(result.center[1] - rowSeeds[index].center[1])
-                    <= rowTolerance
-                    for index in focusedRows
-                )
+        assigned.extend(
+            (result, "name")
+            for result in focusedNames
+            if any(
+                abs(result.center[1] - rowSeed.center[1]) <= rowTolerance
+                and rowSeed.center[1] not in namedSeedYs
+                for rowSeed in rowSeeds
             )
+        )
 
         players: list[ExtractedPlayer] = []
         previousY = -1.0
@@ -608,6 +597,9 @@ class SquadAttributesParser:
     @staticmethod
     def _playerNameTextClean(value: str) -> str:
         cleaned = value.strip()
+        cleaned = re.sub(r"[.,;:]+$", "", cleaned)
+        cleaned = re.sub(r"^[A-Z]{2}\s+(?=[A-Z][a-z])", "", cleaned)
+        cleaned = re.sub(r"^([A-Z])\1(?=[a-z])", r"\1", cleaned)
         cleaned = re.sub(r"^[a-z](?=[A-Z][a-z])", "", cleaned)
         cleaned = re.sub(r"^[A-Z]{2}(?=[A-Z][a-z])", "", cleaned)
         return re.sub(r"(?<=[a-z])(?=[A-Z])", " ", cleaned)
@@ -626,11 +618,15 @@ class SquadAttributesParser:
         expected: str,
     ) -> OcrResult | None:
         expectedToken = self._tokenNormalize(expected)
-        matches = [
-            result
-            for result in results
-            if self._tokenNormalize(result.text) == expectedToken
-        ]
+        matches = []
+        for result in results:
+            observed = self._tokenNormalize(result.text)
+            if not observed:
+                continue
+            if observed == expectedToken or (
+                len(observed) >= 4 and expectedToken.startswith(observed)
+            ):
+                matches.append(result)
         return min(matches, key=lambda result: result.center[1], default=None)
 
     def _attributeHeaderFind(

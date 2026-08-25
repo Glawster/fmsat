@@ -30,7 +30,7 @@ roles:
   poacher: [STC]
   falseNine: [STC]
   halfBack: [DM]
-  deepDefensiveMidfielder: [DM]
+  droppingDefensiveMidfielder: [DM]
   trackingAttackingMidfielder: [AMC]
   trackingWideMidfielder: [MW]
   trackingWinger: [AMW]

@@ -56,6 +56,7 @@ class TacticVocabulary:
         self.positions = self._aliasMap(data.get("positions"), "positions")
         self.roleIndicators = self._aliasMapOptional(data.get("roleIndicators"), "roleIndicators")
         self.roles = self._rolesLoad(data.get("roles"))
+        self._packagedRoles = dict(self.roles)
         self.instructions = self._instructionsLoad(data.get("instructions"))
         self._validate()
 
@@ -84,9 +85,16 @@ class TacticVocabulary:
         """Normalize a role code, display name, abbreviation, or alias."""
 
         values: dict[str, str] = {}
+        # Semantic codes and full display names are authoritative. Captured OCR can
+        # produce an abbreviation already used by a packaged role; retain the
+        # packaged interpretation of that shorthand without making the captured
+        # role's unique name and code unusable.
         for code, role in self.roles.items():
-            for alias in (code, role.displayName, *role.abbreviations, *role.aliases):
+            for alias in (code, role.displayName):
                 self._aliasAdd(values, alias, code, "roles")
+        for code, role in self.roles.items():
+            for alias in (*role.abbreviations, *role.aliases):
+                values.setdefault(self._key(alias), code)
         return self._normalize(observedText, values)
 
     @staticmethod
@@ -99,9 +107,7 @@ class TacticVocabulary:
         if not words:
             raise ConfigurationError("A role code requires a display name or abbreviation")
         first, *rest = words
-        return first[:1].lower() + first[1:] + "".join(
-            word[:1].upper() + word[1:] for word in rest
-        )
+        return first[:1].lower() + first[1:] + "".join(word[:1].upper() + word[1:] for word in rest)
 
     def canonicalRoleDefinitionGaps(
         self,
@@ -144,15 +150,15 @@ class TacticVocabulary:
                 continue
 
             observedAliases = (displayName, *abbreviations)
+            suppliedCode = str(getattr(definition, "roleCode", "") or "").strip()
             canonicalMatches = {
                 normalized.value
                 for alias in observedAliases
                 if (normalized := self.roleNormalize(alias)).resolved
             }
-            if len(canonicalMatches) == 1:
+            if len(canonicalMatches) == 1 and not (suppliedCode and suppliedCode not in self.roles):
                 continue
 
-            suppliedCode = str(getattr(definition, "roleCode", "") or "").strip()
             if suppliedCode in self.roles and not any(
                 self.roleNormalize(alias).value == suppliedCode for alias in observedAliases
             ):
@@ -177,6 +183,12 @@ class TacticVocabulary:
                 positions=positions,
                 duties=(),
             )
+
+    def capturedRolesReplace(self, definitions: Iterable[object]) -> None:
+        """Rebuild the effective roles from packaged and currently confirmed roles."""
+
+        self.roles = dict(self._packagedRoles)
+        self.capturedRolesAdd(definitions)
 
     def roleIndicatorNormalize(self, observedText: str) -> NormalizedValue:
         """Normalize an observed role-performance indicator."""
