@@ -81,9 +81,7 @@ class TacticBuilder:
             )
             return TacticBuildResult(None, tuple(issues), False, False)
 
-        issues.extend(
-            TacticBuildIssue(issue.code, issue.message) for issue in definition.issues
-        )
+        issues.extend(TacticBuildIssue(issue.code, issue.message) for issue in definition.issues)
         inPossessionSlots = self._slotsForPhase(definition, "inPossession")
         outOfPossessionSlots = self._slotsForPhase(definition, "outOfPossession")
         instructionCatalog = self._instructionCatalogBuild(definition)
@@ -270,9 +268,11 @@ class TacticBuilder:
 
         profileKey = (
             roleIdentity,
-            slot.observedRole
-            if roleIdentity is RoleIdentity.UNRESOLVED
-            else slot.duty or "__not_shown__",
+            (
+                slot.observedRole
+                if roleIdentity is RoleIdentity.UNRESOLVED
+                else slot.duty or "__not_shown__"
+            ),
         )
         roleProfile = profileCache.get(profileKey)
         if roleProfile is None:
@@ -280,9 +280,7 @@ class TacticBuilder:
                 slot.observedRole
                 if roleIdentity is RoleIdentity.UNRESOLVED
                 or (slot.role or "").startswith("capturedRole")
-                else slot.duty.capitalize()
-                if slot.duty
-                else "Observed role"
+                else slot.duty.capitalize() if slot.duty else "Observed role"
             )
             roleProfile = RoleProfile(
                 name=profileName,

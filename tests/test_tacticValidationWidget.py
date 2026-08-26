@@ -61,9 +61,7 @@ def testValidationWidgetShowsCompleteConfirmedTactic(qtbot) -> None:  # type: ig
 def testValidationWidgetShowsIncompletePhase(qtbot) -> None:  # type: ignore[no-untyped-def]
     result = DummyResult(
         tactic=_tacticCreate(inPossessionCount=9),
-        issues=(
-            DummyIssue("inPossession has 9 mapped positions; 11 expected"),
-        ),
+        issues=(DummyIssue("inPossession has 9 mapped positions; 11 expected"),),
         complete=False,
         confirmed=True,
     )
@@ -110,9 +108,7 @@ def testValidationDetailsCanBeCopied(qtbot) -> None:  # type: ignore[no-untyped-
     qtbot.addWidget(widget)
 
     copyButton = next(
-        button
-        for button in widget.findChildren(QPushButton)
-        if button.text() == "Copy details"
+        button for button in widget.findChildren(QPushButton) if button.text() == "Copy details"
     )
     copyButton.click()
 
@@ -131,9 +127,7 @@ def testTacticShowRefreshesValidationResult(qtbot) -> None:  # type: ignore[no-u
     qtbot.addWidget(view)
     result = DummyResult(
         tactic=None,
-        issues=(
-            DummyIssue("No screenshot-derived tactic definition exists"),
-        ),
+        issues=(DummyIssue("No screenshot-derived tactic definition exists"),),
         complete=False,
         confirmed=False,
     )

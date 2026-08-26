@@ -66,9 +66,12 @@ class FormationPhaseLinker:
     ) -> tuple[list[FormationSlot], list[FormationSlot], list[TacticIssue]]:
         """Link exact players first, then only unambiguous spatial neighbours."""
 
-        linkedIn = [replace(slot, slotId=f"slot-{index:02d}") for index, slot in enumerate(
-            sorted(inPossession, key=lambda item: (item.y, item.x)), start=1
-        )]
+        linkedIn = [
+            replace(slot, slotId=f"slot-{index:02d}")
+            for index, slot in enumerate(
+                sorted(inPossession, key=lambda item: (item.y, item.x)), start=1
+            )
+        ]
         available = set(range(len(outOfPossession)))
         matches: dict[int, int] = {}
         issues: list[TacticIssue] = []
@@ -88,12 +91,14 @@ class FormationPhaseLinker:
                 matches[inIndex] = candidates[0]
                 available.remove(candidates[0])
             elif len(candidates) > 1:
-                issues.append(TacticIssue(
-                    "ambiguousPhaseLink",
-                    f"Player {source.displayedPlayer!r} appears in multiple "
-                    "out-of-possession slots",
-                    source.displayedPlayer,
-                ))
+                issues.append(
+                    TacticIssue(
+                        "ambiguousPhaseLink",
+                        f"Player {source.displayedPlayer!r} appears in multiple "
+                        "out-of-possession slots",
+                        source.displayedPlayer,
+                    )
+                )
 
         # Shirt number survives OCR in some skins even where the name does not.
         for inIndex, source in enumerate(linkedIn):
@@ -109,11 +114,13 @@ class FormationPhaseLinker:
                 matches[inIndex] = candidates[0]
                 available.remove(candidates[0])
             elif len(candidates) > 1:
-                issues.append(TacticIssue(
-                    "ambiguousPhaseLink",
-                    f"Shirt number {number} appears in multiple out-of-possession slots",
-                    str(number),
-                ))
+                issues.append(
+                    TacticIssue(
+                        "ambiguousPhaseLink",
+                        f"Shirt number {number} appears in multiple out-of-possession slots",
+                        str(number),
+                    )
+                )
 
         # Spatial matching is accepted only where the nearest candidate is clearly best.
         for inIndex, source in enumerate(linkedIn):
@@ -132,17 +139,18 @@ class FormationPhaseLinker:
             )
             nearestScore, nearestDistance, nearestIndex = candidates[0]
             ambiguous = (
-                len(candidates) > 1
-                and candidates[1][0] - nearestScore < self.ambiguityMargin
+                len(candidates) > 1 and candidates[1][0] - nearestScore < self.ambiguityMargin
             )
             if nearestDistance <= self.maximumDistance and not ambiguous:
                 matches[inIndex] = nearestIndex
                 available.remove(nearestIndex)
             else:
-                issues.append(TacticIssue(
-                    "uncertainPhaseLink",
-                    f"Could not safely link in-possession slot at ({source.x:.3f}, {source.y:.3f})",
-                ))
+                issues.append(
+                    TacticIssue(
+                        "uncertainPhaseLink",
+                        f"Could not safely link in-possession slot at ({source.x:.3f}, {source.y:.3f})",
+                    )
+                )
 
         reverseMatches = {target: source for source, target in matches.items()}
         nextId = len(linkedIn) + 1
@@ -153,10 +161,12 @@ class FormationPhaseLinker:
             else:
                 slotId = f"slot-{nextId:02d}"
                 nextId += 1
-                issues.append(TacticIssue(
-                    "unmatchedPhaseSlot",
-                    f"Out-of-possession slot at ({slot.x:.3f}, {slot.y:.3f}) is unmatched",
-                ))
+                issues.append(
+                    TacticIssue(
+                        "unmatchedPhaseSlot",
+                        f"Out-of-possession slot at ({slot.x:.3f}, {slot.y:.3f}) is unmatched",
+                    )
+                )
             linkedOut.append(replace(slot, slotId=slotId))
         return linkedIn, linkedOut, issues
 
@@ -228,10 +238,12 @@ class TacticFormationExtractor:
         for phase in (TacticalPhase.IN_POSSESSION, TacticalPhase.OUT_OF_POSSESSION):
             region = phaseRegions.get(phase.value)
             if not isinstance(region, dict):
-                issues.append(TacticIssue(
-                    "missingPitchRegion",
-                    f"No {phase.value} pitch region is configured",
-                ))
+                issues.append(
+                    TacticIssue(
+                        "missingPitchRegion",
+                        f"No {phase.value} pitch region is configured",
+                    )
+                )
                 phases[phase] = []
                 continue
             regionBounds = self._regionBounds(image, region)
@@ -254,9 +266,7 @@ class TacticFormationExtractor:
             phases[TacticalPhase.OUT_OF_POSSESSION],
         )
         issues.extend(linkIssues)
-        return FormationExtractResult(
-            tuple(linkedIn + linkedOut), tuple(issues), diagnostic
-        )
+        return FormationExtractResult(tuple(linkedIn + linkedOut), tuple(issues), diagnostic)
 
     def _phaseRegionsResolve(self, image: np.ndarray) -> dict[str, Any]:
         """Select the calibrated Formation layout matching the capture geometry."""
@@ -273,9 +283,7 @@ class TacticFormationExtractor:
                     f"{profile.get('name', 'unnamed')} aspect={aspectRatio:.3f}"
                 )
                 return regions
-        logger.info(
-            f"formation phase-region profile=fallback aspect={aspectRatio:.3f}"
-        )
+        logger.info(f"formation phase-region profile=fallback aspect={aspectRatio:.3f}")
         return self.configuration.get("phaseRegions", {})
 
     def _phaseExtract(
@@ -287,18 +295,22 @@ class TacticFormationExtractor:
         diagnosticOffset: tuple[int, int] = (0, 0),
     ) -> tuple[list[FormationSlot], list[TacticIssue]]:
         if pitch.size == 0:
-            return [], [TacticIssue(
-                "emptyPitchRegion",
-                f"Configured {phase.value} pitch region is empty",
-            )]
+            return [], [
+                TacticIssue(
+                    "emptyPitchRegion",
+                    f"Configured {phase.value} pitch region is empty",
+                )
+            ]
         boxes = self._tilesDetect(pitch)
         logger.value(f"{phase.value} formation tile candidates", len(boxes))
         issues: list[TacticIssue] = []
         if not boxes:
-            return [], [TacticIssue(
-                "missingFormationSlots",
-                f"No {phase.value} role tiles were detected",
-            )]
+            return [], [
+                TacticIssue(
+                    "missingFormationSlots",
+                    f"No {phase.value} role tiles were detected",
+                )
+            ]
         height, width = pitch.shape[:2]
         slots: list[FormationSlot] = []
         for index, box in enumerate(boxes, start=1):
@@ -320,10 +332,12 @@ class TacticFormationExtractor:
             try:
                 results = self.ocr.recognize(crop)
             except Exception as exc:
-                issues.append(TacticIssue(
-                    "formationTileOcrFailed",
-                    f"{phase.value} tile {index} OCR failed: {exc}",
-                ))
+                issues.append(
+                    TacticIssue(
+                        "formationTileOcrFailed",
+                        f"{phase.value} tile {index} OCR failed: {exc}",
+                    )
+                )
                 results = []
             logger.info(
                 f"{phase.value} tile {index} OCR: "
@@ -372,35 +386,45 @@ class TacticFormationExtractor:
         player = (
             f"{number.strip()} {playerName.strip()}"
             if number and playerName
-            else playerName
-            or number
+            else playerName or number
         )
         issues: list[TacticIssue] = []
         if position is None:
-            issues.append(TacticIssue(
-                "unresolvedPosition",
-                f"Tile {index} is outside configured pitch zones",
-            ))
+            issues.append(
+                TacticIssue(
+                    "unresolvedPosition",
+                    f"Tile {index} is outside configured pitch zones",
+                )
+            )
         if role is None:
-            issues.append(TacticIssue(
-                "unresolvedRole",
-                f"No role was recognized for {phase.value} tile {index}",
-                " ".join(fragments),
-            ))
+            issues.append(
+                TacticIssue(
+                    "unresolvedRole",
+                    f"No role was recognized for {phase.value} tile {index}",
+                    " ".join(fragments),
+                )
+            )
         # FM26's Tactics Planner Both view exposes the IP/OOP role but no
         # separate duty. Preserve duty when explicit evidence exists, while
         # treating its absence on this screen as expected rather than invalid.
-        state = (
-            ValidationState.EXTRACTED
-            if position and role
-            else ValidationState.UNRESOLVED
+        state = ValidationState.EXTRACTED if position and role else ValidationState.UNRESOLVED
+        return (
+            FormationSlot(
+                slotId=f"{phase.value}-{index:02d}",
+                phase=phase,
+                position=position,
+                role=role[0] if role else None,
+                duty=duty[0] if duty else None,
+                x=x,
+                y=y,
+                observedRole=observedRole,
+                displayedPlayer=player,
+                confidence=confidence,
+                sourceImport=sourceImport,
+                validationState=state,
+            ),
+            issues,
         )
-        return FormationSlot(
-            slotId=f"{phase.value}-{index:02d}", phase=phase, position=position,
-            role=role[0] if role else None, duty=duty[0] if duty else None,
-            x=x, y=y, observedRole=observedRole, displayedPlayer=player,
-            confidence=confidence, sourceImport=sourceImport, validationState=state,
-        ), issues
 
     def _observedRoleFind(self, fragments: list[str]) -> str:
         """Return a plausible displayed role token without claiming it is canonical."""
@@ -440,49 +464,48 @@ class TacticFormationExtractor:
         for contour in cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)[0]:
             left, top, boxWidth, boxHeight = cv2.boundingRect(contour)
             widthRatio, heightRatio = boxWidth / width, boxHeight / height
-            if not float(settings.get("minimumWidth", 0.06)) <= widthRatio <= float(
-                settings.get("maximumWidth", 0.32)
+            if (
+                not float(settings.get("minimumWidth", 0.06))
+                <= widthRatio
+                <= float(settings.get("maximumWidth", 0.32))
             ):
                 continue
-            if not float(settings.get("minimumHeight", 0.025)) <= heightRatio <= float(
-                settings.get("maximumHeight", 0.16)
+            if (
+                not float(settings.get("minimumHeight", 0.025))
+                <= heightRatio
+                <= float(settings.get("maximumHeight", 0.16))
             ):
                 continue
             if boxWidth / max(1, boxHeight) < float(settings.get("minimumAspectRatio", 1.45)):
                 continue
             inset = hsv[
-                top + max(1, boxHeight // 4):top + max(2, boxHeight * 3 // 4),
-                left + max(1, boxWidth // 8):left + max(2, boxWidth * 7 // 8),
+                top + max(1, boxHeight // 4) : top + max(2, boxHeight * 3 // 4),
+                left + max(1, boxWidth // 8) : left + max(2, boxWidth * 7 // 8),
             ]
             if inset.size == 0:
                 continue
             centerX = (left + boxWidth / 2) / width
             centerY = (top + boxHeight / 2) / height
-            goalkeeperCandidate = (
-                float(settings.get("goalkeeperXMin", 0.35))
-                <= centerX
-                <= float(settings.get("goalkeeperXMax", 0.65))
-                and centerY >= float(settings.get("goalkeeperYMin", 0.86))
-            )
+            goalkeeperCandidate = float(settings.get("goalkeeperXMin", 0.35)) <= centerX <= float(
+                settings.get("goalkeeperXMax", 0.65)
+            ) and centerY >= float(settings.get("goalkeeperYMin", 0.86))
             minimumSaturation = float(
                 settings.get(
-                    "goalkeeperMinimumInteriorSaturation"
-                    if goalkeeperCandidate
-                    else "minimumInteriorSaturation",
+                    (
+                        "goalkeeperMinimumInteriorSaturation"
+                        if goalkeeperCandidate
+                        else "minimumInteriorSaturation"
+                    ),
                     15 if goalkeeperCandidate else 70,
                 )
             )
             if float(np.mean(inset[:, :, 1])) < minimumSaturation:
                 continue
-            if float(np.mean(inset[:, :, 2])) < float(
-                settings.get("minimumInteriorValue", 82)
-            ):
+            if float(np.mean(inset[:, :, 2])) < float(settings.get("minimumInteriorValue", 82)):
                 continue
             boxes.append((left, top, left + boxWidth, top + boxHeight))
         boxes = self._duplicatesRemove(boxes, width, height)
-        boxes = [
-            box for box in boxes if not self._excludedCandidate(box, width, height)
-        ]
+        boxes = [box for box in boxes if not self._excludedCandidate(box, width, height)]
         return sorted(boxes, key=lambda box: ((box[1] + box[3]) / 2, (box[0] + box[2]) / 2))
 
     def _excludedCandidate(
@@ -495,17 +518,12 @@ class TacticFormationExtractor:
 
         centerX = ((box[0] + box[2]) / 2) / width
         centerY = ((box[1] + box[3]) / 2) / height
-        for region in self.configuration.get("tileDetection", {}).get(
-            "excludedRegions", []
-        ):
+        for region in self.configuration.get("tileDetection", {}).get("excludedRegions", []):
             xMinimum = float(region["x"])
             xMaximum = xMinimum + float(region["width"])
             yMinimum = float(region["y"])
             yMaximum = yMinimum + float(region["height"])
-            if (
-                xMinimum <= centerX <= xMaximum
-                and yMinimum <= centerY <= yMaximum
-            ):
+            if xMinimum <= centerX <= xMaximum and yMinimum <= centerY <= yMaximum:
                 logger.info(
                     "formation tile candidate excluded as pitch chrome: "
                     f"center=({centerX:.3f},{centerY:.3f})"
@@ -578,12 +596,10 @@ class TacticFormationExtractor:
     def _regionCrop(image: np.ndarray, region: dict[str, float]) -> np.ndarray:
         left, top, right, bottom = TacticFormationExtractor._regionBounds(image, region)
         height, width = image.shape[:2]
-        return image[max(0, top):min(height, bottom), max(0, left):min(width, right)]
+        return image[max(0, top) : min(height, bottom), max(0, left) : min(width, right)]
 
     @staticmethod
-    def _regionBounds(
-        image: np.ndarray, region: dict[str, float]
-    ) -> tuple[int, int, int, int]:
+    def _regionBounds(image: np.ndarray, region: dict[str, float]) -> tuple[int, int, int, int]:
         height, width = image.shape[:2]
         left, top = int(float(region["x"]) * width), int(float(region["y"]) * height)
         right = int((float(region["x"]) + float(region["width"])) * width)
@@ -598,8 +614,14 @@ class TacticFormationExtractor:
         top = max(4, height - 42)
         cv2.rectangle(image, (4, top), (min(width - 4, 530), height - 5), (8, 16, 28), -1)
         cv2.putText(
-            image, f"{text} - {'ANCHORED' if anchored else 'ANCHOR NOT FOUND'}",
-            (12, height - 16), cv2.FONT_HERSHEY_SIMPLEX, 0.58, colour, 2, cv2.LINE_AA,
+            image,
+            f"{text} - {'ANCHORED' if anchored else 'ANCHOR NOT FOUND'}",
+            (12, height - 16),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.58,
+            colour,
+            2,
+            cv2.LINE_AA,
         )
 
     @staticmethod
@@ -614,6 +636,12 @@ class TacticFormationExtractor:
         cv2.rectangle(image, (left, top), (right, bottom), colour, thickness)
         labelY = max(18, top - 6)
         cv2.putText(
-            image, label, (max(2, left + 3), labelY), cv2.FONT_HERSHEY_SIMPLEX,
-            0.48, colour, 2, cv2.LINE_AA,
+            image,
+            label,
+            (max(2, left + 3), labelY),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.48,
+            colour,
+            2,
+            cv2.LINE_AA,
         )

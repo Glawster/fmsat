@@ -33,6 +33,36 @@ def testCanonicalRoleResolveNormalizesLegacyAbbreviation() -> None:
     assert service._canonicalRoleResolve(position) == "halfBack"
 
 
+def testCanonicalRoleResolveRejectsPositionSubstitutedForRole() -> None:
+    roleKnowledge = Mock()
+    roleKnowledge.assessmentSettings = {}
+    roleKnowledge.definitionsList.return_value = ()
+    service = _service(roleKnowledge)
+    position = SimpleNamespace(
+        canonicalRole="AMC",
+        canonicalPosition="AMC",
+        identity=SimpleNamespace(value="AMC"),
+        roleProfile=SimpleNamespace(description="Observed role"),
+    )
+
+    assert service._canonicalRoleResolve(position) is None
+
+
+def testCanonicalRoleResolveRecoversObservedAmAfterLeakedAmcPosition() -> None:
+    roleKnowledge = Mock()
+    roleKnowledge.assessmentSettings = {}
+    roleKnowledge.definitionsList.return_value = ()
+    service = _service(roleKnowledge)
+    position = SimpleNamespace(
+        canonicalRole="AMC",
+        canonicalPosition="AMC",
+        identity=SimpleNamespace(value="AMC"),
+        roleProfile=SimpleNamespace(description="AM (Observed role)"),
+    )
+
+    assert service._canonicalRoleResolve(position) == "attackingMidfielder"
+
+
 def testConfirmedCustomRoleJoinsAssessmentCatalogue() -> None:
     roleKnowledge = Mock()
     roleKnowledge.assessmentSettings = {}

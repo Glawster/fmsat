@@ -139,3 +139,52 @@ def testInitializeAddsStructuredSchemaWithoutReplacingLegacyData(tmp_path) -> No
     }.issubset(tableNames)
     assert upgradedDatabase.tacticsList() == ["Legacy Tactic"]
     assert upgradedDatabase.screenTypesForTactic("Legacy Tactic") == {ScreenType.TACTIC_FORMATION}
+
+
+def testInitializeMigratesRetiredDdmIdentityWithoutChangingObservedEvidence(tmp_path) -> None:
+    """Canonical role renames must not rewrite the original FM display text."""
+
+    database = Database(tmp_path / "legacy-role.sqlite3")
+    database.initialize()
+    imported = database.tacticImportSave(
+        "/captures/formation.png",
+        ScreenType.TACTIC_FORMATION,
+        "Legacy DDM",
+    )
+
+    with Session(database.engine) as session, session.begin():
+        tactic = session.scalar(select(Tactic).where(Tactic.normalizedName == "legacy ddm"))
+        sourceImport = session.get(ImportSession, imported.id)
+        assert tactic is not None
+        assert sourceImport is not None
+        tactic.structuredDefinition = ScreenshotDerivedTacticDefinition(
+            confirmed=False,
+            complete=False,
+            tacticMetadata={},
+            slots=[
+                StructuredFormationSlot(
+                    slotId="slot-08",
+                    phase="outOfPossession",
+                    position="DMCL",
+                    role="deepDefensiveMidfielder",
+                    duty=None,
+                    x=0.4,
+                    y=0.5,
+                    observedRole="DDM",
+                    displayedPlayer="6 Tolhoek",
+                    confidence=0.9402,
+                    sourceImportSession=sourceImport,
+                    validationState="extracted",
+                )
+            ],
+        )
+
+    database.initialize()
+    database.initialize()  # The data migration must remain idempotent.
+
+    with Session(database.engine) as session:
+        slot = session.scalar(select(StructuredFormationSlot))
+
+    assert slot is not None
+    assert slot.role == "droppingDefensiveMidfielder"
+    assert slot.observedRole == "DDM"

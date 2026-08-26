@@ -1,5 +1,5 @@
-name: "project"
-description: "Project description"
+name: "fmsat"
+description: "Local Football Manager tactic and squad evidence assessment application"
 version: "0.1.0"
 runtime: "python3.12"
 role: "standalone-application"

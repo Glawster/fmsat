@@ -131,11 +131,7 @@ class GenericRoleFitCalculator:
             return GenericRoleFit(None, "No assessment weights are defined", ())
 
         values = dict(player.attributes)
-        missing = sorted(
-            attribute
-            for attribute in activeWeights
-            if values.get(attribute) is None
-        )
+        missing = sorted(attribute for attribute in activeWeights if values.get(attribute) is None)
         if missing:
             return GenericRoleFit(
                 None,
@@ -185,19 +181,11 @@ class SquadAssessmentService:
         settings = candidateSettings if isinstance(candidateSettings, Mapping) else {}
         self.scoringIdentity = str(settings.get("identity", "Unavailable"))
         self.weakRoleFitThreshold = float(settings.get("weakRoleFitThreshold", 60.0))
-        self.duplicationFitThreshold = float(
-            settings.get("duplicationFitThreshold", 60.0)
-        )
-        self.duplicationMinimumPlayers = int(
-            settings.get("duplicationMinimumPlayers", 3)
-        )
-        self.unusedStrengthThreshold = float(
-            settings.get("unusedStrengthThreshold", 60.0)
-        )
+        self.duplicationFitThreshold = float(settings.get("duplicationFitThreshold", 60.0))
+        self.duplicationMinimumPlayers = int(settings.get("duplicationMinimumPlayers", 3))
+        self.unusedStrengthThreshold = float(settings.get("unusedStrengthThreshold", 60.0))
         self.alternativeRoleLimit = int(settings.get("alternativeRoleLimit", 3))
-        self.slotAggregationPolicy = str(
-            settings.get("slotAggregationPolicy", "Unavailable")
-        )
+        self.slotAggregationPolicy = str(settings.get("slotAggregationPolicy", "Unavailable"))
 
     ## assessment
 
@@ -348,8 +336,7 @@ class SquadAssessmentService:
                     PlayerRoleFit(role.roleCode, role.displayName, candidate.genericRoleFit.score)
                     for role in roles
                     for candidate in role.candidates
-                    if candidate.player is player
-                    and candidate.genericRoleFit.score is not None
+                    if candidate.player is player and candidate.genericRoleFit.score is not None
                 ),
                 key=lambda fit: (-fit.score, fit.displayName.casefold()),
             )
@@ -472,7 +459,16 @@ class SquadAssessmentService:
             normalized = self.vocabulary.roleNormalize(canonical)
             if getattr(normalized, "resolved", False) is True:
                 return str(normalized.value)
-            return canonical
+            exactPosition = str(
+                getattr(position, "canonicalPosition", None)
+                or getattr(getattr(position, "identity", None), "value", "")
+                or ""
+            ).strip()
+            if canonical.casefold() != exactPosition.casefold():
+                return canonical
+            # A legacy position value in canonicalRole is not semantic role
+            # evidence.  Ignore it and continue to the observed role profile,
+            # which can still recover AM -> attackingMidfielder, for example.
 
         observed = position.roleProfile.description.split(" (", 1)[0].strip()
         normalized = self.vocabulary.roleNormalize(observed)
@@ -492,8 +488,7 @@ class SquadAssessmentService:
         """Return confirmed definitions keyed by their stable canonical role code."""
 
         return {
-            definition.roleCode: definition
-            for definition in self.roleKnowledge.definitionsList()
+            definition.roleCode: definition for definition in self.roleKnowledge.definitionsList()
         }
 
     def _roleAssess(

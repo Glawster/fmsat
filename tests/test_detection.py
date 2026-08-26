@@ -141,9 +141,7 @@ def testRoleProfileDetailPanelIsScannedWhenHeaderLooksLikeInPossession() -> None
         },
     )
 
-    assert detector.detect(np.zeros((1000, 1600, 3), dtype=np.uint8)) is (
-        ScreenType.ROLE_PROFILE
-    )
+    assert detector.detect(np.zeros((1000, 1600, 3), dtype=np.uint8)) is (ScreenType.ROLE_PROFILE)
 
 
 def testPlayerRolesBreadcrumbAndPossessionRoleIdentifyEveryRoleProfile() -> None:
@@ -163,9 +161,7 @@ def testPlayerRolesBreadcrumbAndPossessionRoleIdentifyEveryRoleProfile() -> None
         },
     )
 
-    assert detector.detect(np.zeros((1000, 1600, 3), dtype=np.uint8)) is (
-        ScreenType.ROLE_PROFILE
-    )
+    assert detector.detect(np.zeros((1000, 1600, 3), dtype=np.uint8)) is (ScreenType.ROLE_PROFILE)
 
 
 def testTacticsPlannerBothViewIsDetectedAsFormation() -> None:

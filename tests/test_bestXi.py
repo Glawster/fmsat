@@ -24,16 +24,44 @@ def _role(code: str, abbreviation: str, phase: str, candidates: tuple[object, ..
     )
 
 
-def _slot(position: str, ipRole: str, oopRole: str):
-    return SimpleNamespace(position=position, ipRole=ipRole, oopRole=oopRole)
+def _slot(
+    position: str,
+    ipRole: str,
+    oopRole: str,
+    ipRoleCode: str | None = None,
+    oopRoleCode: str | None = None,
+):
+    """Build display labels separately from the semantic identities Best XI consumes."""
+
+    abbreviationCodes = {
+        "SS": "secondStriker",
+        "TAM": "trackingAttackingMidfielder",
+        "IF": "insideForward",
+        "TW": "trackingWinger",
+        "1I": "oneIp",
+        "1O": "oneOop",
+        "2I": "twoIp",
+        "2O": "twoOop",
+        "WI": "wideIp",
+        "WO": "wideOop",
+        "RI": "roleIp",
+        "RO": "roleOop",
+    }
+    return SimpleNamespace(
+        position=position,
+        ipRole=ipRole,
+        oopRole=oopRole,
+        ipRoleCode=ipRoleCode or abbreviationCodes.get(ipRole, ipRole),
+        oopRoleCode=oopRoleCode or abbreviationCodes.get(oopRole, oopRole),
+    )
 
 
 def testBestXiMovesHempWideWhenFreigangCanCoverSecondStriker() -> None:
     """A slightly weaker local SS choice must be allowed to complete the whole XI."""
 
-    hempCentral = _candidate("Hemp, Lauren", 81.0, "AM (L), ST (C)")
+    hempCentral = _candidate("Hemp, Lauren", 81.0, "AM (LC), ST (C)")
     freigangCentral = _candidate("Freigang, Laura", 77.0, "AM (C), ST (C)")
-    hempWide = _candidate("Hemp, Lauren", 75.0, "AM (L), ST (C)")
+    hempWide = _candidate("Hemp, Lauren", 75.0, "AM (LC), ST (C)")
     roles = (
         _role("secondStriker", "SS", "In Possession", (hempCentral, freigangCentral)),
         _role(
@@ -100,11 +128,11 @@ def testBestXiUsesStrongerWeakestAssignmentWhenTotalsTie() -> None:
     assert result.selectionFor(1).playerName == "Alpha"
 
 
-def testBestXiUsesPositionFamiliarityAsLateTieBreak() -> None:
-    """Familiarity breaks otherwise equal assignments without overriding role fit."""
+def testBestXiExcludesHigherScoringPlayerOutsideThePositionFamily() -> None:
+    """Generic Role Fit alone must not make an unfamiliar player deployable now."""
 
     familiar = _candidate("Familiar", 75.0, "AM (L)")
-    training = _candidate("Training", 75.0, "ST (C)")
+    training = _candidate("Training", 95.0, "ST (C)")
     roles = (
         _role("wideIp", "WI", "In Possession", (training, familiar)),
         _role("wideOop", "WO", "Out Of Possession", (training, familiar)),
@@ -117,6 +145,25 @@ def testBestXiUsesPositionFamiliarityAsLateTieBreak() -> None:
 
     assert result.selectionFor(0).playerName == "Familiar"
     assert result.selectionFor(0).familiar
+
+
+def testBestXiLeavesSlotUncoveredWhenOnlyRetrainingCandidatesFitRole() -> None:
+    """A strong attribute match outside the slot family belongs outside Best XI."""
+
+    russo = _candidate("Russo, Alessia", 94.0, "ST (C)")
+    roles = (
+        _role("roleIp", "RI", "In Possession", (russo,)),
+        _role("roleOop", "RO", "Out Of Possession", (russo,)),
+    )
+
+    result = BestXiAssignmentService().assignmentBuild(
+        (_slot("MC", "RI", "RO"),),
+        roles,
+    )
+
+    assert result.coveredSlots == 0
+    assert not result.evidenceAvailable
+    assert result.selectionFor(0) is None
 
 
 def testBestXiIsDeterministicWhenEveryObjectiveIsEqual() -> None:
@@ -135,3 +182,68 @@ def testBestXiIsDeterministicWhenEveryObjectiveIsEqual() -> None:
     )
 
     assert result.selectionFor(0).playerName == "Alpha"
+
+
+def testBestXiIgnoresUnresolvedPlaceholderDuplicateAbbreviations() -> None:
+    """Role Editor placeholders must not wipe a calculable slot assignment."""
+
+    player = _candidate("Alpha", 80.0, "AM (R)")
+    roles = (
+        _role("trackingWinger", "TW", "Out Of Possession", (player,)),
+        SimpleNamespace(
+            roleCode="unresolved:slot-11:OOP",
+            displayName="Unknown AMR role",
+            abbreviation="TW",
+            phases="Out Of Possession",
+            candidates=(),
+            resolutionState="unknownRole",
+        ),
+        _role("insideForward", "IF", "In Possession", (player,)),
+    )
+    slots = (_slot("AMR", "IF", "TW"),)
+
+    result = BestXiAssignmentService().assignmentBuild(slots, roles)
+
+    assert result.coveredSlots == 1
+    assert result.selectionFor(0).playerName == "Alpha"
+
+
+def testBestXiResolvesSlotsByRoleCodeWhenAbbreviationIsUnknown() -> None:
+    """Unknown abbreviation labels still assign when semantic roleCode is present."""
+
+    player = _candidate("Alpha", 82.0, "ST (C)")
+    roles = (
+        _role("centreForward", "centreForward", "In Possession", (player,)),
+        _role("trackingCentreForward", "TCF", "Out Of Possession", (player,)),
+    )
+    slot = SimpleNamespace(
+        position="STC",
+        ipRole="Unknown abbreviation",
+        oopRole="TCF",
+        ipRoleCode="centreForward",
+        oopRoleCode="trackingCentreForward",
+    )
+
+    result = BestXiAssignmentService().assignmentBuild((slot,), roles)
+
+    assert result.coveredSlots == 1
+    assert result.selectionFor(0).playerName == "Alpha"
+
+
+def testBestXiRefusesPartialPhaseEvidence() -> None:
+    """One calculable phase must never stand in for a slot's missing phase role."""
+
+    player = _candidate("Alpha", 82.0, "ST (C)")
+    roles = (_role("trackingCentreForward", "TCF", "Out Of Possession", (player,)),)
+    slot = SimpleNamespace(
+        position="STC",
+        ipRole="Complete Forward",
+        oopRole="TCF",
+        ipRoleCode="completeForward",
+        oopRoleCode="trackingCentreForward",
+    )
+
+    result = BestXiAssignmentService().assignmentBuild((slot,), roles)
+
+    assert result.coveredSlots == 0
+    assert not result.evidenceAvailable

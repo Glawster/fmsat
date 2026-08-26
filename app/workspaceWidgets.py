@@ -4,12 +4,15 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 
 class FactCard(QFrame):
     """Render one consistently styled workspace summary fact."""
+
+    activated = Signal()
 
     def __init__(self, label: str, value: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -26,6 +29,23 @@ class FactCard(QFrame):
         self.valueLabel.setObjectName("factValue")
         self.valueLabel.setWordWrap(True)
         layout.addWidget(self.valueLabel)
+
+    def interactionEnable(self, tooltip: str) -> None:
+        """Make this fact card advertise and emit a navigation action."""
+
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setToolTip(tooltip)
+        self.setAccessibleDescription(tooltip)
+        self.setProperty("interactive", True)
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        """Activate interactive cards on a primary-button click."""
+
+        if self.property("interactive") and event.button() is Qt.MouseButton.LeftButton:
+            self.activated.emit()
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
 
 
 class WorkspaceHeader:

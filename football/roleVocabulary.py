@@ -6,7 +6,6 @@ from fmsat.core.logUtils import getLogger
 from fmsat.core.parser import TacticVocabulary
 from fmsat.football.roleIdentity import RoleIdentity
 
-
 logger = getLogger()
 
 
@@ -31,15 +30,11 @@ class RoleVocabulary:
                 continue
             if normalized in explicitAliases:
                 resolved = explicitAliases[normalized]
-                logger.info(
-                    f"role identity resolved directly: {candidate!r} -> {resolved.value}"
-                )
+                logger.info(f"role identity resolved directly: {candidate!r} -> {resolved.value}")
                 return resolved
             direct = cls._identityFromToken(normalized)
             if direct is not None:
-                logger.info(
-                    f"role identity resolved from token: {candidate!r} -> {direct.value}"
-                )
+                logger.info(f"role identity resolved from token: {candidate!r} -> {direct.value}")
                 return direct
 
         # Then resolve via configured role vocabulary, which includes canonical
@@ -75,9 +70,7 @@ class RoleVocabulary:
             # Fall back to role code text when abbreviation does not map directly.
             mapped = cls._identityFromToken(cls.normalize(role.code))
             if mapped is not None:
-                logger.info(
-                    f"role identity resolved from code: {role.code!r} -> {mapped.value}"
-                )
+                logger.info(f"role identity resolved from code: {role.code!r} -> {mapped.value}")
                 return mapped
 
         logger.warning(f"role identity unresolved for candidates: {candidates!r}")

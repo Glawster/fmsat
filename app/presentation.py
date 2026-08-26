@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 
-
 goalkeeperAttributeNames = frozenset(
     {
         "aerial_reach",
@@ -92,12 +91,7 @@ def roleAbbreviationDisplay(roleCode: str, abbreviation: str) -> str:
 def positionSortKey(position: str) -> tuple[int, int]:
     """Order FM positions from forwards back to goalkeeper, then left-centre-right."""
 
-    compact = (
-        position.upper()
-        .replace(" ", "")
-        .replace("(", "")
-        .replace(")", "")
-    )
+    compact = position.upper().replace(" ", "").replace("(", "").replace(")", "")
     if compact.startswith("ST"):
         line = 0
     elif compact.startswith("AM"):
@@ -106,9 +100,7 @@ def positionSortKey(position: str) -> tuple[int, int]:
         line = 2
     elif compact.startswith("DM"):
         line = 3
-    elif compact.startswith("WB") or (
-        compact.startswith("D") and not compact.startswith("DM")
-    ):
+    elif compact.startswith("WB") or (compact.startswith("D") and not compact.startswith("DM")):
         line = 4
     elif compact == "GK":
         line = 5
@@ -117,11 +109,7 @@ def positionSortKey(position: str) -> tuple[int, int]:
     side = (
         0
         if compact.endswith("L")
-        else 1
-        if compact.endswith("C")
-        else 2
-        if compact.endswith("R")
-        else 3
+        else 1 if compact.endswith("C") else 2 if compact.endswith("R") else 3
     )
     return line, side
 

@@ -365,7 +365,7 @@ def testBuildCompleteTactic() -> None:
     # ------------------------------------------------------------------
 
     libero = Tactic(
-        name = "Libero",
+        name="Libero",
         inPossession=inPossession,
         outOfPossession=outOfPossession,
         transition=transition,
@@ -397,56 +397,32 @@ def testBuildCompleteTactic() -> None:
     # Instruction key/value model
     # ------------------------------------------------------------------
 
-    assert (
-        leftWingBack.instructions[attackingWidth]
-        == stayWider
-    )
+    assert leftWingBack.instructions[attackingWidth] == stayWider
 
-    assert (
-        leftWingBack.instructions[dribblingDirection]
-        == runWideWithBall
-    )
+    assert leftWingBack.instructions[dribblingDirection] == runWideWithBall
 
     halfBackPosition = libero.inPossession.positions[4]
 
-    assert (
-        halfBackPosition.instructions[attackingWidth]
-        == sitNarrower
-    )
+    assert halfBackPosition.instructions[attackingWidth] == sitNarrower
 
     # ------------------------------------------------------------------
     # Role profile instructions and position instructions are independent.
     # ------------------------------------------------------------------
 
-    assert (
-        halfBackProfile.instructions[movement]
-        == holdPosition
-    )
+    assert halfBackProfile.instructions[movement] == holdPosition
 
-    assert (
-        halfBackPosition.instructions[movement]
-        == holdPosition
-    )
+    assert halfBackPosition.instructions[movement] == holdPosition
 
     # ------------------------------------------------------------------
     # Team instruction
     # ------------------------------------------------------------------
 
-    assert (
-        libero.inPossession.instructions[attackingWidth]
-        == stayWider
-    )
+    assert libero.inPossession.instructions[attackingWidth] == stayWider
 
     # ------------------------------------------------------------------
     # Transition instructions use exactly the same model.
     # ------------------------------------------------------------------
 
-    assert (
-        libero.transition.instructions[possessionLost]
-        == counterPress
-    )
+    assert libero.transition.instructions[possessionLost] == counterPress
 
-    assert (
-        libero.transition.instructions[possessionWon]
-        == counter
-    )
+    assert libero.transition.instructions[possessionWon] == counter

@@ -142,9 +142,7 @@ def testObviousNameAndAbilityOcrArtifactsAreCorrected() -> None:
 
 def testDuplicatedAbilityUsesFinalValueOnlyForSimplePlayerName() -> None:
 
-    simple = ExtractedPlayer(
-        "Stephen Humphrys", "AM (RLC), ST (C)", "109", "130 120", {}, 0.98
-    )
+    simple = ExtractedPlayer("Stephen Humphrys", "AM (RLC), ST (C)", "109", "130 120", {}, 0.98)
     composite = ExtractedPlayer(
         "Paul Mullin Stephen Humphrys",
         "AM (RLC), ST (C)",
@@ -166,9 +164,7 @@ def testPlayerNamesAllowOneToThreeWordsButRejectMergedRows() -> None:
     validator = PlayerValidator()
 
     for name in ("Priscila", "Lauren Hemp", "Laura Blindkilde Brown"):
-        issues = validator.validate(
-            ExtractedPlayer(name, "ST (C)", "105", "125", {}, 0.98)
-        )
+        issues = validator.validate(ExtractedPlayer(name, "ST (C)", "105", "125", {}, 0.98))
         assert not any(issue.field == "name" for issue in issues)
 
     issues = PlayerValidator().validate(
@@ -176,17 +172,14 @@ def testPlayerNamesAllowOneToThreeWordsButRejectMergedRows() -> None:
     )
 
     assert any(
-        issue.message == "Player name may contain merged player rows"
-        and issue.blocking
+        issue.message == "Player name may contain merged player rows" and issue.blocking
         for issue in issues
     )
 
 
 def testSplitMcSurnameAndPositionSeparatorAreCorrected() -> None:
 
-    player = ExtractedPlayer(
-        "Libbi Mc Innes", "M (RL). AM (LC)", "150", "159", {}, 0.98
-    )
+    player = ExtractedPlayer("Libbi Mc Innes", "M (RL). AM (LC)", "150", "159", {}, 0.98)
 
     report = PlayerValidator().correctAll([player], context="test")
 

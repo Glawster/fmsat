@@ -33,3 +33,15 @@ def testRequiredSlotUsesObservedRoleInsteadOfUnknownLabel() -> None:
     )
 
     assert _slotRoleLabel(role) == "TW"
+
+
+def testRequiredSlotKeepsKnownRoleNameWhenAbbreviationIsMissing() -> None:
+    """A missing abbreviation must not erase a known semantic role identity."""
+
+    role = SimpleNamespace(
+        roleCode="completeForward",
+        displayName="Complete Forward",
+        abbreviation="completeForward",
+    )
+
+    assert _slotRoleLabel(role) == "Complete Forward"

@@ -50,19 +50,12 @@ class TacticFormationExtractor(BaseTacticFormationExtractor):
 
         centerX = ((box[0] + box[2]) / 2) / width
         centerY = ((box[1] + box[3]) / 2) / height
-        for region in self.configuration.get("tileDetection", {}).get(
-            "excludedRegions", []
-        ):
+        for region in self.configuration.get("tileDetection", {}).get("excludedRegions", []):
             xMinimum = float(region["x"])
             yMinimum = float(region["y"])
             regionWidth = float(region["width"])
             regionHeight = float(region["height"])
-            if (
-                xMinimum == 0.0
-                and yMinimum == 0.0
-                and regionWidth >= 1.0
-                and regionHeight <= 0.06
-            ):
+            if xMinimum == 0.0 and yMinimum == 0.0 and regionWidth >= 1.0 and regionHeight <= 0.06:
                 continue
             if (
                 xMinimum <= centerX <= xMinimum + regionWidth
@@ -83,9 +76,7 @@ class TacticFormationExtractor(BaseTacticFormationExtractor):
         boxes.extend(self._goalkeeperRoleBoxDetect(pitch))
         height, width = pitch.shape[:2]
         boxes = self._duplicatesRemove(boxes, width, height)
-        boxes = [
-            box for box in boxes if not self._excludedCandidate(box, width, height)
-        ]
+        boxes = [box for box in boxes if not self._excludedCandidate(box, width, height)]
         return sorted(
             boxes,
             key=lambda box: ((box[1] + box[3]) / 2, (box[0] + box[2]) / 2),
@@ -167,8 +158,8 @@ class TacticFormationExtractor(BaseTacticFormationExtractor):
             if boxWidth / max(1, boxHeight) < 1.6:
                 continue
             inset = hsv[
-                top + max(1, boxHeight // 4):top + max(2, boxHeight * 3 // 4),
-                left + max(1, boxWidth // 8):left + max(2, boxWidth * 7 // 8),
+                top + max(1, boxHeight // 4) : top + max(2, boxHeight * 3 // 4),
+                left + max(1, boxWidth // 8) : left + max(2, boxWidth * 7 // 8),
             ]
             if inset.size == 0:
                 continue
@@ -188,18 +179,22 @@ class TacticFormationExtractor(BaseTacticFormationExtractor):
         diagnosticOffset: tuple[int, int] = (0, 0),
     ) -> tuple[list[FormationSlot], list[TacticIssue]]:
         if pitch.size == 0:
-            return [], [TacticIssue(
-                "emptyPitchRegion",
-                f"Configured {phase.value} pitch region is empty",
-            )]
+            return [], [
+                TacticIssue(
+                    "emptyPitchRegion",
+                    f"Configured {phase.value} pitch region is empty",
+                )
+            ]
         boxes = self._tilesDetect(pitch)
         logger.value(f"{phase.value} formation tile candidates", len(boxes))
         issues: list[TacticIssue] = []
         if not boxes:
-            return [], [TacticIssue(
-                "missingFormationSlots",
-                f"No {phase.value} role tiles were detected",
-            )]
+            return [], [
+                TacticIssue(
+                    "missingFormationSlots",
+                    f"No {phase.value} role tiles were detected",
+                )
+            ]
         height, width = pitch.shape[:2]
         slots: list[FormationSlot] = []
         for candidateIndex, box in enumerate(boxes, start=1):
@@ -212,10 +207,12 @@ class TacticFormationExtractor(BaseTacticFormationExtractor):
             try:
                 results = self.ocr.recognize(crop)
             except Exception as exc:
-                issues.append(TacticIssue(
-                    "formationTileOcrFailed",
-                    f"{phase.value} candidate {candidateIndex} OCR failed: {exc}",
-                ))
+                issues.append(
+                    TacticIssue(
+                        "formationTileOcrFailed",
+                        f"{phase.value} candidate {candidateIndex} OCR failed: {exc}",
+                    )
+                )
                 results = []
 
             focusedResults = self._roleLabelRecognize(pitch, box)
@@ -257,9 +254,7 @@ class TacticFormationExtractor(BaseTacticFormationExtractor):
             )
             x = ((left + right) / 2) / width
             y = ((top + bottom) / 2) / height
-            slot, slotIssues = self._slotBuild(
-                results, phase, x, y, sourceImport, acceptedIndex
-            )
+            slot, slotIssues = self._slotBuild(results, phase, x, y, sourceImport, acceptedIndex)
             focusedObservedRole = self._focusedObservedRoleFind(focusedResults)
             if not slot.observedRole and focusedObservedRole:
                 slot = replace(slot, observedRole=focusedObservedRole)
@@ -267,10 +262,12 @@ class TacticFormationExtractor(BaseTacticFormationExtractor):
             issues.extend(slotIssues)
 
         if not slots:
-            issues.append(TacticIssue(
-                "missingFormationSlots",
-                f"No {phase.value} role tiles contained readable role-label text",
-            ))
+            issues.append(
+                TacticIssue(
+                    "missingFormationSlots",
+                    f"No {phase.value} role tiles contained readable role-label text",
+                )
+            )
         return slots, issues
 
     @staticmethod
@@ -307,8 +304,8 @@ class TacticFormationExtractor(BaseTacticFormationExtractor):
         padX = max(2, int((right - left) * 0.08))
         padY = max(1, int((bottom - top) * 0.18))
         label = pitch[
-            max(0, top - padY):min(height, bottom + padY),
-            max(0, left - padX):min(width, right + padX),
+            max(0, top - padY) : min(height, bottom + padY),
+            max(0, left - padX) : min(width, right + padX),
         ]
         if label.size == 0:
             return []
@@ -320,11 +317,7 @@ class TacticFormationExtractor(BaseTacticFormationExtractor):
             interpolation=cv2.INTER_CUBIC,
         )
         try:
-            return [
-                result
-                for result in self.ocr.recognize(enlarged)
-                if result.text.strip()
-            ]
+            return [result for result in self.ocr.recognize(enlarged) if result.text.strip()]
         except Exception:
             logger.exception("focused formation role-label OCR failed")
             return []

@@ -7,8 +7,9 @@ player screenshots, retaining their provenance, and producing explainable squad
 assessments. It also exposes the repository's `.fmf` inspection tools through the
 `fmsat parser` command.
 
-The managed guidance in `agent-instructions.md`, `repositoryLayout.md`, and
-`requirementsManagement.md` takes precedence. Do not edit managed files directly.
+The managed guidance in `.github/agent-instructions.md`,
+`documentation/repositoryLayout.md`, `documentation/requirementsManagement.md`, and
+`documentation/testingProcess.md` takes precedence. Do not edit managed files directly.
 
 ## Environment
 
@@ -39,7 +40,7 @@ black --check .
 git diff --check
 ```
 
-For Markdown or release validation, also follow `howToRelease.md`.
+For Markdown or release validation, also follow `documentation/howToRelease.md`.
 
 ## Application constraints
 

@@ -135,9 +135,14 @@ class UnityPyBundleReader(BundleReader):
         if asset.assetType == "TextAsset":
             text = _textAssetContent(data)
             if text is not None:
-                return AssetData(asset=asset, representation="original-or-serialized-text", text=text)
+                return AssetData(
+                    asset=asset, representation="original-or-serialized-text", text=text
+                )
 
-        if asset.assetType in {"VisualTreeAsset", "MonoBehaviour"} or "StyleSheet" in asset.assetType:
+        if (
+            asset.assetType in {"VisualTreeAsset", "MonoBehaviour"}
+            or "StyleSheet" in asset.assetType
+        ):
             structure = self._typeTree(unity_object)
             if structure:
                 return AssetData(
@@ -306,7 +311,9 @@ class UnityPyBundleReader(BundleReader):
                 return asset
         raise BundleAssetError(f"Asset not found: {asset_id}")
 
-    def _assetInfo(self, bundlePath: Path, unityObject: Any, containerPath: str | None) -> AssetInfo:
+    def _assetInfo(
+        self, bundlePath: Path, unityObject: Any, containerPath: str | None
+    ) -> AssetInfo:
         pathId = int(getattr(unityObject, "pathId", 0))
         assetType = _objectTypeName(unityObject)
         assetName = self._assetName(unityObject)
@@ -384,7 +391,9 @@ def _bundleSignature(path: Path) -> str:
 def _configureTypeTreeHelper() -> None:
     try:
         from UnityPy.helpers import TypeTreeHelper
-    except Exception:  # noqa: BLE001 - UnityPy may be absent until open() reports dependency errors.
+    except (
+        Exception
+    ):  # noqa: BLE001 - UnityPy may be absent until open() reports dependency errors.
         return
     TypeTreeHelper.read_typetree_boost = False
 
@@ -474,18 +483,14 @@ def _graphDot(graph: dict[str, Any]) -> str:
     lines.append(f'  "{_dotEscape(selected_id)}" [label="{_dotEscape(_graphLabel(asset))}"];')
     for reference in graph["references"]:
         target_id = str(reference["pathId"])
-        lines.append(
-            f'  "{_dotEscape(target_id)}" [label="{_dotEscape(_graphLabel(reference))}"];'
-        )
+        lines.append(f'  "{_dotEscape(target_id)}" [label="{_dotEscape(_graphLabel(reference))}"];')
         lines.append(
             f'  "{_dotEscape(selected_id)}" -> "{_dotEscape(target_id)}"'
             f' [label="{_dotEscape(reference.get("relationship") or "")}"];'
         )
     for reference in graph["referenced_by"]:
         source_id = str(reference["pathId"])
-        lines.append(
-            f'  "{_dotEscape(source_id)}" [label="{_dotEscape(_graphLabel(reference))}"];'
-        )
+        lines.append(f'  "{_dotEscape(source_id)}" [label="{_dotEscape(_graphLabel(reference))}"];')
         lines.append(
             f'  "{_dotEscape(source_id)}" -> "{_dotEscape(selected_id)}"'
             f' [label="{_dotEscape(reference.get("relationship") or "")}"];'

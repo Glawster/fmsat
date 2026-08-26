@@ -15,6 +15,7 @@ from fmsat.core.logUtils import getLogger
 from ..config import AttributeDefinition
 from ..ocr import OcrEngine, OcrResult
 from ..textCleanup import ocrTextClean
+from ..playerIdentity import playerNameClean
 from .models import ExtractedPlayer
 
 logger = getLogger()
@@ -92,18 +93,13 @@ class SquadAttributesParser:
             return []
 
         positionedHeaders = {
-            name: result
-            for name, result in baseHeaders.items()
-            if result is not None
+            name: result for name, result in baseHeaders.items() if result is not None
         }
-        headerY = sum(
-            result.center[1] for result in positionedHeaders.values()
-        ) / len(positionedHeaders)
+        headerY = sum(result.center[1] for result in positionedHeaders.values()) / len(
+            positionedHeaders
+        )
         headerTolerance = max(12.0, image.shape[0] * 0.025)
-        columns = {
-            name: result.center[0]
-            for name, result in positionedHeaders.items()
-        }
+        columns = {name: result.center[0] for name, result in positionedHeaders.items()}
         positionGap = columns["ca"] - columns["positions"]
         if positionGap <= 0:
             return []
@@ -111,8 +107,7 @@ class SquadAttributesParser:
         playerHeader = self._headerFind(results, "player")
         columns["name"] = (
             (playerHeader.center[0] + columns["positions"]) / 2
-            if playerHeader is not None
-            and abs(playerHeader.center[1] - headerY) <= headerTolerance
+            if playerHeader is not None and abs(playerHeader.center[1] - headerY) <= headerTolerance
             else max(0.0, columns["positions"] - positionGap)
         )
 
@@ -132,18 +127,13 @@ class SquadAttributesParser:
         orderedColumns = sorted(columns.items(), key=lambda item: item[1])
         attributeXs = sorted(columns[name] for name in attributeColumns)
         attributeSpacing = (
-            median(
-                right - left
-                for left, right in zip(attributeXs, attributeXs[1:], strict=False)
-            )
+            median(right - left for left, right in zip(attributeXs, attributeXs[1:], strict=False))
             if len(attributeXs) >= 2
             else image.shape[1] * 0.04
         )
         attributeTolerance = attributeSpacing * 0.48
         rowResults = [
-            result
-            for result in results
-            if result.center[1] > headerY + headerTolerance / 2
+            result for result in results if result.center[1] > headerY + headerTolerance / 2
         ]
         assigned = []
         for result in rowResults:
@@ -151,10 +141,7 @@ class SquadAttributesParser:
                 orderedColumns,
                 key=lambda item: abs(item[1] - result.center[0]),
             )
-            if (
-                column in attributeColumns
-                and abs(columnX - result.center[0]) > attributeTolerance
-            ):
+            if column in attributeColumns and abs(columnX - result.center[0]) > attributeTolerance:
                 continue
             assigned.append((result, column))
 
@@ -176,33 +163,22 @@ class SquadAttributesParser:
             columns["positions"],
             headerY,
         )
-        focusedRows = {
-            index
-            for result in focusedNames
-            for index, rowSeed in enumerate(rowSeeds)
+        namedSeedYs = {
+            rowSeed.center[1]
+            for result, column in assigned
+            if column == "name" and self._playerNameFragmentValid(result.text)
+            for rowSeed in rowSeeds
             if abs(result.center[1] - rowSeed.center[1]) <= rowTolerance
         }
-        minimumNameCoverage = max(1, int(len(rowSeeds) * 0.7))
-        if len(focusedRows) >= minimumNameCoverage:
-            assigned = [
-                item
-                for item in assigned
-                if item[1] != "name"
-                or not any(
-                    abs(item[0].center[1] - rowSeeds[index].center[1])
-                    <= rowTolerance
-                    for index in focusedRows
-                )
-            ]
-            assigned.extend(
-                (result, "name")
-                for result in focusedNames
-                if any(
-                    abs(result.center[1] - rowSeeds[index].center[1])
-                    <= rowTolerance
-                    for index in focusedRows
-                )
+        assigned.extend(
+            (result, "name")
+            for result in focusedNames
+            if any(
+                abs(result.center[1] - rowSeed.center[1]) <= rowTolerance
+                and rowSeed.center[1] not in namedSeedYs
+                for rowSeed in rowSeeds
             )
+        )
 
         players: list[ExtractedPlayer] = []
         previousY = -1.0
@@ -223,12 +199,9 @@ class SquadAttributesParser:
                 else:
                     cells[name] = self._positionedCellRead(
                         [
-                            self._playerNameResultClean(value)
-                            if name == "name"
-                            else value
+                            self._playerNameResultClean(value) if name == "name" else value
                             for value in values
-                            if name != "name"
-                            or self._playerNameFragmentValid(value.text)
+                            if name != "name" or self._playerNameFragmentValid(value.text)
                         ]
                     )
 
@@ -244,9 +217,7 @@ class SquadAttributesParser:
                     cells["name"] = recoveredName
 
             for attributeName in attributeColumns:
-                parsed = self._attributeParse(
-                    cells.get(attributeName, _Cell("", 0.0)).text
-                )
+                parsed = self._attributeParse(cells.get(attributeName, _Cell("", 0.0)).text)
                 observedValues = {
                     value
                     for value in (
@@ -255,11 +226,7 @@ class SquadAttributesParser:
                     )
                     if value is not None
                 }
-                needsRetry = (
-                    parsed is None
-                    or len(observedValues) > 1
-                    or parsed == 1
-                )
+                needsRetry = parsed is None or len(observedValues) > 1 or parsed == 1
                 if not needsRetry:
                     continue
                 recovered = self._focusedAttributeRead(
@@ -283,9 +250,7 @@ class SquadAttributesParser:
 
             populated = [cell for cell in cells.values() if cell.text]
             confidence = (
-                sum(cell.confidence for cell in populated) / len(populated)
-                if populated
-                else 0.0
+                sum(cell.confidence for cell in populated) / len(populated) if populated else 0.0
             )
             players.append(
                 ExtractedPlayer(
@@ -349,11 +314,7 @@ class SquadAttributesParser:
     def _positionedResults(self, image: np.ndarray) -> list[OcrResult]:
         height, width = image.shape[:2]
         if height < 700 or width < 1200:
-            return [
-                result
-                for result in self.ocr.recognize(image)
-                if result.center is not None
-            ]
+            return [result for result in self.ocr.recognize(image) if result.center is not None]
 
         stripCount = 4
         overlap = max(32, int(height * 0.055))
@@ -407,11 +368,7 @@ class SquadAttributesParser:
         gap = positionX - playerX
         if gap <= 0:
             return []
-        headerLeft = (
-            playerHeader.bounds[0]
-            if playerHeader.bounds is not None
-            else playerX
-        )
+        headerLeft = playerHeader.bounds[0] if playerHeader.bounds is not None else playerX
         left = max(0, int(min(playerX, headerLeft)))
         right = min(width, int(positionX - gap * 0.10))
         top = max(0, int(headerY + height * 0.012))
@@ -564,9 +521,7 @@ class SquadAttributesParser:
             return _Cell(str(originalValue), 0.0)
 
         confidence = max(
-            confidence
-            for candidateValue, confidence in votes
-            if candidateValue == value
+            confidence for candidateValue, confidence in votes if candidateValue == value
         )
         return _Cell(str(value), confidence)
 
@@ -600,17 +555,17 @@ class SquadAttributesParser:
     @staticmethod
     def _playerNameFragmentValid(value: str) -> bool:
         cleaned = SquadAttributesParser._playerNameTextClean(value)
-        return (
-            len("".join(character for character in cleaned if character.isalpha()))
-            >= 3
-        )
+        return len("".join(character for character in cleaned if character.isalpha())) >= 3
 
     @staticmethod
     def _playerNameTextClean(value: str) -> str:
         cleaned = value.strip()
+        cleaned = re.sub(r"[.,;:]+$", "", cleaned)
+        cleaned = re.sub(r"^[A-Z]{2}\s+(?=[A-Z][a-z])", "", cleaned)
+        cleaned = re.sub(r"^([A-Z])\1(?=[a-z])", r"\1", cleaned)
         cleaned = re.sub(r"^[a-z](?=[A-Z][a-z])", "", cleaned)
         cleaned = re.sub(r"^[A-Z]{2}(?=[A-Z][a-z])", "", cleaned)
-        return re.sub(r"(?<=[a-z])(?=[A-Z])", " ", cleaned)
+        return playerNameClean(re.sub(r"(?<=[a-z])(?=[A-Z])", " ", cleaned))
 
     @classmethod
     def _playerNameResultClean(cls, result: OcrResult) -> OcrResult:
@@ -626,11 +581,15 @@ class SquadAttributesParser:
         expected: str,
     ) -> OcrResult | None:
         expectedToken = self._tokenNormalize(expected)
-        matches = [
-            result
-            for result in results
-            if self._tokenNormalize(result.text) == expectedToken
-        ]
+        matches = []
+        for result in results:
+            observed = self._tokenNormalize(result.text)
+            if not observed:
+                continue
+            if observed == expectedToken or (
+                len(observed) >= 4 and expectedToken.startswith(observed)
+            ):
+                matches.append(result)
         return min(matches, key=lambda result: result.center[1], default=None)
 
     def _attributeHeaderFind(
@@ -646,17 +605,12 @@ class SquadAttributesParser:
         expected = self._tokenNormalize(attributeName)
         matches = []
         for result in results:
-            if (
-                abs(result.center[1] - headerY) > tolerance
-                or result.center[0] <= minimumX
-            ):
+            if abs(result.center[1] - headerY) > tolerance or result.center[0] <= minimumX:
                 continue
             observed = self._tokenNormalize(result.text)
             if not observed:
                 continue
-            if observed == expected or (
-                len(observed) >= 3 and expected.startswith(observed)
-            ):
+            if observed == expected or (len(observed) >= 3 and expected.startswith(observed)):
                 matches.append(result)
         return min(matches, key=lambda result: result.center[0], default=None)
 
@@ -676,10 +630,14 @@ class SquadAttributesParser:
                     continue
                 existingLeft, _, existingRight, _ = existing.bounds
                 intersection = max(0.0, min(right, existingRight) - max(left, existingLeft))
-                if intersection / min(
-                    resultWidth,
-                    max(1.0, existingRight - existingLeft),
-                ) >= 0.5:
+                if (
+                    intersection
+                    / min(
+                        resultWidth,
+                        max(1.0, existingRight - existingLeft),
+                    )
+                    >= 0.5
+                ):
                     overlaps = True
                     break
             if not overlaps:
@@ -724,10 +682,7 @@ class SquadAttributesParser:
 
     @staticmethod
     def _numericCellValid(cell: _Cell | None) -> bool:
-        return (
-            cell is not None
-            and re.fullmatch(r"\d{1,3}", cell.text.strip()) is not None
-        )
+        return cell is not None and re.fullmatch(r"\d{1,3}", cell.text.strip()) is not None
 
     def _attributeParse(self, text: str) -> int | None:
         digits = "".join(character for character in text if character.isdigit())
@@ -803,11 +758,7 @@ class SquadAttributesParser:
             attributes[definition.name] = self._attributeParse(cell.text)
             confidences.append(cell.confidence)
         populated = [value for value in confidences if value > 0]
-        confidence = (
-            sum(populated) / len(populated)
-            if populated
-            else 0.0
-        )
+        confidence = sum(populated) / len(populated) if populated else 0.0
         return ExtractedPlayer(
             name=ocrTextClean(name.text),
             positions=ocrTextClean(positions.text),

@@ -254,11 +254,11 @@ roles:
     aliases: [half back]
     positions: [DMCR, DM, DMCL]
     duties: []
-  deepDefensiveMidfielder:
+  droppingDefensiveMidfielder:
     roleID: 30
-    displayName: Deep Defensive Midfielder
+    displayName: Dropping Defensive Midfielder
     abbreviations: [DDM]
-    aliases: [deep defensive midfielder]
+    aliases: [dropping defensive midfielder]
     positions: [DMCR, DM, DMCL]
     duties: []
   trackingAttackingMidfielder:

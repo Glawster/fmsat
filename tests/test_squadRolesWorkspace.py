@@ -122,6 +122,45 @@ def testTacticRolesSeparatePossessionPhaseAndUseSurnameOnlyCoverage(qtbot) -> No
     ]
 
 
+def testFirstRoleSelectionSortsCandidatesByGenericRoleFitDescending(qtbot) -> None:  # type: ignore[no-untyped-def]
+    candidates = (
+        CandidateDisplay(
+            name="Lower, Player",
+            positions="ST (C)",
+            score="61.0",
+            bestRole="Centre Forward",
+            breakdown="finishing: 12 × 5 = 60/100",
+            available=True,
+        ),
+        CandidateDisplay(
+            name="Higher, Player",
+            positions="ST (C)",
+            score="84.0",
+            bestRole="Centre Forward",
+            breakdown="finishing: 17 × 5 = 85/100",
+            available=True,
+        ),
+    )
+    role = RoleDisplay(
+        roleCode="centreForward",
+        displayName="Centre Forward",
+        abbreviation="CF",
+        positions="STC",
+        phases="In Possession",
+        coverage="",
+        candidates=candidates,
+    )
+    tab = SquadRolesTab((role,))
+    qtbot.addWidget(tab)
+
+    tab.roleTable.setCurrentCell(0, 0)
+
+    assert [tab.candidateTable.item(row, 2).text() for row in range(2)] == ["84.0", "61.0"]
+    assert (
+        tab.candidateTable.horizontalHeader().sortIndicatorOrder() is Qt.SortOrder.DescendingOrder
+    )
+
+
 def testRoleCoverageUsesEligibleCandidatesAndNativeTableFont(qtbot) -> None:  # type: ignore[no-untyped-def]
     role = RoleDisplay(
         roleCode="deepLyingPlaymaker",
@@ -273,6 +312,22 @@ def testSquadRoleLineOrderingRunsFromForwardsToGoalkeeper() -> None:
     assert positionSortKey("DM")[0] == 3
     assert positionSortKey("DC")[0] == 4
     assert positionSortKey("GK")[0] == 5
+
+
+def testAllPlayerViewOmitsCalculationBreakdown(qtbot) -> None:  # type: ignore[no-untyped-def]
+    roles = (
+        _role("insideForward", "IF", "AML", "Hemp, Lauren", "In Possession"),
+        _role("trackingWinger", "TW", "AML", "Hemp, Lauren", "Out Of Possession"),
+    )
+    tab = SquadRolesTab(roles)
+    qtbot.addWidget(tab)
+
+    assert [
+        tab.candidateTable.horizontalHeaderItem(column).text()
+        for column in range(tab.candidateTable.columnCount())
+    ] == ["Player", "Natural positions", "Generic Role Fit", "Best role"]
+    assert tab.candidateTable.rowCount() == 1
+    assert tab.candidateTable.item(0, 0).text() == "Hemp, Lauren"
 
 
 def testUnresolvedSemanticRoleCodeDisplaysUnknownAbbreviation() -> None:

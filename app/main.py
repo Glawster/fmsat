@@ -42,9 +42,7 @@ def main() -> int:
     application = QApplication(sys.argv)
     application.setApplicationName("FMSAT")
     application.setOrganizationName("FMSAT")
-    application.setStyleSheet(
-        files("fmsat.app").joinpath("fmsat.qss").read_text(encoding="utf-8")
-    )
+    application.setStyleSheet(files("fmsat.app").joinpath("fmsat.qss").read_text(encoding="utf-8"))
     try:
         dataPaths = persistentDataPrepare(projectRoot)
         logger.value("persistent data directory", dataPaths.directory)
@@ -97,11 +95,11 @@ def main() -> int:
         )
         if roleVocabularyGaps:
             logger.warning(
-                "OCR-confirmed role definitions absent from tacticalVocabulary.yaml: %s",
-                ", ".join(roleVocabularyGaps),
+                "ocr-confirmed role definitions absent from tacticalVocabulary.yaml: "
+                f"{', '.join(roleVocabularyGaps)}"
             )
         else:
-            logger.info("OCR-confirmed role definitions are represented in tacticalVocabulary.yaml")
+            logger.info("ocr-confirmed role definitions are represented in tacticalVocabulary.yaml")
         window = MainWindow(
             service,
             database,
@@ -115,7 +113,7 @@ def main() -> int:
         integrity = roleAssessmentIntegrityCheck(tacticVocabulary, roleKnowledgeService)
         integrityText = integrity.text()
         window.statusHistory.insert(0, integrityText)
-        logger.info("\n%s", integrityText)
+        logger.multiline(integrityText)
     except (ConfigurationError, DatabaseError, OSError, PersistentDataError) as exc:
         logger.exception("Application startup failed")
         QMessageBox.critical(None, "FMSAT startup failed", str(exc))

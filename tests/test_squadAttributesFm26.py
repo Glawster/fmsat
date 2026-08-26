@@ -84,9 +84,7 @@ def testGoalkeeperColumnsUseStableSpacingAndRecoverTrailingHeaders() -> None:
 
 def testPlayerNameCleanupCollapsesOverlappingStripDuplicate() -> None:
     assert (
-        SquadAttributesParser._playerNameTextClean(
-            "ARomane Enguehard Romane Engueharde"
-        )
+        SquadAttributesParser._playerNameTextClean("ARomane Enguehard Romane Engueharde")
         == "Romane Enguehard"
     )
 
@@ -97,9 +95,7 @@ def testRowSeedsCanRecoverFromPaWhenCaFragmentIsMissing() -> None:
     paSameRow = OcrResult("133", 0.99, (510.0, 91.0, 540.0, 111.0))
     paOnlyRow = OcrResult("111", 0.99, (510.0, 122.0, 540.0, 142.0))
 
-    seeds = parser._rowSeedsBuild(
-        [(ca, "ca"), (paSameRow, "pa"), (paOnlyRow, "pa")]
-    )
+    seeds = parser._rowSeedsBuild([(ca, "ca"), (paSameRow, "pa"), (paOnlyRow, "pa")])
 
     assert seeds == [ca, paOnlyRow]
 

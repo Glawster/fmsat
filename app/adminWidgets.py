@@ -13,8 +13,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-
-adminStyle = """
+ADMIN_STYLE = """
 QDialog#adminEditDialog, QDialog#adminTextEditDialog {
     background: #ffffff;
     color: #202020;
@@ -87,7 +86,7 @@ class AdminEditDialog(QDialog):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("adminEditDialog")
-        self.setStyleSheet(adminStyle)
+        self.setStyleSheet(ADMIN_STYLE)
         self.setMinimumSize(900, 600)
         self.resize(1200, 760)
 
@@ -105,7 +104,7 @@ class AdminTextEditDialog(QDialog):
     ) -> None:
         super().__init__(parent)
         self.setObjectName("adminTextEditDialog")
-        self.setStyleSheet(adminStyle)
+        self.setStyleSheet(ADMIN_STYLE)
         self.setWindowTitle(title)
         self.setMinimumWidth(720)
         self.resize(760, 150)
@@ -124,8 +123,7 @@ class AdminTextEditDialog(QDialog):
         layout.addWidget(self.editor)
 
         buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok
-            | QDialogButtonBox.StandardButton.Cancel,
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
             parent=self,
         )
         buttons.accepted.connect(self.accept)

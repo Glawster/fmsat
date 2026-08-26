@@ -34,7 +34,9 @@ class TacticLayoutAnchor:
         self.ocr = ocr
         self.configuration = configuration
 
-    def referenceExtract(self, image: np.ndarray, expectedPhase: TacticalPhase) -> TacticLayoutResult:
+    def referenceExtract(
+        self, image: np.ndarray, expectedPhase: TacticalPhase
+    ) -> TacticLayoutResult:
         """Return the tactic window or instructions modal as a local reference image."""
 
         settings = self.configuration.get("anchors", {})
@@ -43,13 +45,15 @@ class TacticLayoutAnchor:
         try:
             results = [result for result in self.ocr.recognize(image) if result.bounds]
         except Exception as exc:
-            return TacticLayoutResult(image, (
-                TacticIssue("layoutAnchorOcrFailed", f"Layout anchor OCR failed: {exc}"),
-            ))
+            return TacticLayoutResult(
+                image, (TacticIssue("layoutAnchorOcrFailed", f"Layout anchor OCR failed: {exc}"),)
+            )
 
-        phrase = "team instructions" if expectedPhase in {
-            TacticalPhase.IN_POSSESSION, TacticalPhase.OUT_OF_POSSESSION
-        } else "tactics planner"
+        phrase = (
+            "team instructions"
+            if expectedPhase in {TacticalPhase.IN_POSSESSION, TacticalPhase.OUT_OF_POSSESSION}
+            else "tactics planner"
+        )
         focusedResults: list[OcrResult] = []
         if expectedPhase is not TacticalPhase.FORMATION:
             focusedResults = self._focusedRecognize(image, expectedPhase)
@@ -64,9 +68,14 @@ class TacticLayoutAnchor:
                 anchor = self._anchorFind(focusedResults, "tactic planner")
         if anchor is None:
             logger.info(f"layout anchor not found: {phrase}")
-            return TacticLayoutResult(image, (
-                TacticIssue("layoutAnchorUnavailable", f"Could not locate the {phrase!r} breadcrumb"),
-            ))
+            return TacticLayoutResult(
+                image,
+                (
+                    TacticIssue(
+                        "layoutAnchorUnavailable", f"Could not locate the {phrase!r} breadcrumb"
+                    ),
+                ),
+            )
 
         if expectedPhase is TacticalPhase.FORMATION:
             logger.info(f"layout anchor={anchor.text!r} using complete Formation capture")
@@ -85,28 +94,35 @@ class TacticLayoutAnchor:
             panel = self._containingPanel(image, anchor.bounds, expectedPhase)
             referenceMode = "contour/fallback"
         if panel is None:
-            return TacticLayoutResult(image, (
-                TacticIssue(
-                    "layoutPanelUnavailable",
-                    f"Could not locate the panel containing {anchor.text!r}",
-                    anchor.text,
+            return TacticLayoutResult(
+                image,
+                (
+                    TacticIssue(
+                        "layoutPanelUnavailable",
+                        f"Could not locate the panel containing {anchor.text!r}",
+                        anchor.text,
+                    ),
                 ),
-            ))
+            )
 
         left, top, right, bottom = panel
         reference = image[top:bottom, left:right]
         detectedPhase = self._activePhaseDetect(reference)
         issues: list[TacticIssue] = []
         if detectedPhase is None:
-            issues.append(TacticIssue(
-                "activeInstructionTabUnresolved",
-                "Could not determine which Team Instructions tab is underlined",
-            ))
+            issues.append(
+                TacticIssue(
+                    "activeInstructionTabUnresolved",
+                    "Could not determine which Team Instructions tab is underlined",
+                )
+            )
         elif detectedPhase is not expectedPhase:
-            issues.append(TacticIssue(
-                "instructionPhaseMismatch",
-                f"Expected {expectedPhase.value}, but the underline indicates {detectedPhase.value}",
-            ))
+            issues.append(
+                TacticIssue(
+                    "instructionPhaseMismatch",
+                    f"Expected {expectedPhase.value}, but the underline indicates {detectedPhase.value}",
+                )
+            )
         logger.info(
             f"layout anchor={anchor.text!r} panel=({left},{top})-({right},{bottom}) "
             f"mode={referenceMode} phase={detectedPhase.value if detectedPhase else 'unresolved'}"
@@ -124,7 +140,11 @@ class TacticLayoutAnchor:
             return None
         height, width = image.shape[:2]
         left, top, _right, bottom = breadcrumbBounds
-        if left / max(1, width) <= 0.06 and top / max(1, height) <= 0.10 and bottom / max(1, height) <= 0.16:
+        if (
+            left / max(1, width) <= 0.06
+            and top / max(1, height) <= 0.10
+            and bottom / max(1, height) <= 0.16
+        ):
             return 0, 0, width, height
         return None
 
@@ -140,7 +160,7 @@ class TacticLayoutAnchor:
         top = int(height * float(focus.get("y", 0.12)))
         right = int(width * (float(focus.get("x", 0.15)) + float(focus.get("width", 0.70))))
         bottom = int(height * (float(focus.get("y", 0.12)) + float(focus.get("height", 0.24))))
-        crop = image[max(0, top):min(height, bottom), max(0, left):min(width, right)]
+        crop = image[max(0, top) : min(height, bottom), max(0, left) : min(width, right)]
         if crop.size == 0:
             return []
         scale = float(settings.get("instructionBreadcrumbScale", 3.0))
@@ -155,11 +175,13 @@ class TacticLayoutAnchor:
             if result.bounds is None:
                 continue
             x1, y1, x2, y2 = result.bounds
-            transformed.append(OcrResult(
-                result.text,
-                result.confidence,
-                (left + x1 / scale, top + y1 / scale, left + x2 / scale, top + y2 / scale),
-            ))
+            transformed.append(
+                OcrResult(
+                    result.text,
+                    result.confidence,
+                    (left + x1 / scale, top + y1 / scale, left + x2 / scale, top + y2 / scale),
+                )
+            )
         logger.info(
             "focused breadcrumb OCR region="
             f"({left},{top})-({right},{bottom}) scale={scale:.1f} "
@@ -216,7 +238,12 @@ class TacticLayoutAnchor:
         height, width = image.shape[:2]
         tabGap = max(outLeft - inLeft, inRight - inLeft, outRight - outLeft)
         left = int(max(0, inLeft - tabGap * float(settings.get("instructionAnchorLeftGap", 0.08))))
-        top = int(max(0, breadcrumbBounds[1] - tabGap * float(settings.get("instructionAnchorTopGap", 0.18))))
+        top = int(
+            max(
+                0,
+                breadcrumbBounds[1] - tabGap * float(settings.get("instructionAnchorTopGap", 0.18)),
+            )
+        )
         tabX = float(settings.get("instructionAnchorTabX", 0.022))
         tabY = float(settings.get("instructionAnchorTabY", 0.105))
         estimatedWidth = (inLeft - left) / tabX if tabX > 0 else width
@@ -299,7 +326,7 @@ class TacticLayoutAnchor:
         settings = self.configuration.get("anchors", {})
         top = int(height * float(settings.get("tabBandYMin", 0.08)))
         bottom = int(height * float(settings.get("tabBandYMax", 0.20)))
-        band = panel[max(0, top):min(height, bottom)]
+        band = panel[max(0, top) : min(height, bottom)]
         if band.size == 0:
             return None
         gray = cv2.cvtColor(band, cv2.COLOR_BGR2GRAY)

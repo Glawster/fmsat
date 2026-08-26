@@ -47,11 +47,7 @@ class SquadSanityReport:
     def missingPlayers(self) -> tuple[int, ...]:
         return tuple(
             sorted(
-                {
-                    row
-                    for row, issue in self.issues
-                    if issue.message == "Attribute value is missing"
-                }
+                {row for row, issue in self.issues if issue.message == "Attribute value is missing"}
             )
         )
 
@@ -62,8 +58,7 @@ class SquadSanityReport:
             if issue.message == "Attribute value is missing":
                 missing.setdefault(row, []).append(issue.field)
         return tuple(
-            (row, self.players[row].name, tuple(fields))
-            for row, fields in sorted(missing.items())
+            (row, self.players[row].name, tuple(fields)) for row, fields in sorted(missing.items())
         )
 
 
@@ -102,9 +97,7 @@ class PlayerValidator:
             )
         for field, value in (("ca", player.ca), ("pa", player.pa)):
             if re.fullmatch(r"\d{1,3}", value) is None:
-                issues.append(
-                    ValidationIssue(field, f"{field.upper()} must be one integer", True)
-                )
+                issues.append(ValidationIssue(field, f"{field.upper()} must be one integer", True))
             elif not 1 <= int(value) <= 200:
                 issues.append(
                     ValidationIssue(field, f"{field.upper()} must be between 1 and 200", True)
@@ -112,9 +105,7 @@ class PlayerValidator:
         if player.ca.isdigit() and player.pa.isdigit() and int(player.ca) > int(player.pa):
             issues.append(ValidationIssue("ca", "CA cannot exceed PA", True))
         if not self._positionsValid(player.positions):
-            issues.append(
-                ValidationIssue("positions", "Position format is not recognised", True)
-            )
+            issues.append(ValidationIssue("positions", "Position format is not recognised", True))
         if self.isLowConfidence(player):
             issues.append(
                 ValidationIssue(
@@ -126,9 +117,7 @@ class PlayerValidator:
             if value is None:
                 issues.append(ValidationIssue(name, "Attribute value is missing"))
             elif not 1 <= value <= 20:
-                issues.append(
-                    ValidationIssue(name, "Attribute must be between 1 and 20", True)
-                )
+                issues.append(ValidationIssue(name, "Attribute must be between 1 and 20", True))
         return issues
 
     def correctAll(

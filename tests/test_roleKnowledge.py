@@ -130,6 +130,41 @@ def testVerifiedEvidenceCanAdoptANewDetectedRole(tmp_path: Path) -> None:
     assert yaml.safe_load(path.read_text(encoding="utf-8"))["roleCode"] == "libero"
 
 
+def testConfirmedMalformedRoleJoinsAndLeavesEffectiveVocabulary(tmp_path: Path) -> None:
+    packagedVocabularyPath = Path(__file__).parents[1] / "config" / "tacticalVocabulary.yaml"
+    packagedVocabulary = packagedVocabularyPath.read_bytes()
+    vocabulary = TacticVocabulary()
+    service = RoleKnowledgeService(tmp_path, vocabulary, {"passing"})
+    evidence = RoleProfileEvidence(
+        position="ST (C)",
+        roleName="Second Strikel",
+        phase=TacticalPhase.IN_POSSESSION,
+        abbreviation="SS",
+        keyAttributes=("passing",),
+    )
+    draft = service.evidenceVerify(
+        evidence,
+        "STC",
+        "newRole",
+        adoptDetectedRole=True,
+        supportedPositions=("STC", "STCL", "STCR"),
+    )
+
+    service.definitionConfirm(draft)
+
+    assert vocabulary.roleNormalize("Second Strikel").value == "secondStrikel"
+    assert vocabulary.roleNormalize("secondStrikel").value == "secondStrikel"
+    assert vocabulary.roles["secondStrikel"].positions == ("STC", "STCL", "STCR")
+
+    service.definitionDelete(draft.roleID)
+
+    assert service.definitionsList() == ()
+    assert vocabulary.roleNormalize("Second Strikel").resolved is False
+    assert "secondStrikel" not in vocabulary.roles
+    assert vocabulary.roleNormalize("Advanced Playmaker").value == "advancedPlaymaker"
+    assert packagedVocabularyPath.read_bytes() == packagedVocabulary
+
+
 def testLegacyTextNamedDefinitionRemainsRecognized(tmp_path: Path) -> None:
     (tmp_path / "centreForward.yaml").write_text(
         yaml.safe_dump(

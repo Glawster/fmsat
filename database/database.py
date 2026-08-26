@@ -21,6 +21,7 @@ from .models import (
     Base,
     ImportSession,
     ObjectModelTactic,
+    ObjectModelPosition,
     Player,
     Squad,
     SquadClubScreenshot,
@@ -28,6 +29,7 @@ from .models import (
     SquadTacticApplication,
     Tactic,
     TacticScreenshot,
+    StructuredFormationSlot,
 )
 from .records import (
     DeletionRecord,
@@ -65,6 +67,7 @@ class Database:
             self._objectModelPositionColumnsAdd()
             self._objectModelTacticColumnsAdd()
             self._screenshotEvidenceColumnsAdd()
+            self._tacticRoleIdentitiesMigrate()
             logger.info("database initialized path=%s", self.path)
         except SQLAlchemyError as exc:
             raise DatabaseError(f"Unable to create database tables: {exc}") from exc
@@ -92,9 +95,7 @@ class Database:
         with self.engine.begin() as connection:
             for name, sqlType in additions.items():
                 if name not in existing:
-                    connection.execute(
-                        text(f"ALTER TABLE {tableName} ADD COLUMN {name} {sqlType}")
-                    )
+                    connection.execute(text(f"ALTER TABLE {tableName} ADD COLUMN {name} {sqlType}"))
 
     def _objectModelTacticColumnsAdd(self) -> None:
         """Add the capture high-water mark used for model freshness checks."""
@@ -106,10 +107,12 @@ class Database:
         existing = {column["name"] for column in inspector.get_columns(tableName)}
         if "source_import_session_id" not in existing:
             with self.engine.begin() as connection:
-                connection.execute(text(
-                    "ALTER TABLE object_model_tactics ADD COLUMN "
-                    "source_import_session_id INTEGER REFERENCES import_sessions(id)"
-                ))
+                connection.execute(
+                    text(
+                        "ALTER TABLE object_model_tactics ADD COLUMN "
+                        "source_import_session_id INTEGER REFERENCES import_sessions(id)"
+                    )
+                )
 
     def _screenshotEvidenceColumnsAdd(self) -> None:
         """Add model-supersession markers without removing screenshot history."""
@@ -124,6 +127,41 @@ class Database:
                     connection.execute(
                         text(f"ALTER TABLE {tableName} ADD COLUMN superseded_at DATETIME")
                     )
+
+    def _tacticRoleIdentitiesMigrate(self) -> None:
+        """Replace retired canonical role codes while preserving observed evidence."""
+
+        inspector = inspect(self.engine)
+        tableNames = set(inspector.get_table_names())
+        migrated = 0
+        with self.engine.begin() as connection:
+            # ``deepDefensiveMidfielder`` was the former semantic identity for
+            # FM's displayed DDM role. Only the canonical field changes: the
+            # observed OCR text remains the immutable source evidence.
+            if "structured_formation_slots" in tableNames:
+                result = connection.execute(
+                    text(
+                        "UPDATE structured_formation_slots "
+                        "SET role = 'droppingDefensiveMidfielder' "
+                        "WHERE role = 'deepDefensiveMidfielder'"
+                    )
+                )
+                migrated += result.rowcount
+
+            # Object-model positions can outlive their structured source until
+            # the next rebuild, so migrate the same retired identity there.
+            if "object_model_positions" in tableNames:
+                result = connection.execute(
+                    text(
+                        "UPDATE object_model_positions "
+                        "SET canonical_role = 'droppingDefensiveMidfielder' "
+                        "WHERE canonical_role = 'deepDefensiveMidfielder'"
+                    )
+                )
+                migrated += result.rowcount
+
+        if migrated:
+            logger.info("migrated retired tactic role identities rows=%d", migrated)
 
     def importSave(
         self,
@@ -394,6 +432,34 @@ class Database:
                 return list(session.scalars(select(Tactic.name).order_by(Tactic.name)).all())
         except SQLAlchemyError as exc:
             raise DatabaseError(f"Unable to list tactics: {exc}") from exc
+
+    def tacticRoleCodes(self) -> tuple[str, ...]:
+        """Return unique canonical role codes used by persisted tactic models."""
+
+        try:
+            with Session(self.engine) as session:
+                structured = session.scalars(
+                    select(StructuredFormationSlot.role).where(
+                        StructuredFormationSlot.role.is_not(None)
+                    )
+                ).all()
+                objectModel = session.scalars(
+                    select(ObjectModelPosition.canonicalRole).where(
+                        ObjectModelPosition.canonicalRole.is_not(None)
+                    )
+                ).all()
+            return tuple(
+                sorted(
+                    {
+                        str(role).strip()
+                        for role in (*structured, *objectModel)
+                        if str(role).strip()
+                    },
+                    key=str.casefold,
+                )
+            )
+        except SQLAlchemyError as exc:
+            raise DatabaseError(f"Unable to list tactic roles: {exc}") from exc
 
     def tacticRecords(self) -> list[TacticRecord]:
         """Return tactic summaries, preferring saved object-model tactic names."""

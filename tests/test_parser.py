@@ -101,6 +101,51 @@ def testParserUsesHeadersAndOcrBoxesInsteadOfFixedRowSteps() -> None:
     ]
 
 
+def testParserAcceptsSevenRowFilteredSquadView() -> None:
+    """A filtered FM squad view must extract every complete row, not a near-full table."""
+
+    def ocrResult(text: str, x: float, y: float) -> OcrResult:
+        return OcrResult(text, 0.99, (x - 8, y - 4, x + 8, y + 4))
+
+    rows = [
+        ("Ada One", "ST (C)", "140", "150"),
+        ("Bea Two", "AM (L)", "132", "145"),
+        ("Cara Three", "M (C)", "128", "140"),
+        ("Dee Four", "DM", "125", "138"),
+        ("Eve Five", "D (C)", "121", "130"),
+        ("Fay Six", "D (L)", "118", "126"),
+        ("Gin Seven", "GK", "110", "120"),
+    ]
+    results = [
+        ocrResult("Player", 80, 40),
+        ocrResult("Position", 250, 40),
+        ocrResult("CA", 380, 40),
+        ocrResult("PA", 430, 40),
+        ocrResult("Acc", 500, 40),
+    ]
+    for index, (name, positions, ca, pa) in enumerate(rows):
+        y = 80 + index * 36
+        results.extend(
+            (
+                ocrResult(name, 120, y),
+                ocrResult(positions, 250, y),
+                ocrResult(ca, 380, y),
+                ocrResult(pa, 430, y),
+                ocrResult("12", 500, y),
+            )
+        )
+    parser = SquadAttributesParser(
+        FakeOcr([results], suppliesGeometry=True),
+        {"squadAttributes": {}},
+        (AttributeDefinition("acceleration", "Acc", 1),),
+    )
+
+    players = parser.parse(np.zeros((400, 800, 3), dtype=np.uint8))
+
+    assert [player.name for player in players] == [name for name, *_ in rows]
+    assert len(players) == 7
+
+
 def testParserKeepsFullTableNamesWhenFocusedOcrFragmentsCoverOneRow() -> None:
 
     def ocrResult(text: str, x: float, y: float) -> OcrResult:

@@ -57,10 +57,7 @@ class TacticInstructionExtractor:
             diagnostic, f"{phase.value.upper()} OCR REFERENCE", layout.anchored
         )
         anchorSettings = self.configuration.get("anchors", {})
-        if (
-            self.configuration.get("anchors", {}).get("enabled", False)
-            and not layout.anchored
-        ):
+        if self.configuration.get("anchors", {}).get("enabled", False) and not layout.anchored:
             focus = anchorSettings.get("instructionBreadcrumbRegion", {})
             breadcrumbRegion = {
                 "x": float(focus.get("x", 0.15)),
@@ -93,41 +90,46 @@ class TacticInstructionExtractor:
         )
         referenceName = (
             "instructionPanelRegions"
-            if self.configuration.get("anchors", {}).get("enabled", False)
-            and layout.anchored
+            if self.configuration.get("anchors", {}).get("enabled", False) and layout.anchored
             else "instructionRegions"
         )
         categories = self.configuration.get(referenceName, {}).get(phase.value, {})
         instructions: list[TeamInstruction] = []
         issues: list[TacticIssue] = list(layout.issues)
         if not categories:
-            return InstructionExtractResult((), (
-                TacticIssue(
-                    "missingInstructionConfiguration",
-                    f"No instruction regions are configured for {phase.value}",
+            return InstructionExtractResult(
+                (),
+                (
+                    TacticIssue(
+                        "missingInstructionConfiguration",
+                        f"No instruction regions are configured for {phase.value}",
+                    ),
                 ),
-            ), diagnostic)
+                diagnostic,
+            )
         for category, region in categories.items():
             logger.doing(f"extracting {phase.value}.{category} instruction")
             bounds = self._regionBounds(image, region)
-            TacticFormationExtractor._diagnosticBox(
-                diagnostic, bounds, category, (0, 215, 255), 2
-            )
+            TacticFormationExtractor._diagnosticBox(diagnostic, bounds, category, (0, 215, 255), 2)
             crop = self._regionCrop(image, region)
             if crop.size == 0:
-                issues.append(TacticIssue(
-                    "emptyInstructionRegion",
-                    f"Configured {phase.value}.{category} region is empty",
-                ))
+                issues.append(
+                    TacticIssue(
+                        "emptyInstructionRegion",
+                        f"Configured {phase.value}.{category} region is empty",
+                    )
+                )
                 logger.info(f"{phase.value}.{category} crop is empty")
                 continue
             try:
                 results = self.ocr.recognize(crop)
             except Exception as exc:
-                issues.append(TacticIssue(
-                    "instructionOcrFailed",
-                    f"{phase.value}.{category} OCR failed: {exc}",
-                ))
+                issues.append(
+                    TacticIssue(
+                        "instructionOcrFailed",
+                        f"{phase.value}.{category} OCR failed: {exc}",
+                    )
+                )
                 logger.exception(f"{phase.value}.{category} instruction OCR failed")
                 continue
             results = self._valueRetry(crop, phase, category, results)
@@ -146,9 +148,7 @@ class TacticInstructionExtractor:
             canonicalResults = [
                 result for result, normalized in normalizedResults if normalized.resolved
             ]
-            selectionMode = str(
-                self.configuration.get("selection", {}).get("mode", "visualRow")
-            )
+            selectionMode = str(self.configuration.get("selection", {}).get("mode", "visualRow"))
             selected = (
                 [(result, result.confidence) for result in canonicalResults]
                 if selectionMode == "displayedValue"
@@ -160,9 +160,7 @@ class TacticInstructionExtractor:
             )
             if len(selected) != 1:
                 unknownResults = [
-                    result
-                    for result, normalized in normalizedResults
-                    if not normalized.resolved
+                    result for result, normalized in normalizedResults if not normalized.resolved
                 ]
                 unknownSelected = (
                     [(result, result.confidence) for result in unknownResults]
@@ -171,32 +169,33 @@ class TacticInstructionExtractor:
                 )
                 if not selected and len(unknownSelected) == 1:
                     observedText = unknownSelected[0][0].text
-                    issues.append(TacticIssue(
-                        "unknownInstructionValue",
-                        f"{phase.value}.{category} selected value "
-                        f"{observedText!r} is not canonical",
-                        observedText,
-                    ))
+                    issues.append(
+                        TacticIssue(
+                            "unknownInstructionValue",
+                            f"{phase.value}.{category} selected value "
+                            f"{observedText!r} is not canonical",
+                            observedText,
+                        )
+                    )
                     logger.info(
                         f"{phase.value}.{category} selected unknown value: "
                         f"{unknownSelected[0][0].text}"
                     )
                     continue
                 code = (
-                    "missingInstructionEvidence"
-                    if not selected
-                    else "ambiguousInstructionEvidence"
+                    "missingInstructionEvidence" if not selected else "ambiguousInstructionEvidence"
                 )
                 observed = ", ".join(result.text for result, _ in selected) or None
-                issues.append(TacticIssue(
-                    code,
-                    f"{phase.value}.{category} has {len(selected)} selected values; "
-                    "exactly one is required",
-                    observed,
-                ))
+                issues.append(
+                    TacticIssue(
+                        code,
+                        f"{phase.value}.{category} has {len(selected)} selected values; "
+                        "exactly one is required",
+                        observed,
+                    )
+                )
                 logger.info(
-                    f"{phase.value}.{category} unresolved selected values: "
-                    f"{observed or 'none'}"
+                    f"{phase.value}.{category} unresolved selected values: " f"{observed or 'none'}"
                 )
                 continue
             result, selectionScore = selected[0]
@@ -206,26 +205,30 @@ class TacticInstructionExtractor:
                 result.text,
             )
             if not normalized.resolved:
-                issues.append(TacticIssue(
-                    "unknownInstructionValue",
-                    f"{phase.value}.{category} selected value is not canonical",
-                    result.text,
-                ))
+                issues.append(
+                    TacticIssue(
+                        "unknownInstructionValue",
+                        f"{phase.value}.{category} selected value is not canonical",
+                        result.text,
+                    )
+                )
                 continue
             canonical = str(normalized.value)
             confidence = min(result.confidence, selectionScore)
             value: str | bool = canonical
             if canonical.casefold() in {"true", "false"}:
                 value = canonical.casefold() == "true"
-            instructions.append(TeamInstruction(
-                phase=phase,
-                category=category,
-                value=value,
-                displayValue=result.text.strip(),
-                confidence=confidence,
-                sourceImport=sourceImport,
-                validationState=ValidationState.EXTRACTED,
-            ))
+            instructions.append(
+                TeamInstruction(
+                    phase=phase,
+                    category=category,
+                    value=value,
+                    displayValue=result.text.strip(),
+                    confidence=confidence,
+                    sourceImport=sourceImport,
+                    validationState=ValidationState.EXTRACTED,
+                )
+            )
             logger.info(
                 f"{phase.value}.{category} selected value: {canonical} "
                 f"(confidence {confidence:.3f})"
@@ -247,7 +250,7 @@ class TacticInstructionExtractor:
         ):
             return results
         height = crop.shape[0]
-        valueCrop = crop[int(height * 0.55):, :]
+        valueCrop = crop[int(height * 0.55) :, :]
         if valueCrop.size == 0:
             return results
         enlarged = cv2.resize(
@@ -258,9 +261,7 @@ class TacticInstructionExtractor:
             interpolation=cv2.INTER_CUBIC,
         )
         gray = cv2.cvtColor(enlarged, cv2.COLOR_BGR2GRAY)
-        _, highContrast = cv2.threshold(
-            gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
-        )
+        _, highContrast = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         variants = (
             enlarged,
             cv2.cvtColor(highContrast, cv2.COLOR_GRAY2BGR),
@@ -271,9 +272,7 @@ class TacticInstructionExtractor:
             try:
                 retry = self.ocr.recognize(variant)
             except Exception:
-                logger.exception(
-                    f"{phase.value}.{category} focused OCR retry {retryIndex} failed"
-                )
+                logger.exception(f"{phase.value}.{category} focused OCR retry {retryIndex} failed")
                 continue
             logger.value(
                 f"{phase.value}.{category} focused OCR retry {retryIndex} values",
@@ -282,9 +281,7 @@ class TacticInstructionExtractor:
             if retry and not firstRetry:
                 firstRetry = retry
             if any(
-                self.vocabulary.instructionNormalize(
-                    phase.value, category, result.text
-                ).resolved
+                self.vocabulary.instructionNormalize(phase.value, category, result.text).resolved
                 for result in retry
             ):
                 return retry
@@ -296,9 +293,7 @@ class TacticInstructionExtractor:
         results: list[OcrResult],
     ) -> list[tuple[OcrResult, float]]:
         candidates: list[tuple[OcrResult, float]] = []
-        minimumScore = float(
-            self.configuration.get("selection", {}).get("minimumScore", 0.25)
-        )
+        minimumScore = float(self.configuration.get("selection", {}).get("minimumScore", 0.25))
         for result in results:
             score = self._selectionScore(crop, result)
             logger.info(f"selection score for {result.text!r}: {score:.3f}")
@@ -312,9 +307,7 @@ class TacticInstructionExtractor:
         # selected option colours most of its row, so accept the strongest row
         # only when it is visually distinct. Similar scores remain ambiguous.
         candidates.sort(key=lambda item: item[1], reverse=True)
-        minimumMargin = float(
-            self.configuration.get("selection", {}).get("minimumMargin", 0.12)
-        )
+        minimumMargin = float(self.configuration.get("selection", {}).get("minimumMargin", 0.12))
         if candidates[0][1] - candidates[1][1] >= minimumMargin:
             return [candidates[0]]
         return candidates
@@ -345,16 +338,12 @@ class TacticInstructionExtractor:
 
     @staticmethod
     def _regionCrop(image: np.ndarray, region: dict[str, float]) -> np.ndarray:
-        left, top, right, bottom = TacticInstructionExtractor._regionBounds(
-            image, region
-        )
+        left, top, right, bottom = TacticInstructionExtractor._regionBounds(image, region)
         height, width = image.shape[:2]
-        return image[max(0, top):min(height, bottom), max(0, left):min(width, right)]
+        return image[max(0, top) : min(height, bottom), max(0, left) : min(width, right)]
 
     @staticmethod
-    def _regionBounds(
-        image: np.ndarray, region: dict[str, float]
-    ) -> tuple[int, int, int, int]:
+    def _regionBounds(image: np.ndarray, region: dict[str, float]) -> tuple[int, int, int, int]:
         height, width = image.shape[:2]
         left, top = int(float(region["x"]) * width), int(float(region["y"]) * height)
         right = int((float(region["x"]) + float(region["width"])) * width)

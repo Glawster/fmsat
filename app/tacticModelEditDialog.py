@@ -50,8 +50,7 @@ class TacticModelEditDialog(AdminEditDialog):
         layout.addWidget(tabs, 1)
 
         buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Save
-            | QDialogButtonBox.StandardButton.Cancel
+            QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
         )
         buttons.accepted.connect(self._modelAccept)
         buttons.rejected.connect(self.reject)
@@ -141,9 +140,7 @@ class TacticModelEditDialog(AdminEditDialog):
                 tactic.outOfPossession.instructions,
                 tactic.transition.instructions,
             ):
-                for instruction in sorted(
-                    instructionSet, key=lambda item: item.name.casefold()
-                ):
+                for instruction in sorted(instructionSet, key=lambda item: item.name.casefold()):
                     current = instructionSet[instruction]
                     instructionSet[instruction] = type(current)(
                         self._text(self.instructionsTable, row, 2),

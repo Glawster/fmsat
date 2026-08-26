@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import cv2
 import numpy as np
@@ -146,3 +147,30 @@ def testExtractorCanReplaceExistingStructuredRows(tmp_path) -> None:
         assert tactic.structuredDefinition is not None
         assert tactic.structuredDefinition.slots == []
         assert tactic.structuredDefinition.instructions == []
+
+
+def testExtractorVocabularyRefreshRemovesDeletedCapturedRole(tmp_path) -> None:
+    database = Database(tmp_path / "test.sqlite3")
+    database.initialize()
+    definitions = [
+        SimpleNamespace(
+            roleCode="newRuntimeForward",
+            displayName="New Runtime Forward",
+            abbreviations=("NRF",),
+            positions=("STC",),
+        )
+    ]
+    extractor = TacticScreenshotExtractor(
+        database.engine,
+        FakeOcr(),
+        lambda: tuple(definitions),
+    )
+
+    extractor._capturedRolesRefresh()
+    assert extractor.vocabulary.roleNormalize("NRF").value == "newRuntimeForward"
+
+    definitions.clear()
+    extractor._capturedRolesRefresh()
+
+    assert extractor.vocabulary.roleNormalize("NRF").resolved is False
+    assert "newRuntimeForward" not in extractor.vocabulary.roles

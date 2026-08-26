@@ -92,4 +92,5 @@ def tacticDetailPrototype() -> TacticDetailModel:
                 ),
             ),
         ),
+        assignedSquadNames=("First Team", "U21s"),
     )

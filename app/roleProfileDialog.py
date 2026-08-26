@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from fmsat.app.colourPalette import cellHeader, cellHeaderText
+from fmsat.app.colourPalette import CELL_HEADER, CELL_HEADER_TEXT
 from fmsat.core.config import AttributeDefinition
 from fmsat.core.parser import RoleProfileEvidence, TacticalPhase
 from fmsat.core.roleKnowledge import RoleKnowledgeError, RoleKnowledgeService
@@ -146,9 +146,9 @@ class RoleProfileReviewDialog(QDialog):
         self.attributeTable.setStyleSheet(
             "QTableWidget { gridline-color: #64748b; border: 1px solid #475569; }"
             "QHeaderView::section { font-weight: 700; border: 1px solid #64748b; "
-            f"padding: 5px; background-color: {cellHeader}; color: {cellHeaderText}; }}"
-            f"QTableWidget::item:selected {{ background-color: {cellHeader}; "
-            f"color: {cellHeaderText}; }}"
+            f"padding: 5px; background-color: {CELL_HEADER}; color: {CELL_HEADER_TEXT}; }}"
+            f"QTableWidget::item:selected {{ background-color: {CELL_HEADER}; "
+            f"color: {CELL_HEADER_TEXT}; }}"
         )
         weights = attributeWeights or {}
         for row, attribute in enumerate(attributes):

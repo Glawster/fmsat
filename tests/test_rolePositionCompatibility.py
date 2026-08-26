@@ -1,6 +1,7 @@
 from fmsat.core.parser import TacticVocabulary
 from fmsat.core.rolePositionCompatibility import (
     RolePositionFamilyPolicy,
+    capturedRolePositionFamilies,
     rolePositionFamilies,
     roleSupportsPosition,
 )
@@ -27,9 +28,7 @@ def testKnownRolesUseConfiguredPositionFamilies() -> None:
         PositionFamily.MC,
         PositionFamily.AMC,
     }
-    assert rolePositionFamilies("trackingCentreForward") == {
-        PositionFamily.STC
-    }
+    assert rolePositionFamilies("trackingCentreForward") == {PositionFamily.STC}
 
 
 def testGoalkeeperRolesCannotBeValidatedAsDefenders() -> None:
@@ -59,3 +58,12 @@ def testPackagedPolicyContainsEveryKnownRole() -> None:
 
     assert policy.version == 1
     assert set(policy.roles) == set(vocabulary.roles)
+
+
+def testCatalogueGroupingUsesConfiguredPositionFamilyPolicy() -> None:
+    policy = RolePositionFamilyPolicy(
+        version=1,
+        roles={"policyRole": frozenset({PositionFamily.STC})},
+    )
+
+    assert capturedRolePositionFamilies("policyRole", ("AMC",), policy) == ("ST",)

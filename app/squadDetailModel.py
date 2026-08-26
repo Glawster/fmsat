@@ -64,6 +64,8 @@ class RequiredSlotDisplay:
     backup: str
     primaryEvidence: str
     backupEvidence: str
+    ipRoleCode: str = ""
+    oopRoleCode: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,19 +99,13 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
 
     visibleRoles = tuple(
         sorted(
-            (
-                role
-                for role in assessment.roles
-                if not role.roleCode.startswith("capturedRole")
-            ),
+            (role for role in assessment.roles if not role.roleCode.startswith("capturedRole")),
             key=rolePositionSortKey,
         )
     )
     catalogueSource = assessment.allRoles or assessment.roles
     visibleCatalogue = tuple(
-        role
-        for role in catalogueSource
-        if not role.roleCode.startswith("capturedRole")
+        role for role in catalogueSource if not role.roleCode.startswith("capturedRole")
     )
 
     bestRoles: dict[str, tuple[float, str]] = {}
@@ -121,15 +117,30 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
             key = candidate.player.name.casefold()
             current = bestRoles.get(key)
             proposed = (score, role.displayName)
-            if current is None or proposed[0] > current[0] or (
-                proposed[0] == current[0]
-                and proposed[1].casefold() < current[1].casefold()
+            if (
+                current is None
+                or proposed[0] > current[0]
+                or (proposed[0] == current[0] and proposed[1].casefold() < current[1].casefold())
             ):
                 bestRoles[key] = proposed
 
     displayNames = {
-        player.name: playerNameDisplay(player.name)
-        for player in assessment.squad.players
+        player.name: playerNameDisplay(player.name) for player in assessment.squad.players
+    }
+
+    observedAbbreviations = {
+        str(requirement.roleCode): str(requirement.abbreviation)
+        for slot in assessment.requiredSlots
+        for requirement in slot.roles
+        if str(requirement.roleCode or "").strip()
+        and str(requirement.abbreviation or "").strip()
+        and str(requirement.abbreviation).casefold()
+        not in {
+            str(requirement.roleCode).casefold(),
+            "unknown",
+            "unavailable",
+            "unknown role",
+        }
     }
 
     roles: list[RoleDisplay] = []
@@ -161,7 +172,10 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
                 )
             )
 
-        abbreviation = roleAbbreviationDisplay(role.roleCode, role.abbreviation)
+        abbreviation = roleAbbreviationDisplay(
+            role.roleCode,
+            observedAbbreviations.get(role.roleCode, role.abbreviation),
+        )
         resolutionState = "ready"
         resolutionReason = ""
         if abbreviation == "Unknown":
@@ -169,20 +183,20 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
             resolutionReason = "The role identity is known but its abbreviation is not confirmed."
         elif role.candidates and all(
             candidate.genericRoleFit.score is None
-            and "assessment weights" in (
-                candidate.genericRoleFit.unavailableReason or ""
-            ).casefold()
+            and "assessment weights"
+            in (candidate.genericRoleFit.unavailableReason or "").casefold()
             for candidate in role.candidates
         ):
             resolutionState = "missingWeights"
             resolutionReason = "No assessment weights are defined for this role."
 
-        if role.uncovered:
+        if resolutionState == "missingWeights":
+            coverage = "Unavailable — weights not defined"
+        elif role.uncovered:
             coverage = "No Candidates found"
         elif role.backupCandidate is None:
             coverage = (
-                f"Best: {playerNameDisplay(role.bestCandidate or '')} · "
-                "no calculated backup"
+                f"Best: {playerNameDisplay(role.bestCandidate or '')} · " "no calculated backup"
             )
         else:
             coverage = (
@@ -224,9 +238,7 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
                 observedDisplay = ""
 
             unresolvedKey = (
-                semanticCode
-                if semanticCode
-                else f"unresolved:{slot.slotId}:{requirement.phase}"
+                semanticCode if semanticCode else f"unresolved:{slot.slotId}:{requirement.phase}"
             )
             displayName = (
                 _roleCodeDisplay(semanticCode, requirement.displayName)
@@ -272,7 +284,7 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
                 abbreviation=observedAbbreviation or "Unknown",
                 positions=", ".join(positions),
                 phases=", ".join(phases),
-                coverage="No Candidates found",
+                coverage="Unavailable — role identity unresolved",
                 candidates=(),
                 resolutionState="unknownRole",
                 resolutionReason=reason,
@@ -329,8 +341,7 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
                     if bestFit is not None
                     else player.unavailableReason or "Required data is unavailable"
                 ),
-                alternatives=", ".join(role[2] for role in alternatives)
-                or "Unavailable",
+                alternatives=", ".join(role[2] for role in alternatives) or "Unavailable",
             )
         )
 
@@ -367,9 +378,11 @@ def squadDetailModelBuild(assessment: SquadAssessment) -> SquadDetailModel:
         sourceStatus=(
             "Regeneration required — newer squad screenshots exist"
             if assessment.squad.regenerationRequired
-            else "Edited model — screenshots superseded"
-            if assessment.squad.evidenceSuperseded
-            else "Generated from screenshot evidence"
+            else (
+                "Edited model — screenshots superseded"
+                if assessment.squad.evidenceSuperseded
+                else "Generated from screenshot evidence"
+            )
         ),
         updated=assessment.squad.updatedAt.strftime("%d %b %Y %H:%M"),
         requiredPositionCount=assessment.requiredPositionCount,
@@ -394,10 +407,7 @@ def _roleCodeDisplay(roleCode: str, displayName: str) -> str:
 def _requiredSlotDisplay(slot) -> RequiredSlotDisplay:
     """Render one slot with phase roles and candidates who satisfy both phases."""
 
-    phaseRoles = {
-        role.phase: _slotRoleLabel(role)
-        for role in slot.roles
-    }
+    phaseRoles = {role.phase: _slotRoleLabel(role) for role in slot.roles}
     primary, primaryEvidence = _slotCandidateDisplay(slot, slot.bestCandidate)
     backup, backupEvidence = _slotCandidateDisplay(slot, slot.backupCandidate)
     if slot.unavailableReason is not None:
@@ -421,7 +431,16 @@ def _requiredSlotDisplay(slot) -> RequiredSlotDisplay:
         backup=backup,
         primaryEvidence=primaryEvidence,
         backupEvidence=backupEvidence,
+        ipRoleCode=_phaseRoleCode(slot, "IP"),
+        oopRoleCode=_phaseRoleCode(slot, "OOP"),
     )
+
+
+def _phaseRoleCode(slot, phase: str) -> str:
+    """Return the semantic role identity for one phase, if Role Depth resolved it."""
+
+    requirement = next((role for role in slot.roles if role.phase == phase), None)
+    return str(requirement.roleCode or "").strip() if requirement is not None else ""
 
 
 def _slotRoleLabel(role) -> str:
@@ -432,23 +451,23 @@ def _slotRoleLabel(role) -> str:
     if not roleCode:
         return (
             abbreviation
-            if abbreviation
-            and abbreviation.casefold() not in {"unknown", "unavailable"}
+            if abbreviation and abbreviation.casefold() not in {"unknown", "unavailable"}
             else "Unknown role"
         )
     displayName = str(role.displayName or "")
-    if (
-        abbreviation
-        and abbreviation.casefold() not in {roleCode.casefold(), "unknown", "unavailable"}
-    ):
+    if abbreviation and abbreviation.casefold() not in {
+        roleCode.casefold(),
+        "unknown",
+        "unavailable",
+    }:
         return abbreviation
-    if (
-        displayName.casefold() == roleCode.casefold()
-        and abbreviation.casefold() == roleCode.casefold()
-    ):
-        return "Unknown role"
     rendered = roleAbbreviationDisplay(roleCode, abbreviation)
-    return "Unknown abbreviation" if rendered == "Unknown" else rendered
+    if rendered != "Unknown":
+        return rendered
+    # The semantic identity is still useful evidence when presentation knowledge
+    # is incomplete.  Render its readable name instead of degrading it to an
+    # unknown role or confusing the role with the slot's position.
+    return _roleCodeDisplay(roleCode, displayName)
 
 
 def _slotCandidateDisplay(slot, playerName: str | None) -> tuple[str, str]:
@@ -457,11 +476,7 @@ def _slotCandidateDisplay(slot, playerName: str | None) -> tuple[str, str]:
     if playerName is None:
         return "—", "Unavailable"
     candidate = next(
-        (
-            item
-            for item in slot.candidates
-            if item.player.name.casefold() == playerName.casefold()
-        ),
+        (item for item in slot.candidates if item.player.name.casefold() == playerName.casefold()),
         None,
     )
     if candidate is None or candidate.score is None:
