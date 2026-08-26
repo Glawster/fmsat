@@ -39,6 +39,10 @@ A player is a Best XI candidate for a slot only when:
 
 Players outside the slot's position family do not compete for that Best XI slot, regardless of their Generic Role Fit score. Missing or unmappable positional evidence is not treated as familiarity. Missing role policy, missing player attributes, unresolved semantic role identity, or other unavailable evidence also remains unavailable rather than being guessed.
 
+An incomplete or malformed phase slot makes only that individual simultaneous slot
+unavailable. It does not invalidate other slots whose durable phase linkage and assessment
+evidence remain complete.
+
 `Training required` remains useful in role-depth, player analysis and future retraining-opportunity views. It is not a normal Best XI selection state because those players are excluded during candidate eligibility.
 
 ## Optimisation objective

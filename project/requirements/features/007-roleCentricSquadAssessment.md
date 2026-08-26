@@ -15,8 +15,9 @@ built.
 
 ## Current delivery state
 
-The squad-viewer foundation and the first two analysis sub-increments are now
-implemented on the feature branch.
+The squad-viewer foundation and three analysis sub-increments are implemented
+on the feature branch. Requirement 007 remains `InProgress` because Tactical
+Fit, Overall Suitability, comparison and Role Health remain later scope.
 
 007A established the assessment-policy foundation:
 
@@ -51,8 +52,23 @@ maintenance:
   Acceleration, Agility and Natural Fitness while keeping unsupported Long Shots
   out of the stored squad model.
 
-Final 007B acceptance is gated by the full automated suite and manual review of
-the reference squad/tactic after these final presentation/editor changes.
+007C adds Best XI and clean-room stabilization:
+
+- Best XI uses global unique-player assignment and requires captured
+  position-family eligibility for each slot;
+- malformed or incomplete phase evidence isolates the affected slot instead of
+  invalidating otherwise linked simultaneous slots;
+- player names reconcile across captures using corroborating squad facts,
+  uncertain OCR names remain visible for review, and manual corrections remain
+  authoritative;
+- incremental squad imports merge complementary screenshots, while player
+  editing and removal rebuild derived assessment without deleting provenance;
+- the Role Assessment Weight Editor provides 0–10 policy editing and validated
+  YAML import/export; and
+- role/vocabulary, OCR, welcome/import and reassessment lifecycle fixes are
+  protected by focused and opt-in clean-room regressions.
+
+007C is implemented and undergoing final clean-room acceptance.
 
 ## Dependencies
 
@@ -150,10 +166,15 @@ The Generic Role Fit analysis increment must:
    cannot fill two simultaneous primary slots in the same assignment result and
    requiring complete IP/OOP evidence for a slot candidate.
 
-Present these results in the existing Analysis tab. Best XI, Tactical Fit,
-Overall Suitability and recruitment recommendations remain later increments.
+Present these results in the existing Analysis tab. Best XI is delivered by
+007C. Tactical Fit, Overall Suitability and recruitment recommendations remain
+later increments.
 
 ## Role assessment policy management
+
+The 0–10 Weight Editor, validated policy service, YAML import/export and legacy
+scale migration are implemented in 007C. Runtime-created-role coverage and the
+final explicit reassessment workflow remain subject to clean-room acceptance.
 
 1. Provide a user-facing Role Assessment Weight Editor for Generic Role Fit
    assessment policy rather than requiring every role's weights to be maintained
@@ -175,7 +196,7 @@ Overall Suitability and recruitment recommendations remain later increments.
    role-depth and Best XI results eligible for explicit reassessment without
    requiring tactic or squad OCR regeneration.
 
-This is follow-up work within requirement 007 and does not require a separate
+This work remains within requirement 007 and does not require a separate
 product requirement.
 
 ## Role Cards
@@ -360,6 +381,28 @@ invent a modifier when the structured tactic provides no supporting evidence.
 - Status: implementation complete; awaiting final full-suite and manual
   reference-squad verification.
 
+### 007C — Best XI and clean-room stabilization
+
+- Implementation: `core/bestXi.py`, `core/roleDepth.py`,
+  `core/playerIdentity.py`, `core/squadModel.py`,
+  `core/roleAssessmentPolicy.py`, `app/roleAssessmentWeightEditor.py`,
+  `app/squadPlayersWorkspace.py` and the welcome/import lifecycle services.
+- Tests: `tests/test_bestXi.py`, `tests/test_bestXiWorkspace.py`,
+  `tests/test_roleDepth.py`, `tests/test_playerIdentity.py`,
+  `tests/test_squadModel.py`, `tests/test_roleAssessmentWeightEditor.py`,
+  `tests/test_filteredSevenSquadOcr.py`, `tests/test_cleanRoom007b.py` and
+  related parser, vocabulary and window-lifecycle regressions.
+- Behaviour: Best XI requires position-family eligibility and optimizes the
+  whole simultaneous assignment; malformed phase evidence is isolated per
+  slot; player identity reconciles across captures while manual corrections
+  remain authoritative; filtered squad captures merge incrementally; role
+  policy is editable on the canonical 0–10 scale; clean-room OCR and lifecycle
+  defects retain focused regression coverage.
+- Status: implemented; the integrated full suite passes (501 passed, 9 skipped),
+  with opt-in OCR and manual clean-room acceptance remaining. Requirement 007 remains
+  `InProgress` for later Tactical Fit,
+  Overall Suitability, comparison and Role Health scope.
+
 ## Change history
 
 - 2026-08-16: recorded completion of the 007A assessment-policy foundation and
@@ -370,6 +413,9 @@ invent a modifier when the structured tactic provides no supporting evidence.
 - 2026-08-24: added Role Assessment Policy Management as requirement 007
   follow-up work, covering the 0–10 editor, bulk import/export, runtime-created
   roles and explicit reassessment.
+- 2026-08-26: recorded 007C Best XI position-family eligibility and clean-room
+  stabilization, including partial-slot recovery, player identity
+  reconciliation, incremental squad imports and the implemented Weight Editor.
 
 ## Future foundation
 

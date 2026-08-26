@@ -200,6 +200,9 @@ the local machine. The application makes no changes to Football Manager.
 
 ## Roadmap
 
-Phase 1 is deliberately extraction-only. The interfaces and historical snapshots provide
-a foundation for additional screen parsers and later tactical, role-suitability, squad
-depth, recruitment and reporting phases, none of which are implemented here.
+The active delivery increment is **007C — Best XI and clean-room stabilization**. FMSAT now
+includes Generic Role Fit, simultaneous role depth, position-family-eligible Best XI,
+editable role assessment weights and reconciled incremental squad evidence. Requirement 007
+remains in progress for Tactical Fit, Overall Suitability, candidate comparison and Role
+Health. See the [current increment](project/currentIncrement.md) and
+[development status](documentation/developmentStatus.md) for current acceptance evidence.

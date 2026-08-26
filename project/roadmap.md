@@ -69,9 +69,9 @@ Delivered:
 - common QSS-owned dropdown styling; and
 - surname-sorted player selection displayed as `Surname, Firstname`.
 
-### 007B — Role-depth and player-role analysis — next
+### 007B — Role-depth and player-role analysis — implemented
 
-The next increment will refine the existing Analysis tab around:
+Delivered:
 
 - the complete all-player/all-role matrix;
 - unique-player assignment across simultaneous required tactical slots;
@@ -80,14 +80,27 @@ The next increment will refine the existing Analysis tab around:
 - weak positions, concentrated role duplication and unused squad strengths; and
 - transparent evidence for every score and finding.
 
-Later increments:
+### 007C — Best XI and clean-room stabilization — acceptance
+
+Delivered implementation includes:
+
+- a global unique-player Best XI constrained by captured position families;
+- robust simultaneous-slot analysis that isolates malformed phase evidence;
+- player identity reconciliation and durable manual corrections;
+- incremental squad import/merge, player editing and removal;
+- 0–10 role-assessment policy editing and validated YAML transfer; and
+- role/vocabulary, OCR and welcome/import lifecycle regressions found during
+  clean-room use.
+
+Final full-suite, opt-in OCR and manual reference-squad acceptance remain.
+
+Later requirement 007 increments:
 
 - Tactical Fit and Position Familiarity;
 - Overall Suitability;
 - competition-level role attribute benchmarks once an evidence model exists;
 - candidate comparison;
 - Role Health;
-- Best XI; and
 - recruitment analysis built on confirmed assessment results.
 
 ## Future

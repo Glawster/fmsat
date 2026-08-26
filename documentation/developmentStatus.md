@@ -1,11 +1,12 @@
 # Development status
 
-Last updated: 2026-08-17
+Last updated: 2026-08-26
 
 ## Current delivery point
 
-The structured tactic evidence and 007A Generic Role Fit foundation are now stable enough
-to close this increment and move role-centric squad analysis forward.
+The active increment is **007C — Best XI and clean-room stabilization**. Its implementation
+combines global Best XI assignment with position-family eligibility and a broad set of
+clean-room fixes across squad evidence, role policy, OCR and import/window lifecycle.
 
 FMSAT can import the supported tactic screenshots, extract and validate 11 In Possession
 and 11 Out Of Possession slots, normalize canonical tactic roles and instructions, retain
@@ -44,7 +45,7 @@ OCR geometry history remains part of the operational baseline. See
 
 Requirement 006 remains `InProgress` for its remaining correction, diagnostic CLI and
 acceptance/documentation criteria, but no known tactic-extraction defect currently blocks
-requirement 007B.
+007C acceptance.
 
 ### Requirement 009 — Tactic detail management
 
@@ -70,7 +71,7 @@ future competition-level benchmark policy.
 
 ### 007A — Generic Role Fit foundation
 
-007A is complete and ready to merge to `main`.
+007A is complete.
 
 Delivered:
 
@@ -89,20 +90,26 @@ The full automated pytest suite passed after the final UI and vocabulary changes
 
 ### 007B — Role-depth and player-role analysis
 
-007B is the next active increment after the 007A merge. It should refine the existing
-Analysis tab rather than introduce Best XI or recruitment work.
+007B is implemented. It provides unique-player simultaneous role depth, best and alternative
+roles, squad findings, factual Player Editor corrections and persisted active-tactic context.
 
-Primary objectives:
+### 007C — Best XI and clean-room stabilization
 
-- complete the all-player/all-role matrix consistently;
-- produce unique-player required-role depth for simultaneous tactical slots;
-- identify each player's best and alternative roles;
-- identify weak positions, role duplication and unused squad strengths;
-- keep every score explainable from explicit evidence; and
-- preserve `Unavailable` where evidence or policy remains incomplete.
+007C is implemented and under final clean-room acceptance. Delivered areas include:
 
-Best XI, Tactical Fit, Overall Suitability and recruitment recommendations remain later
-increments.
+- global Best XI assignment using position-family eligibility;
+- isolation of an incomplete or malformed phase slot without discarding otherwise linked
+  simultaneous slots;
+- conservative cross-capture player identity/name reconciliation with visible uncertainty
+  and durable manual corrections;
+- incremental filtered-squad import/merge, player editing and removal;
+- a 0–10 Role Assessment Weight Editor with validated YAML policy import/export;
+- role policy, position compatibility and vocabulary corrections;
+- welcome/import/reassessment lifecycle fixes; and
+- focused, opt-in OCR and clean-room regression fixtures.
+
+Requirement 007 remains `InProgress`. Tactical Fit, Overall Suitability, candidate comparison
+and Role Health are not delivered by 007C.
 
 ## Deferred work
 
