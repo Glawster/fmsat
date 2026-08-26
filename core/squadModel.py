@@ -270,7 +270,11 @@ class SquadModelService:
             stored.sourceSquad = source
             stored.updatedAt = now
             stored.players.extend(
-                self._playerStore(player, manual=True) for player in model.players
+                self._playerStore(
+                    player,
+                    manual=player.validationState == "corrected",
+                )
+                for player in model.players
             )
 
             if source is not None:

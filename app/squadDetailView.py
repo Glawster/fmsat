@@ -13,7 +13,6 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
-    QFrame,
     QHBoxLayout,
     QLabel,
     QLayout,
@@ -29,6 +28,7 @@ from fmsat.app.squadDetailModel import SquadDetailModel
 from fmsat.app.squadDetailTabs import SquadOverviewTab
 from fmsat.app.squadPlayersWorkspace import SquadPlayersTab
 from fmsat.app.squadRolesWorkspace import SquadRolesTab
+from fmsat.app.workspaceWidgets import FactCard
 from fmsat.core.config import AttributeDefinition
 from fmsat.core.roleAssessmentIntegrity import roleAssessmentIntegrityCheck
 from fmsat.core.squadModel import SquadModel
@@ -60,7 +60,9 @@ class SquadDetailView(QWidget):
     modelSaveRequested = Signal(object)
     modelRegenerateRequested = Signal(str)
     modelReassessRequested = Signal(str)
+    modelReconcileRequested = Signal(str)
     tacticSelected = Signal(str, str)
+    tacticRequested = Signal(str)
     regenerationProgressChanged = Signal(int, int, str)
 
     def __init__(
@@ -156,6 +158,7 @@ class SquadDetailView(QWidget):
             if self.model.tacticName in {"No tactic selected", "No tactic assigned"}
             else self.model.tacticName
         )
+        tacticAssigned = tacticName != "No tactic assigned"
         for label, value in (
             ("PLAYERS", str(len(self.model.squad.players))),
             ("TACTIC", tacticName),
@@ -163,7 +166,14 @@ class SquadDetailView(QWidget):
             ("COVERED UNIQUE ROLES", f"{covered} of {len(self.model.roles)}"),
             ("STATUS", self.model.sourceStatus),
         ):
-            facts.addWidget(self._factCardCreate(label, value), 1)
+            card = FactCard(label, value, self)
+            if label == "TACTIC" and tacticAssigned:
+                card.interactionEnable(f"Open tactic {tacticName}")
+                card.activated.connect(
+                    lambda name=self.model.tacticName: self.tacticRequested.emit(name)
+                )
+                self.tacticCard = card
+            facts.addWidget(card, 1)
         return facts
 
     def _tabsCreate(self) -> QTabWidget:
@@ -173,6 +183,7 @@ class SquadDetailView(QWidget):
         tabs.addTab(SquadOverviewTab(self.model), "Overview")
         self.playersTab = SquadPlayersTab(self.model.squad, self.attributes)
         self.playersTab.changed.connect(lambda: self.saveButton.setEnabled(True))
+        self.playersTab.reconcileRequested.connect(self._reconcileRequest)
         tabs.addTab(self.playersTab, "Players")
         tabs.addTab(SquadRolesTab(self.model.roles, self.attributes), "Roles")
         self.analysisTab = SquadAnalysisTab(
@@ -293,6 +304,43 @@ class SquadDetailView(QWidget):
         finally:
             self.reassessButton.setEnabled(True)
 
+    def _reconcileRequest(self) -> None:
+        """Rebuild player identities from persisted rows, then reload assessment."""
+
+        if self.model is None:
+            return
+        button = self.playersTab.reconcilePlayersButton
+        button.setEnabled(False)
+        try:
+            self.modelReconcileRequested.emit(self.squadName)
+            window = self.window()
+            service = getattr(window, "squadModelService", None)
+            if service is None:
+                return
+            refreshed = service.modelRefreshFromEvidence(self.squadName)
+            if refreshed is None:
+                raise ValueError(f"No saved squad evidence exists for {self.squadName}")
+            dataChanged = getattr(window, "dataChanged", None)
+            if dataChanged is not None and hasattr(dataChanged, "emit"):
+                dataChanged.emit()
+            squadShow = getattr(window, "squadShow", None)
+            if callable(squadShow):
+                squadShow(self.squadName, self.model.tacticName)
+            statusBar = getattr(window, "statusBar", None)
+            if callable(statusBar):
+                statusBar().showMessage(
+                    f"Reconciled player identities for {self.squadName} from saved evidence; "
+                    "screenshots were not re-read.",
+                    10000,
+                )
+        except Exception as exc:
+            logger.exception("unable to reconcile squad players %r", self.squadName)
+            statusBar = getattr(self.window(), "statusBar", None)
+            if callable(statusBar):
+                statusBar().showMessage(str(exc), 10000)
+        finally:
+            button.setEnabled(True)
+
     def _regenerationProgressUpdate(self, current: int, total: int, message: str) -> None:
         """Reflect worker-thread OCR milestones in the modal progress dialog."""
 
@@ -410,22 +458,6 @@ class SquadDetailView(QWidget):
                 key=str.casefold,
             )
         )
-
-    @staticmethod
-    def _factCardCreate(label: str, value: str) -> QFrame:
-        card = QFrame()
-        card.setObjectName("factCard")
-        layout = QVBoxLayout(card)
-        layout.setContentsMargins(12, 9, 12, 9)
-        layout.setSpacing(3)
-        key = QLabel(label)
-        key.setObjectName("factKey")
-        layout.addWidget(key)
-        fieldValue = QLabel(value)
-        fieldValue.setObjectName("factValue")
-        fieldValue.setWordWrap(True)
-        layout.addWidget(fieldValue)
-        return card
 
     def _requiredRoleRows(self) -> tuple[tuple[str, str], ...]:
         """Build one legacy presentation row per simultaneous tactic slot."""

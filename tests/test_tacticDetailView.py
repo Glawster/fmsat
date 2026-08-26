@@ -1,10 +1,13 @@
 """Tactic detail prototype tests for requirement 009."""
 
+from dataclasses import replace
+
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QSignalSpy
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QTabWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QMenu, QTabWidget
 
 from fmsat.app.tacticDetailModel import DisplaySlot, TacticDetailModel
+from fmsat.app.tacticDetailPrototype import tacticDetailPrototype
 from fmsat.app.tacticDetailView import PitchWidget, TacticDetailView
 
 
@@ -34,6 +37,39 @@ def testTacticShowRefreshesIdentityAndAssignmentSignal(qtbot) -> None:  # type: 
     assert view.titleLabel.text() == "Morphing System"
     assert assigned.count() == 1
     assert assigned.at(0) == ["Morphing System"]
+
+
+def testAssignedSquadCardOpensSoleSquadDirectly(qtbot) -> None:  # type: ignore[no-untyped-def]
+    view = TacticDetailView()
+    qtbot.addWidget(view)
+    requested = QSignalSpy(view.squadRequested)
+    model = tacticDetailPrototype()
+    model = replace(
+        model,
+        assignedSquads="First Team",
+        assignedSquadNames=("First Team",),
+    )
+
+    view.tacticShow("Morphing System", model)
+    assert view.assignedSquadsCard.objectName() == "factCard"
+    qtbot.mouseClick(view.assignedSquadsCard, Qt.MouseButton.LeftButton)
+
+    assert requested.count() == 1
+    assert requested.at(0) == ["First Team"]
+
+
+def testAssignedSquadCardOffersMenuForSeveralSquads(qtbot) -> None:  # type: ignore[no-untyped-def]
+    view = TacticDetailView()
+    qtbot.addWidget(view)
+    requested = QSignalSpy(view.squadRequested)
+
+    qtbot.mouseClick(view.assignedSquadsCard, Qt.MouseButton.LeftButton)
+    menu = view.findChild(QMenu, "assignedSquadsMenu")
+
+    assert menu is not None
+    assert [action.text() for action in menu.actions()] == ["First Team", "U21s"]
+    menu.actions()[1].trigger()
+    assert requested.at(0) == ["U21s"]
 
 
 def testImportToModelButtonEmitsCurrentTactic(qtbot) -> None:  # type: ignore[no-untyped-def]

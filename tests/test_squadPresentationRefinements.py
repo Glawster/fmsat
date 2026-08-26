@@ -3,6 +3,8 @@
 from datetime import datetime
 from types import SimpleNamespace
 
+from PySide6.QtCore import Qt
+from PySide6.QtTest import QSignalSpy
 from PySide6.QtWidgets import QMainWindow
 
 from fmsat.app.squadDetailModel import (
@@ -300,3 +302,27 @@ def testUnassignedSquadPickerListsSystemTacticsAndPersistsSelection(qtbot) -> No
     assert view.tacticPicker.view().styleSheet() == ""
     view.tacticPicker.setCurrentText("High Press")
     assert window.database.applied == [("First Team", "High Press")]  # type: ignore[attr-defined]
+
+
+def testAssignedTacticCardRequestsTacticWorkspace(qtbot) -> None:  # type: ignore[no-untyped-def]
+    window = QMainWindow()
+    view = SquadDetailView(window)
+    window.setCentralWidget(view)
+    qtbot.addWidget(window)
+    requested = QSignalSpy(view.tacticRequested)
+    model = SquadDetailModel(
+        squad=_squad(),
+        tacticName="High Press",
+        availableTactics=("High Press",),
+        sourceStatus="Generated from screenshot evidence",
+        updated="15 Aug 2026 22:00",
+        requiredPositionCount=0,
+        roles=(),
+    )
+
+    view.squadShow("First Team", model)
+    assert view.tacticCard.objectName() == "factCard"
+    qtbot.mouseClick(view.tacticCard, Qt.MouseButton.LeftButton)
+
+    assert requested.count() == 1
+    assert requested.at(0) == ["High Press"]

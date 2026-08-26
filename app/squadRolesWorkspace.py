@@ -37,6 +37,7 @@ class SquadRolesTab(BaseSquadRolesTab):
     ) -> None:
         self.attributes = attributes
         self.roleSortOrder = Qt.SortOrder.AscendingOrder
+        self.candidateRoleSortInitialized = False
         super().__init__(roles, parent)
         if not hasattr(self, "candidateTable"):
             return
@@ -394,6 +395,9 @@ class SquadRolesTab(BaseSquadRolesTab):
                 QHeaderView.ResizeMode.Stretch,
             )
         self.candidateTable.setSortingEnabled(True)
+        if role is not None and not self.candidateRoleSortInitialized:
+            self.candidateTable.sortItems(2, Qt.SortOrder.DescendingOrder)
+            self.candidateRoleSortInitialized = True
         self._rowsCompact()
 
     def _allPlayerNames(self) -> set[str]:

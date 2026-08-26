@@ -1,5 +1,6 @@
 """Regression coverage for focused squad player editing."""
 
+from dataclasses import replace
 from datetime import datetime
 from unittest.mock import patch
 
@@ -170,6 +171,44 @@ def testPlayersTabLaunchesEditorWithConfiguredAttributes(qtbot) -> None:  # type
     assert launchedPlayer.name == "Alessia Russo"
     assert launchedAttributes == attributes
     assert launchedParent is tab
+
+
+def testCorrectingOneUncertainPlayerPreservesOtherWarning(qtbot) -> None:  # type: ignore[no-untyped-def]
+    """Accepting one player editor must not confirm every uncertain squad row."""
+
+    first = replace(_player(), name="Smith, Qe Ella", validationState="uncertain")
+    second = replace(
+        _player(),
+        name="Rennie, Q Sophie",
+        sourceImportSessionId=13,
+        validationState="uncertain",
+    )
+    model = SquadModel(
+        name="First Team",
+        players=(first, second),
+        generatedAt=datetime(2026, 8, 18),
+        updatedAt=datetime(2026, 8, 18),
+        evidenceSuperseded=False,
+    )
+    tab = SquadPlayersTab(model, _attributes())
+    qtbot.addWidget(tab)
+    firstRow = next(
+        row for row in range(tab.table.rowCount()) if "Smith" in tab.table.item(row, 0).text()
+    )
+
+    with patch("fmsat.app.squadPlayersWorkspace.PlayerEditorDialog") as dialogClass:
+        dialogClass.return_value.exec.return_value = QDialog.DialogCode.Accepted
+        dialogClass.return_value.editedPlayer.return_value = replace(
+            first,
+            name="Ella Smith",
+            validationState="corrected",
+        )
+        tab._playerEditorOpen(firstRow, 0)
+
+    rebuilt = tab.modelBuild()
+    states = {player.name: player.validationState for player in rebuilt.players}
+    assert states["Ella Smith"] == "corrected"
+    assert sorted(states.values()) == ["corrected", "uncertain"]
 
 
 def testPlayersTabRemoveDeletesSavedPlayerAndPersists(qtbot) -> None:  # type: ignore[no-untyped-def]

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from PySide6.QtCore import QSignalBlocker, Qt, Signal
 from PySide6.QtWidgets import QAbstractItemView, QDialog, QMessageBox, QPushButton, QStyle
 
@@ -16,6 +18,7 @@ class SquadPlayersTab(BaseSquadPlayersTab):
     """Browse squad facts and open one focused editor per player."""
 
     playerSaveRequested = Signal()
+    reconcileRequested = Signal()
 
     def __init__(
         self,
@@ -24,6 +27,7 @@ class SquadPlayersTab(BaseSquadPlayersTab):
         parent=None,
     ) -> None:
         self.attributes = attributes
+        self.confirmedSourceIndexes: set[int] = set()
         super().__init__(model, attributes, parent)
         blocker = QSignalBlocker(self.table)
         self.table.setSortingEnabled(False)
@@ -64,12 +68,14 @@ class SquadPlayersTab(BaseSquadPlayersTab):
     def _playerEditorOpen(self, row: int, _column: int) -> None:
         """Open one factual player editor and immediately persist accepted changes."""
 
+        sourceIndex = self._sourceIndex(row)
         player = self._playerAtRow(row)
         dialog = PlayerEditorDialog(player, self.attributes, self)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         edited = dialog.editedPlayer()
         self._playerRowApply(row, edited)
+        self.confirmedSourceIndexes.add(sourceIndex)
         self.changed.emit()
 
         # MainWindow already owns squad persistence and assessment refresh. Reuse it so
@@ -108,6 +114,29 @@ class SquadPlayersTab(BaseSquadPlayersTab):
             attributes=tuple(attributes),
             traits=traits,
         )
+
+    def modelBuild(self) -> SquadModel:
+        """Build edits while preserving the evidence state of untouched players."""
+
+        built = super().modelBuild()
+        players = []
+        for row, player in enumerate(built.players):
+            sourceIndex = self._sourceIndex(row)
+            state = (
+                "corrected"
+                if sourceIndex in self.confirmedSourceIndexes
+                else self.model.players[sourceIndex].validationState
+            )
+            players.append(replace(player, validationState=state))
+        return replace(built, players=tuple(players))
+
+    def _sourceIndex(self, row: int) -> int:
+        """Return the stable source-model index retained by a visible table row."""
+
+        item = self.table.item(row, 0)
+        if item is None:
+            raise ValueError("Player row is unavailable")
+        return int(item.data(Qt.ItemDataRole.UserRole))
 
     def _playerRowApply(self, row: int, player: SquadModelPlayer) -> None:
         """Reflect accepted editor facts in the browse table before model persistence."""
@@ -148,6 +177,13 @@ class SquadPlayersTab(BaseSquadPlayersTab):
         controls = root.itemAt(0).layout() if root is not None else None
         if controls is not None:
             controls.addWidget(self.removePlayerButton)
+            self.reconcilePlayersButton = QPushButton("Reconcile Players", self)
+            self.reconcilePlayersButton.setToolTip(
+                "Rebuild player identities and names from all saved squad evidence. "
+                "Manual corrections are preserved. Screenshots are not re-OCR'd."
+            )
+            self.reconcilePlayersButton.clicked.connect(self.reconcileRequested.emit)
+            controls.addWidget(self.reconcilePlayersButton)
         self._removeButtonUpdate()
 
     def _removeButtonUpdate(self) -> None:

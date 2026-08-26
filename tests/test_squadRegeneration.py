@@ -99,6 +99,34 @@ def testReassessRefreshesAnalysisWithoutRegeneratingEvidence(qtbot) -> None:  # 
     window.squadModelService.modelSave.assert_not_called()
 
 
+def testReconcilePlayersRefreshesIdentitiesWithoutRerunningOcr(qtbot) -> None:  # type: ignore[no-untyped-def]
+    """Player reconciliation rebuilds from stored rows and reloads assessment."""
+
+    window = QMainWindow()
+    qtbot.addWidget(window)
+    window.squadModelService = Mock()
+    window.squadModelService.modelRefreshFromEvidence.return_value = _model(
+        regenerationRequired=False
+    )
+    window.squadShow = Mock()
+    view = SquadDetailView(window)
+    window.setCentralWidget(view)
+    requested: list[str] = []
+    view.modelReconcileRequested.connect(requested.append)
+    view.squadShow("First Team", _detail(_model(regenerationRequired=False)))
+
+    button = view.playersTab.reconcilePlayersButton
+    assert button.text() == "Reconcile Players"
+    assert "Manual corrections are preserved" in button.toolTip()
+    assert "not re-OCR'd" in button.toolTip()
+    qtbot.mouseClick(button, Qt.MouseButton.LeftButton)
+
+    assert requested == ["First Team"]
+    window.squadModelService.modelRefreshFromEvidence.assert_called_once_with("First Team")
+    window.squadShow.assert_called_once_with("First Team", "High Press")
+    window.squadModelService.modelSave.assert_not_called()
+
+
 def testRegenerationProgressUsesExistingOcrMilestones() -> None:
     """The UI should reuse the production OCR x/y log milestones as determinate progress."""
 

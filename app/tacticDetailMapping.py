@@ -82,6 +82,7 @@ def tacticDetailModelBuild(
             ("Out Of Possession", _instructionsView(tactic.outOfPossession)),
             ("Transition", _instructionsTransitionView(tactic)),
         ),
+        assignedSquadNames=assignedSquads,
     )
 
 
@@ -121,6 +122,7 @@ def tacticDetailIncompleteModelBuild(
             ("Out Of Possession", ()),
             ("Transition", ()),
         ),
+        assignedSquadNames=assignedSquads,
     )
 
 

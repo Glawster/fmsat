@@ -44,6 +44,33 @@ def testSquadModelRetainsKnownPlayerTraits(tmp_path) -> None:
     assert loaded.players[0].traits == ("Curls Ball", "Places Shots")
 
 
+def testModelSavePreservesPerPlayerValidationState(tmp_path) -> None:
+    """Saving one corrected player must not confirm other uncertain identities."""
+
+    database = Database(tmp_path / "test.sqlite3")
+    database.initialize()
+    service = SquadModelService(database.engine)
+    model = SquadModel(
+        name="First Team",
+        players=(
+            replace(_namedPlayer("Smith, Ella"), validationState="corrected"),
+            replace(_namedPlayer("Rennie, Q Sophie"), validationState="uncertain"),
+        ),
+        generatedAt=datetime(2026, 8, 15),
+        updatedAt=datetime(2026, 8, 15),
+        evidenceSuperseded=False,
+    )
+
+    service.modelSave(model)
+    loaded = service.modelLoad("First Team", create=False)
+
+    assert loaded is not None
+    assert {player.name: player.validationState for player in loaded.players} == {
+        "Rennie, Q Sophie": "uncertain",
+        "Smith, Ella": "corrected",
+    }
+
+
 def _namedPlayer(name: str, passing: int = 10) -> SquadModelPlayer:
     return SquadModelPlayer(
         name=name,
