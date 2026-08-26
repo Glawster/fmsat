@@ -92,8 +92,7 @@ class PlayerTraitDialog(QDialog):
         canonicalNames = [trait.name for trait in playerTraits]
         names = canonicalNames + sorted(selectedNames.difference(canonicalNames), key=str.casefold)
         categories = {
-            category: QTreeWidgetItem(self.tree, (category,))
-            for category in self.categoryOrder
+            category: QTreeWidgetItem(self.tree, (category,)) for category in self.categoryOrder
         }
         for parentItem in categories.values():
             parentItem.setFlags(parentItem.flags() & ~Qt.ItemFlag.ItemIsSelectable)
@@ -168,8 +167,7 @@ class PlayerTraitDialog(QDialog):
         if any(token in lowered for token in ("keeper", "plays ball with feet")):
             return "Goalkeeping"
         if any(
-            token in lowered
-            for token in ("free kick", "penalt", "long flat throw", "long throw")
+            token in lowered for token in ("free kick", "penalt", "long flat throw", "long throw")
         ):
             return "Set Pieces"
         if any(
@@ -303,9 +301,7 @@ class SquadAnalysisTab(QWidget):
         layout.addWidget(findingsTitle)
         self.findingsTable = QTableWidget(len(model.findings), 3, self)
         self.findingsTable.setObjectName("squadFindingsTable")
-        self.findingsTable.setHorizontalHeaderLabels(
-            ("Finding", "Role or player", "Evidence")
-        )
+        self.findingsTable.setHorizontalHeaderLabels(("Finding", "Role or player", "Evidence"))
         self.findingsTable.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         if model.findings:
             for row, finding in enumerate(model.findings):
@@ -418,16 +414,12 @@ class SquadPlayersTab(QWidget):
     ) -> None:
         super().__init__(parent)
         self.model = model
-        observedNames = {
-            name for player in model.players for name, _value in player.attributes
-        }
+        observedNames = {name for player in model.players for name, _value in player.attributes}
         configuredNames = tuple(attribute.name for attribute in attributes)
         self.attributeNames = configuredNames + tuple(
             sorted(observedNames.difference(configuredNames))
         )
-        abbreviations = {
-            attribute.name: attribute.abbreviation for attribute in attributes
-        }
+        abbreviations = {attribute.name: attribute.abbreviation for attribute in attributes}
         layout = QVBoxLayout(self)
         controls = QHBoxLayout()
         hint = QLabel(
@@ -452,17 +444,13 @@ class SquadPlayersTab(QWidget):
         self.table.setObjectName("squadPlayersTable")
         self.table.setHorizontalHeaderLabels(headers)
         for offset, attribute in enumerate(self.attributeNames, start=4):
-            self.table.horizontalHeaderItem(offset).setToolTip(
-                attribute.replace("_", " ").title()
-            )
+            self.table.horizontalHeaderItem(offset).setToolTip(attribute.replace("_", " ").title())
         self.table.setAlternatingRowColors(True)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectItems)
         self.table.setSortingEnabled(False)
         for row, player in enumerate(model.players):
             values = dict(player.attributes)
-            for column, value in enumerate(
-                (player.name, player.positions, player.ca, player.pa)
-            ):
+            for column, value in enumerate((player.name, player.positions, player.ca, player.pa)):
                 item = QTableWidgetItem(value)
                 if column == 0:
                     # Sorting changes visual row order, so retain the source model identity.

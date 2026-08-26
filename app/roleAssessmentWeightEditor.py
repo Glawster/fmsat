@@ -111,7 +111,9 @@ class RoleAssessmentWeightEditor(AdminEditDialog):
                 if not isinstance(editor, QSpinBox):
                     continue
                 roleData = roles.get(roleCode)
-                if isinstance(roleData, dict) and isinstance(roleData.get("attributeWeights"), dict):
+                if isinstance(roleData, dict) and isinstance(
+                    roleData.get("attributeWeights"), dict
+                ):
                     roleData["attributeWeights"][attribute] = editor.value()
             temporary = self.service.policyPath.with_suffix(".editor.yaml")
             temporary.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
@@ -120,10 +122,14 @@ class RoleAssessmentWeightEditor(AdminEditDialog):
         except (OSError, yaml.YAMLError, RoleAssessmentPolicyError) as exc:
             QMessageBox.critical(self, "Unable to save role weights", str(exc))
             return
-        QMessageBox.information(self, "Role weights saved", "Assessment weights were saved successfully.")
+        QMessageBox.information(
+            self, "Role weights saved", "Assessment weights were saved successfully."
+        )
 
     def _import(self) -> None:
-        filename, _ = QFileDialog.getOpenFileName(self, "Import Role Assessment Weights", "", "YAML (*.yaml *.yml)")
+        filename, _ = QFileDialog.getOpenFileName(
+            self, "Import Role Assessment Weights", "", "YAML (*.yaml *.yml)"
+        )
         if not filename:
             return
         try:
@@ -131,7 +137,9 @@ class RoleAssessmentWeightEditor(AdminEditDialog):
         except RoleAssessmentPolicyError as exc:
             QMessageBox.critical(self, "Invalid role weights", str(exc))
             return
-        migration = " Legacy 0–5 weights will be converted to 0–10." if preview.migratedLegacyScale else ""
+        migration = (
+            " Legacy 0–5 weights will be converted to 0–10." if preview.migratedLegacyScale else ""
+        )
         answer = QMessageBox.question(
             self,
             "Apply role weights?",
@@ -147,7 +155,9 @@ class RoleAssessmentWeightEditor(AdminEditDialog):
         self._loadCurrent()
 
     def _export(self) -> None:
-        filename, _ = QFileDialog.getSaveFileName(self, "Export Role Assessment Weights", "roleAssessment.yaml", "YAML (*.yaml *.yml)")
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Export Role Assessment Weights", "roleAssessment.yaml", "YAML (*.yaml *.yml)"
+        )
         if not filename:
             return
         try:

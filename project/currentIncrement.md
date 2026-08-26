@@ -18,7 +18,6 @@ Suitability, candidate comparison and Role Health are later scope.
 - Primary Requirement: `project/requirements/features/007-roleCentricSquadAssessment.md`
 - Supporting Requirements:
   - `project/requirements/features/006-structuredTacticExtraction.md`
-  - `project/requirements/features/008-welcomeScreen.md`
   - `project/requirements/features/010-positionAttributeRoleDefinitions.md`
 - Living Algorithm Guide: `documentation/bestXi.md`
 - Milestone / Roadmap: requirement 007C Best XI and clean-room stabilization
@@ -85,22 +84,23 @@ Suitability, candidate comparison and Role Health are later scope.
 
 Evidence exercised on the final integrated branch:
 
-- full automated suite: **501 passed, 9 skipped**;
-- focused Best XI, player identity, squad-model and presentation suite: **37 passed**;
-- Ruff passed for the resolved 007C files;
-- Black and `git diff --check` passed for the resolved merge files; and
-- the real-OCR filtered-seven regression and final clean-room role-knowledge gate remain
-  opt-in because they require retained fixtures/runtime flags.
+- normal automated suite: **495 passed, 15 expensive tests deselected**;
+- project-wide Ruff passed;
+- Black, markup validation and `git diff --check` passed; and
+- strict organiseMyProjects repository validation passed with no failures or warnings.
 
-Repository-wide Ruff currently also reports unrelated pre-existing unused imports outside
-the 007C change set.
+The expensive group has also been exercised: 14 tests pass and one clean-room goalkeeper
+OCR fixture currently fails because `Selma Panengstuen` is rendered as
+`Qel Selma Panengstuen`. This is retained as an open acceptance finding rather than hidden
+by a fixture change or an unsafe name-specific correction.
 
 ## Remaining Acceptance
 
-- [x] Run the full automated suite on the final integrated commit: 501 passed, 9 skipped.
-- [ ] Run the opt-in clean-room role-knowledge gate with `FMSAT_007B_FINAL=1`.
-- [ ] Run the real filtered-seven OCR regression with `FMSAT_OCR_FIXTURES=1` in an OCR-capable
-  environment.
+- [x] Run the normal automated suite on the final integrated commit: 495 passed, 15
+  expensive tests deselected.
+- [ ] Resolve the remaining clean-room OCR name reconciliation mismatch and rerun the
+  clean-room role-knowledge and real filtered-seven OCR regressions with
+  `pytest -m expensive` in an OCR-capable environment.
 - [ ] Reassess the Bristol Women reference squad and confirm Best XI uniqueness,
   position-family eligibility, partial-slot isolation and explanatory tooltips.
 - [ ] Confirm player corrections and supplementary screenshot merges through the desktop

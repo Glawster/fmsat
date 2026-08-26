@@ -149,9 +149,7 @@ class StructuredFormationSlot(Base):
         "source_import_session_id", ForeignKey("import_sessions.id"), index=True
     )
     validationState: Mapped[str] = mappedColumn("validation_state", String(32), nullable=False)
-    definition: Mapped[ScreenshotDerivedTacticDefinition] = relationship(
-        back_populates="slots"
-    )
+    definition: Mapped[ScreenshotDerivedTacticDefinition] = relationship(back_populates="slots")
     sourceImportSession: Mapped[ImportSession | None] = relationship()
 
 
@@ -204,9 +202,7 @@ class StructuredTacticIssue(Base):
     code: Mapped[str] = mappedColumn(String(100), nullable=False)
     message: Mapped[str] = mappedColumn(Text, nullable=False)
     observedText: Mapped[str | None] = mappedColumn("observed_text", Text)
-    definition: Mapped[ScreenshotDerivedTacticDefinition] = relationship(
-        back_populates="issues"
-    )
+    definition: Mapped[ScreenshotDerivedTacticDefinition] = relationship(back_populates="issues")
 
 
 class ObjectModelTactic(Base):

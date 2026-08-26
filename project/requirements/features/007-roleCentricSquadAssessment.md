@@ -13,63 +13,6 @@ compare and explain the available players. Keep each role as a long-lived
 planning object on which squad depth and later recruitment workflows can be
 built.
 
-## Current delivery state
-
-The squad-viewer foundation and three analysis sub-increments are implemented
-on the feature branch. Requirement 007 remains `InProgress` because Tactical
-Fit, Overall Suitability, comparison and Role Health remain later scope.
-
-007A established the assessment-policy foundation:
-
-- packaged assessable canonical roles have explicit Generic Role Fit weights;
-- policy validation rejects missing packaged roles, unknown roles, unknown
-  attributes and weights outside the supported range;
-- the Generic Role Fit calculation retains its weighted-attribute trace and
-  returns `Unavailable` rather than fabricating a score when required evidence
-  is missing; and
-- regression tests protect the assessment-policy catalogue.
-
-007B builds on that foundation with role-depth intelligence and player-evidence
-maintenance:
-
-- simultaneous tactic slots are linked by durable `slotId` evidence and use
-  unique-player primary/backup assignment;
-- Analysis exposes IP role, OOP role, primary, backup and phase-specific Generic
-  Role Fit evidence without claiming Best XI selection;
-- each player receives best and alternative roles from the same Generic Role Fit
-  calculations;
-- calculable weak positions, role duplication and unused strengths are surfaced
-  without duplicating missing evidence as a weakness;
-- the most recently applied tactic persists as the squad's active/default tactic;
-- Players is a browse/filter/sort surface and double-clicking a row opens a
-  focused Player Editor for factual name, positions, CA/PA, attribute and known
-  trait corrections;
-- saving a player uses the existing squad-model persistence path and immediately
-  rebuilds Roles and Analysis from the corrected evidence;
-- missing role abbreviations are shown as `Unknown` rather than invented and are
-  directed to the existing Role Editor workflow; and
-- FM26 squad regeneration includes conservative header recovery for
-  Acceleration, Agility and Natural Fitness while keeping unsupported Long Shots
-  out of the stored squad model.
-
-007C adds Best XI and clean-room stabilization:
-
-- Best XI uses global unique-player assignment and requires captured
-  position-family eligibility for each slot;
-- malformed or incomplete phase evidence isolates the affected slot instead of
-  invalidating otherwise linked simultaneous slots;
-- player names reconcile across captures using corroborating squad facts,
-  uncertain OCR names remain visible for review, and manual corrections remain
-  authoritative;
-- incremental squad imports merge complementary screenshots, while player
-  editing and removal rebuild derived assessment without deleting provenance;
-- the Role Assessment Weight Editor provides 0–10 policy editing and validated
-  YAML import/export; and
-- role/vocabulary, OCR, welcome/import and reassessment lifecycle fixes are
-  protected by focused and opt-in clean-room regressions.
-
-007C is implemented and undergoing final clean-room acceptance.
-
 ## Dependencies
 
 1. Consume the validated football object-model tactic produced by requirement
@@ -171,10 +114,6 @@ Present these results in the existing Analysis tab. Best XI is delivered by
 later increments.
 
 ## Role assessment policy management
-
-The 0–10 Weight Editor, validated policy service, YAML import/export and legacy
-scale migration are implemented in 007C. Runtime-created-role coverage and the
-final explicit reassessment workflow remain subject to clean-room acceptance.
 
 1. Provide a user-facing Role Assessment Weight Editor for Generic Role Fit
    assessment policy rather than requiring every role's weights to be maintained
@@ -351,71 +290,29 @@ invent a modifier when the structured tactic provides no supporting evidence.
 - Automated starter selection or lineup changes.
 - Modifying Football Manager or reading its save files.
 
-## Verification and traceability
+## Verification
 
-### 007A — Generic Role Fit policy foundation
-
-- Implementation: `config/roleAssessment.yaml`, role-assessment configuration
-  loading/validation and the existing Generic Role Fit calculation service.
-- Tests: `tests/test_roleAssessmentPolicy.py` plus the existing Generic Role Fit
-  calculation tests.
-- Behaviour: packaged assessable roles require explicit valid weights; missing
-  weights or required player attributes remain `Unavailable`; complete weighted
-  contributions are retained for explanation.
-- Status: implemented.
-
-### 007B — Role depth and player evidence workflow
-
-- Implementation: `core/roleDepth.py`, `core/squadAssessment.py`,
-  `app/squadDetailModel.py`, `app/squadRolesWorkspace.py`,
-  `app/squadAnalysisWorkspace.py`, `app/playerEditorDialog.py`,
-  `app/squadPlayersWorkspace.py`, `database/activeTacticDatabase.py` and the FM26
-  squad-header recovery in `core/parser/squadAttributesFm26.py`.
-- Tests: `tests/test_roleDepth.py`, `tests/test_squadAnalysisWorkspace.py`,
-  `tests/test_squadRolesWorkspace.py`, `tests/test_playerEditorDialog.py`,
-  `tests/test_tacticSelectionPersistence.py`, `tests/test_naturalFitnessHeader.py`
-  and related squad assessment/presentation tests.
-- Behaviour: slot depth is simultaneous and unique-player; missing evidence stays
-  explicit; factual player edits and active tactic selection persist; derived
-  analysis is rebuilt rather than edited directly.
-- Status: implementation complete; awaiting final full-suite and manual
-  reference-squad verification.
-
-### 007C — Best XI and clean-room stabilization
-
-- Implementation: `core/bestXi.py`, `core/roleDepth.py`,
-  `core/playerIdentity.py`, `core/squadModel.py`,
-  `core/roleAssessmentPolicy.py`, `app/roleAssessmentWeightEditor.py`,
-  `app/squadPlayersWorkspace.py` and the welcome/import lifecycle services.
-- Tests: `tests/test_bestXi.py`, `tests/test_bestXiWorkspace.py`,
-  `tests/test_roleDepth.py`, `tests/test_playerIdentity.py`,
-  `tests/test_squadModel.py`, `tests/test_roleAssessmentWeightEditor.py`,
-  `tests/test_filteredSevenSquadOcr.py`, `tests/test_cleanRoom007b.py` and
-  related parser, vocabulary and window-lifecycle regressions.
-- Behaviour: Best XI requires position-family eligibility and optimizes the
-  whole simultaneous assignment; malformed phase evidence is isolated per
-  slot; player identity reconciles across captures while manual corrections
-  remain authoritative; filtered squad captures merge incrementally; role
-  policy is editable on the canonical 0–10 scale; clean-room OCR and lifecycle
-  defects retain focused regression coverage.
-- Status: implemented; the integrated full suite passes (501 passed, 9 skipped),
-  with opt-in OCR and manual clean-room acceptance remaining. Requirement 007 remains
-  `InProgress` for later Tactical Fit,
-  Overall Suitability, comparison and Role Health scope.
+- Generic Role Fit policy and calculation: `tests/test_roleAssessmentPolicy.py`
+  and the squad-assessment calculation tests.
+- Simultaneous role depth and player evidence: `tests/test_roleDepth.py`,
+  `tests/test_squadAnalysisWorkspace.py`, `tests/test_squadRolesWorkspace.py`,
+  `tests/test_playerEditorDialog.py` and `tests/test_tacticSelectionPersistence.py`.
+- Best XI and clean-room boundaries: `tests/test_bestXi.py`,
+  `tests/test_bestXiWorkspace.py`, `tests/test_playerIdentity.py`,
+  `tests/test_squadModel.py`, `tests/test_filteredSevenSquadOcr.py` and
+  `tests/test_cleanRoom007b.py`.
+- Role policy management: `tests/test_roleAssessmentWeightEditor.py` and
+  `tests/test_roleAssessmentPolicy.py`.
+- Final acceptance must include the full normal suite, the project-wide
+  `expensive` suite and manual reference-squad review.
 
 ## Change history
 
-- 2026-08-16: recorded completion of the 007A assessment-policy foundation and
-  explicit pause before 007B while structured tactic extraction was verified.
-- 2026-08-18: recorded 007B role-depth intelligence, active-tactic persistence,
-  Player Editor, Unknown-role workflow and final FM26 squad-header recovery as
-  implemented pending final verification.
 - 2026-08-24: added Role Assessment Policy Management as requirement 007
   follow-up work, covering the 0–10 editor, bulk import/export, runtime-created
   roles and explicit reassessment.
-- 2026-08-26: recorded 007C Best XI position-family eligibility and clean-room
-  stabilization, including partial-slot recovery, player identity
-  reconciliation, incremental squad imports and the implemented Weight Editor.
+- 2026-08-26: clarified Best XI position-family eligibility, partial-slot
+  isolation, player correction authority and incremental squad-import obligations.
 
 ## Future foundation
 

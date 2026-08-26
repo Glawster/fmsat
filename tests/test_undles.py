@@ -70,9 +70,7 @@ def testBundleReaderListsAndReadsAssets(tmp_path: Path, monkeypatch) -> None:  #
 
     sample = tmp_path / "sample.bundle"
     sample.write_bytes(b"UnityFS\x00")
-    unity_object = BundleObject(
-        structure={"m_Name": "hello", "target": {"m_PathID": 456}}
-    )
+    unity_object = BundleObject(structure={"m_Name": "hello", "target": {"m_PathID": 456}})
     target_object = BundleObject(
         pathId=456,
         name="target",

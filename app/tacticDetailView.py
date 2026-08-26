@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from importlib.resources import files
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -176,9 +176,7 @@ class TacticDetailView(QWidget):
         footer.addStretch()
         editButton = QPushButton("Edit Model")
         editButton.setObjectName("secondaryButton")
-        editButton.clicked.connect(
-            lambda: self.modelEditRequested.emit(self.tacticName)
-        )
+        editButton.clicked.connect(lambda: self.modelEditRequested.emit(self.tacticName))
         footer.addWidget(editButton)
         self.importToModelButton = QPushButton("Regenerate Model")
         self.importToModelButton.clicked.connect(

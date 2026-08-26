@@ -72,11 +72,7 @@ class TacticMetadataExtractor:
         if mentality:
             metadata["mentality"] = mentality
 
-        issues = (
-            ("Formation screenshot did not expose mentality",)
-            if not mentality
-            else ()
-        )
+        issues = ("Formation screenshot did not expose mentality",) if not mentality else ()
         return TacticMetadataExtractResult(metadata, issues)
 
     ## parsing

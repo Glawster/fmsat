@@ -29,7 +29,12 @@ from fmsat.core.config import AttributeDefinition
 class SquadRolesTab(BaseSquadRolesTab):
     """Show tactic roles full-height with candidate and player-role panes on the right."""
 
-    def __init__(self, roles: tuple[RoleDisplay, ...], attributes: tuple[AttributeDefinition, ...] = (), parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        roles: tuple[RoleDisplay, ...],
+        attributes: tuple[AttributeDefinition, ...] = (),
+        parent: QWidget | None = None,
+    ) -> None:
         self.attributes = attributes
         self.roleSortOrder = Qt.SortOrder.AscendingOrder
         super().__init__(roles, parent)
@@ -103,8 +108,17 @@ class SquadRolesTab(BaseSquadRolesTab):
 
     @staticmethod
     def _roleCoverageCandidates(role: RoleDisplay) -> tuple[CandidateDisplay, ...]:
-        eligible = tuple(candidate for candidate in role.candidates if candidate.available and _candidateEligible(role, candidate))
-        return tuple(sorted(eligible, key=lambda candidate: (-float(candidate.score), playerNameSortKey(candidate.name)))[:2])
+        eligible = tuple(
+            candidate
+            for candidate in role.candidates
+            if candidate.available and _candidateEligible(role, candidate)
+        )
+        return tuple(
+            sorted(
+                eligible,
+                key=lambda candidate: (-float(candidate.score), playerNameSortKey(candidate.name)),
+            )[:2]
+        )
 
     @classmethod
     def _roleCoverageRender(cls, role: RoleDisplay) -> str:
@@ -117,7 +131,11 @@ class SquadRolesTab(BaseSquadRolesTab):
         if column not in (0, 1):
             return
         self.roleTable.sortItems(column, self.roleSortOrder)
-        self.roleSortOrder = Qt.SortOrder.DescendingOrder if self.roleSortOrder is Qt.SortOrder.AscendingOrder else Qt.SortOrder.AscendingOrder
+        self.roleSortOrder = (
+            Qt.SortOrder.DescendingOrder
+            if self.roleSortOrder is Qt.SortOrder.AscendingOrder
+            else Qt.SortOrder.AscendingOrder
+        )
 
     def _roleEditRequested(self, row: int, column: int) -> None:
         if column not in (0, 1):
@@ -131,7 +149,12 @@ class SquadRolesTab(BaseSquadRolesTab):
         window = self.window()
         knowledge = getattr(window, "roleKnowledgeService", None)
         roleShow = getattr(window, "roleShow", None)
-        if knowledge is not None and callable(getattr(knowledge, "definitionExists", None)) and knowledge.definitionExists(roleCode) and callable(roleShow):
+        if (
+            knowledge is not None
+            and callable(getattr(knowledge, "definitionExists", None))
+            and knowledge.definitionExists(roleCode)
+            and callable(roleShow)
+        ):
             roleShow(roleCode)
             return
         roleImport = getattr(window, "roleProfileImport", None)
@@ -180,7 +203,9 @@ class SquadRolesTab(BaseSquadRolesTab):
         workspaceControls.addStretch()
         self.reassessButton = QPushButton("Reassess Squad", self)
         self.reassessButton.setObjectName("secondaryButton")
-        self.reassessButton.setToolTip("Recalculate role fit and squad analysis from saved player evidence without running OCR.")
+        self.reassessButton.setToolTip(
+            "Recalculate role fit and squad analysis from saved player evidence without running OCR."
+        )
         self.reassessButton.clicked.connect(self._reassessRequest)
         workspaceControls.addWidget(self.reassessButton)
         root.addLayout(workspaceControls)
@@ -242,7 +267,9 @@ class SquadRolesTab(BaseSquadRolesTab):
                 return
             owner = owner.parentWidget()
 
-    def _roleShow(self, currentRow: int, currentColumn: int, previousRow: int, previousColumn: int) -> None:
+    def _roleShow(
+        self, currentRow: int, currentColumn: int, previousRow: int, previousColumn: int
+    ) -> None:
         if not hasattr(self, "candidateTable"):
             return
         if currentRow < 0:
@@ -251,11 +278,20 @@ class SquadRolesTab(BaseSquadRolesTab):
         roleItem = self.roleTable.item(currentRow, currentColumn)
         if roleItem is None or currentColumn == 2:
             roleItem = self.roleTable.item(currentRow, 0) or self.roleTable.item(currentRow, 1)
-        role = self.rolesByCode.get(str(roleItem.data(Qt.ItemDataRole.UserRole))) if roleItem is not None else None
+        role = (
+            self.rolesByCode.get(str(roleItem.data(Qt.ItemDataRole.UserRole)))
+            if roleItem is not None
+            else None
+        )
         if role is None:
             self._allCandidatesShow()
             return
-        self._candidatesPopulate(tuple(candidate for candidate in role.candidates if _candidateEligible(role, candidate)), role)
+        self._candidatesPopulate(
+            tuple(
+                candidate for candidate in role.candidates if _candidateEligible(role, candidate)
+            ),
+            role,
+        )
 
     def _selectionClear(self) -> None:
         self.roleTable.clearSelection()
@@ -270,13 +306,21 @@ class SquadRolesTab(BaseSquadRolesTab):
                     continue
                 key = candidate.name.casefold()
                 current = best.get(key)
-                if current is None or (candidate.available and (not current.available or float(candidate.score) > float(current.score))):
+                if current is None or (
+                    candidate.available
+                    and (not current.available or float(candidate.score) > float(current.score))
+                ):
                     best[key] = candidate
-        self._candidatesPopulate(tuple(sorted(best.values(), key=lambda candidate: playerNameSortKey(candidate.name))))
+        self._candidatesPopulate(
+            tuple(sorted(best.values(), key=lambda candidate: playerNameSortKey(candidate.name)))
+        )
 
     def _attributeDefinition(self, name: str) -> AttributeDefinition | None:
         folded = name.strip().casefold()
-        return next((attribute for attribute in self.attributes if attribute.name.casefold() == folded), None)
+        return next(
+            (attribute for attribute in self.attributes if attribute.name.casefold() == folded),
+            None,
+        )
 
     @staticmethod
     def _candidateAttributeValues(candidate: CandidateDisplay) -> dict[str, str]:
@@ -296,10 +340,14 @@ class SquadRolesTab(BaseSquadRolesTab):
         return tuple(configured + sorted(present - configuredSet, key=str.casefold))
 
     def _selectedRoleAttributes(self, candidates: tuple[CandidateDisplay, ...]) -> tuple[str, ...]:
-        present = {name for candidate in candidates for name in self._candidateAttributeValues(candidate)}
+        present = {
+            name for candidate in candidates for name in self._candidateAttributeValues(candidate)
+        }
         return self._attributeNamesOrder(present)
 
-    def _candidatesPopulate(self, candidates: tuple[CandidateDisplay, ...], role: RoleDisplay | None = None) -> None:
+    def _candidatesPopulate(
+        self, candidates: tuple[CandidateDisplay, ...], role: RoleDisplay | None = None
+    ) -> None:
         self.candidateTable.setSortingEnabled(False)
         attributeNames = self._selectedRoleAttributes(candidates) if role is not None else ()
         headers = ["Player", "Natural positions", "Generic Role Fit", "Best role"]
@@ -365,19 +413,33 @@ class SquadRolesTab(BaseSquadRolesTab):
         rows: list[tuple[RoleDisplay, CandidateDisplay]] = []
         if playerName:
             for role in self.roles:
-                candidate = next((item for item in role.candidates if item.name == playerName), None)
+                candidate = next(
+                    (item for item in role.candidates if item.name == playerName), None
+                )
                 if candidate is not None and _candidateEligible(role, candidate):
                     rows.append((role, candidate))
-        rows.sort(key=lambda item: (not item[1].available, -(float(item[1].score) if item[1].available else -1.0), item[0].displayName.casefold()))
+        rows.sort(
+            key=lambda item: (
+                not item[1].available,
+                -(float(item[1].score) if item[1].available else -1.0),
+                item[0].displayName.casefold(),
+            )
+        )
 
         # Each row can represent a different role, so use the ordered union of every
         # attribute required by the currently visible role assessments.
-        attributeValuesByRow = [self._candidateAttributeValues(candidate) for _role, candidate in rows]
-        attributeNames = self._attributeNamesOrder({name for values in attributeValuesByRow for name in values})
+        attributeValuesByRow = [
+            self._candidateAttributeValues(candidate) for _role, candidate in rows
+        ]
+        attributeNames = self._attributeNamesOrder(
+            {name for values in attributeValuesByRow for name in values}
+        )
         headers = ["Role", "Name", "Generic Role Fit"]
         for name in attributeNames:
             definition = self._attributeDefinition(name)
-            headers.append(definition.abbreviation if definition and definition.abbreviation.strip() else name)
+            headers.append(
+                definition.abbreviation if definition and definition.abbreviation.strip() else name
+            )
 
         self.playerRoleTable.setSortingEnabled(False)
         self.playerRoleTable.clearContents()

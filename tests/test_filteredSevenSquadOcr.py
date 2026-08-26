@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import cv2
@@ -19,7 +18,6 @@ from fmsat.tests.test_squadScreenshotFixtures import (
     _positionEquivalent,
 )
 
-
 _FIXTURE_PATH = Path(__file__).parent / "fixtures" / "squads" / "filteredSeven.yaml"
 _SCREENSHOT = Path(__file__).parent / "screenshots" / "squads" / "filteredSeven" / "default1.png"
 
@@ -28,10 +26,6 @@ def _fixtureLoad() -> dict:
     content = yaml.safe_load(_FIXTURE_PATH.read_text(encoding="utf-8")) or {}
     assert isinstance(content, dict)
     return content
-
-
-def _ocrEnabled() -> bool:
-    return os.environ.get("FMSAT_OCR_FIXTURES", "").strip() == "1"
 
 
 def _expectedAttributes(fixture: dict, playerName: str) -> dict[str, int]:
@@ -71,10 +65,7 @@ def squadOcrParser() -> SquadAttributesParser:
     )
 
 
-@pytest.mark.skipif(
-    not _ocrEnabled(),
-    reason="Set FMSAT_OCR_FIXTURES=1 to run real PaddleOCR screenshot regressions",
-)
+@pytest.mark.expensive
 def testFilteredSevenScreenshotOcrExtractsAllSevenVisibleRows(
     squadOcrParser: SquadAttributesParser,
 ) -> None:
@@ -119,13 +110,9 @@ def testFilteredSevenScreenshotOcrExtractsAllSevenVisibleRows(
                 f"{expectedName} positions: expected={expected['positions']!r} actual={actual.positions!r}"
             )
         if actual.ca != str(expected["ca"]):
-            rowErrors.append(
-                f"{expectedName} CA: expected={expected['ca']!r} actual={actual.ca!r}"
-            )
+            rowErrors.append(f"{expectedName} CA: expected={expected['ca']!r} actual={actual.ca!r}")
         if actual.pa != str(expected["pa"]):
-            rowErrors.append(
-                f"{expectedName} PA: expected={expected['pa']!r} actual={actual.pa!r}"
-            )
+            rowErrors.append(f"{expectedName} PA: expected={expected['pa']!r} actual={actual.pa!r}")
         for difference in _attributeDifferences(
             actual.attributes,
             _expectedAttributes(fixture, expectedName),

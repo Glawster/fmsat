@@ -37,9 +37,7 @@ class PlayerTraitIdentity(StrEnum):
     cutsInsideFromBothWings = "Cuts Inside From Both Wings"
     comesDeepToGetBall = "Comes Deep To Get Ball"
     hugsLine = "Hugs Line"
-    looksForPassRatherThanAttemptingToScore = (
-        "Looks For Pass Rather Than Attempting To Score"
-    )
+    looksForPassRatherThanAttemptingToScore = "Looks For Pass Rather Than Attempting To Score"
     marksOpponentTightly = "Marks Opponent Tightly"
     playsWithBackToGoal = "Plays With Back To Goal"
     possessesLongFlatThrow = "Possesses Long Flat Throw"
@@ -62,12 +60,8 @@ class PlayerTraitIdentity(StrEnum):
     bringBallOutOfDefence = "Bring Ball Out of Defence"
     usesOutsideOfFoot = "Uses Outside Of Foot"
     windsUpOpponents = "Winds Up Opponents"
-    movesBallToRightFootBeforeDribbleAttempt = (
-        "Moves Ball To Right Foot Before Dribble Attempt"
-    )
-    movesBallToLeftFootBeforeDribbleAttempt = (
-        "Moves Ball To Left Foot Before Dribble Attempt"
-    )
+    movesBallToRightFootBeforeDribbleAttempt = "Moves Ball To Right Foot Before Dribble Attempt"
+    movesBallToLeftFootBeforeDribbleAttempt = "Moves Ball To Left Foot Before Dribble Attempt"
     triesTricks = "Tries Tricks"
     getsCrowdGoing = "Gets Crowd Going"
     likesToBeatOpponentRepeatedly = "Likes To Beat Opponent Repeatedly"

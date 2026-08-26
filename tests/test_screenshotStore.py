@@ -21,9 +21,7 @@ def testCaptureUsesReadableUniqueSafeNameAndCanBeRemoved(tmp_path) -> None:
         identifier="A1B2C3D4",
     )
 
-    assert path.name == (
-        "20260805-114500_squad-first-team-u21s_squad-attributes_a1b2c3d4.png"
-    )
+    assert path.name == ("20260805-114500_squad-first-team-u21s_squad-attributes_a1b2c3d4.png")
     assert path.is_file()
     assert store.capturesRemove([path]) == []
     assert not path.exists()

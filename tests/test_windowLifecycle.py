@@ -532,8 +532,7 @@ def testReviewSaveMergesKnownPlayersAndAddsMissingWithoutSkipping(
     monkeypatch.setattr(QMessageBox, "warning", Mock())
     monkeypatch.setattr(QMessageBox, "critical", Mock())
     players = [
-        ExtractedPlayer(name, "M (C)", "111", "125", {"passing": 14}, 0.95)
-        for name in known
+        ExtractedPlayer(name, "M (C)", "111", "125", {"passing": 14}, 0.95) for name in known
     ]
     players.append(ExtractedPlayer("Gin Seven", "ST (C)", "130", "140", {"passing": 16}, 0.96))
     window.currentResult = ImportResult(

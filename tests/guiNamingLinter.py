@@ -193,9 +193,7 @@ class GuiNamingVisitor(ast.NodeVisitor):
             return
 
         isExplicitlyAllowed = node.name in CLASS_NAME_EXCEPTIONS
-        isPatternAllowed = any(
-            re.match(pattern, node.name) for pattern in CLASS_NAME_PATTERNS
-        )
+        isPatternAllowed = any(re.match(pattern, node.name) for pattern in CLASS_NAME_PATTERNS)
 
         if not (isExplicitlyAllowed or isPatternAllowed):
             if not re.match(NAMING_RULES["Class"], node.name):
@@ -226,9 +224,7 @@ class GuiNamingVisitor(ast.NodeVisitor):
             return
 
         if not re.match(DOMAIN_ACTION_PATTERN, node.name):
-            self.violations.append(
-                (node.name, "Function name (domainAction)", node.lineno)
-            )
+            self.violations.append((node.name, "Function name (domainAction)", node.lineno))
 
     def functionIsNamingExempt(self, node) -> bool:
         """Return whether Python, a framework, or pytest owns the function name."""
@@ -239,8 +235,7 @@ class GuiNamingVisitor(ast.NodeVisitor):
             return True
 
         if any(
-            isinstance(item, ast.Name) and item.id == "property"
-            for item in node.decorator_list
+            isinstance(item, ast.Name) and item.id == "property" for item in node.decorator_list
         ):
             return True
 
@@ -456,9 +451,7 @@ class GuiNamingVisitor(ast.NodeVisitor):
 
         elif self.framework == "qt" and widgetType in QT_WIDGET_TYPES:
             if not nameIsSnakeCase(varName):
-                self.violations.append(
-                    (varName, f"Qt {widgetType} (snake_case)", node.lineno)
-                )
+                self.violations.append((varName, f"Qt {widgetType} (snake_case)", node.lineno))
 
     def widgetCheckQtSpacerName(self, varName: str, node) -> None:
         """Check Qt spacer variables use hrz/vrt prefixes."""
@@ -510,9 +503,7 @@ def fileCheck(filepath: str) -> list[tuple[str, str, int]]:
     astAnnotateParents(tree)
 
     filename = os.path.basename(filepath)
-    isTestFile = filename.startswith("test_") or "tests" in os.path.normpath(
-        filepath
-    ).split(os.sep)
+    isTestFile = filename.startswith("test_") or "tests" in os.path.normpath(filepath).split(os.sep)
     visitor = GuiNamingVisitor(lines, framework=framework, isTestFile=isTestFile)
     visitor.violations.extend(testFileCheck(filepath))
 
@@ -576,9 +567,7 @@ def lintGuiNaming(directory: str) -> None:
         "output",
     }
     for root, directories, files in os.walk(directory):
-        directories[:] = [
-            item for item in directories if item not in ignoredDirectories
-        ]
+        directories[:] = [item for item in directories if item not in ignoredDirectories]
         for filename in files:
             if filename.endswith(".py"):
                 path = os.path.join(root, filename)

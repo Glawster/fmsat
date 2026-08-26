@@ -1488,7 +1488,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.contentStack)
 
     def _errorShow(self, title: str, message: str) -> None:
-        logger.warning("%s: %s", title, message)
+        logger.warning(f"{title}: {message}")
         self.statusBar().showMessage(message, 10000)
         QMessageBox.critical(self, title, message)
 
@@ -1677,7 +1677,7 @@ class MainWindow(QMainWindow):
         if self.statusHistory and self.statusHistory[0] == entry:
             return
         self.statusHistory.insert(0, entry)
-        logger.info("status: %s", cleanMessage)
+        logger.value("status", cleanMessage)
 
     def statusLogShow(self) -> None:
         """Show the session's status-bar history with the newest item first."""

@@ -61,11 +61,8 @@ class ScreenshotStore:
             logger.exception("screenshot save failed path=%s", path)
             raise ScreenshotStoreError(f"Unable to store screenshot: {exc}") from exc
         logger.action(
-            "screenshot saved path=%s ownerType=%s ownerName=%r screenType=%s",
-            path,
-            ownerType,
-            ownerName,
-            screenType,
+            f"screenshot saved path={path} ownerType={ownerType} "
+            f"ownerName={ownerName!r} screenType={screenType}"
         )
         return path
 
@@ -81,12 +78,12 @@ class ScreenshotStore:
             if not path.exists():
                 continue
             if path.parent != self.directory:
-                logger.warning("screenshot removal refused unmanaged path=%s", path)
+                logger.warning(f"screenshot removal refused unmanaged path={path}")
                 failures.append(path)
                 continue
             try:
                 path.unlink(missing_ok=True)
-                logger.action("screenshot removed path=%s", path)
+                logger.action(f"screenshot removed path={path}")
             except OSError:
                 logger.exception("screenshot removal failed path=%s", path)
                 failures.append(path)

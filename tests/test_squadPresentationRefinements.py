@@ -112,12 +112,8 @@ def testSquadViewBuildsExactlyElevenDepthRowsFromLinkedTacticSlots(qtbot) -> Non
         for slotId, roleCode, canonicalPosition in inRoles
     )
     tactic = SimpleNamespace(
-        inPossession=SimpleNamespace(
-            positions=tuple(position(*values) for values in inRoles)
-        ),
-        outOfPossession=SimpleNamespace(
-            positions=tuple(position(*values) for values in outRoles)
-        ),
+        inPossession=SimpleNamespace(positions=tuple(position(*values) for values in inRoles)),
+        outOfPossession=SimpleNamespace(positions=tuple(position(*values) for values in outRoles)),
     )
 
     class FakeLoader:

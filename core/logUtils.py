@@ -180,7 +180,8 @@ def _setupLogging(
     if str(logFile) not in _initialized_log_files:
         fileHandler = logging.FileHandler(logFile, encoding="utf-8")
         formatter = logging.Formatter(
-            "%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+            "[%(asctime)s] [%(levelname).4s] %(name)s %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
         )
         fileHandler.setFormatter(formatter)
         logger.addHandler(fileHandler)
@@ -190,7 +191,10 @@ def _setupLogging(
         type(h) is logging.StreamHandler for h in logger.handlers
     ):
         consoleHandler = logging.StreamHandler()
-        consoleFormatter = logging.Formatter("%(levelname)s - %(message)s")
+        consoleFormatter = logging.Formatter(
+            "[%(asctime)s] [%(levelname).4s] %(name)s %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
         consoleHandler.setFormatter(consoleFormatter)
         logger.addHandler(consoleHandler)
 

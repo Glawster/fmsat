@@ -75,16 +75,11 @@ def testConfiguredSquadColumnsAreSeparateAndAttributesFollowBaseFields() -> None
     columns = settings["columns"]
     tolerance = 1e-9
 
+    assert columns["name"]["x"] + columns["name"]["width"] <= columns["positions"]["x"] + tolerance
     assert (
-        columns["name"]["x"] + columns["name"]["width"]
-        <= columns["positions"]["x"] + tolerance
-    )
-    assert (
-        columns["positions"]["x"] + columns["positions"]["width"]
-        <= columns["ca"]["x"] + tolerance
+        columns["positions"]["x"] + columns["positions"]["width"] <= columns["ca"]["x"] + tolerance
     )
     assert columns["ca"]["x"] + columns["ca"]["width"] <= columns["pa"]["x"] + tolerance
     assert (
-        columns["pa"]["x"] + columns["pa"]["width"]
-        <= settings["attribute_area"]["x"] + tolerance
+        columns["pa"]["x"] + columns["pa"]["width"] <= settings["attribute_area"]["x"] + tolerance
     )

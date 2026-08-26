@@ -13,9 +13,9 @@ from fmsat.core.config import Configuration
 from fmsat.core.ocr import PaddleOcrEngine
 from fmsat.core.parser import TacticFormationExtractor, TacticVocabulary, TacticalPhase
 
-
 _FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "tactics"
 _FORMATION_FIXTURES = ("highPress", "highPress2", "libero1974", "liberoWealdstone")
+pytestmark = pytest.mark.expensive
 
 
 @pytest.fixture(scope="module")
@@ -96,10 +96,10 @@ def testLiberoWealdstoneRealOcrPreservesReviewedPitchPositions(
     outOfPossession = _phaseSlots(result, TacticalPhase.OUT_OF_POSSESSION)
 
     expectedIn = Counter(zip(expected["inPossessionRoles"], expected["inPossessionPositions"]))
-    expectedOut = Counter(zip(expected["outOfPossessionRoles"], expected["outOfPossessionPositions"]))
-    actualIn = Counter(
-        (_slotRoleLabel(slot, vocabulary), slot.position) for slot in inPossession
+    expectedOut = Counter(
+        zip(expected["outOfPossessionRoles"], expected["outOfPossessionPositions"])
     )
+    actualIn = Counter((_slotRoleLabel(slot, vocabulary), slot.position) for slot in inPossession)
     actualOut = Counter(
         (_slotRoleLabel(slot, vocabulary), slot.position) for slot in outOfPossession
     )
@@ -117,8 +117,7 @@ def testLiberoCentreForwardIsCloserToGoalThanTrackingCentreForward(
     cfd = next(
         slot
         for slot in result.slots
-        if slot.phase is TacticalPhase.IN_POSSESSION
-        and _slotRoleLabel(slot, vocabulary) == "CFD"
+        if slot.phase is TacticalPhase.IN_POSSESSION and _slotRoleLabel(slot, vocabulary) == "CFD"
     )
     tcf = next(
         slot

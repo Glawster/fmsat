@@ -86,9 +86,7 @@ def testSquadRefreshPreservesSelectedTab(qtbot) -> None:  # type: ignore[no-unty
     view.squadShow("Wealdstone", _detail())
 
     playersIndex = next(
-        index
-        for index in range(view.tabs.count())
-        if view.tabs.tabText(index) == "Players"
+        index for index in range(view.tabs.count()) if view.tabs.tabText(index) == "Players"
     )
     view.tabs.setCurrentIndex(playersIndex)
 

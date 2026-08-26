@@ -67,10 +67,7 @@ def testPlayerEditorUsesFullAttributeNamesAndHidesGoalkeeperOnlyFields(qtbot) ->
     dialog = PlayerEditorDialog(_player(), _attributes())
     qtbot.addWidget(dialog)
 
-    labels = {
-        label.text()
-        for label in dialog.findChildren(QLabel, "playerAttributeLabel")
-    }
+    labels = {label.text() for label in dialog.findChildren(QLabel, "playerAttributeLabel")}
     assert "Acceleration" in labels
     assert "Natural Fitness" in labels
     assert "Acc" not in labels
@@ -91,10 +88,7 @@ def testGoalkeeperEditorShowsGoalkeeperAttributes(qtbot) -> None:  # type: ignor
     dialog = PlayerEditorDialog(goalkeeper, _attributes())
     qtbot.addWidget(dialog)
 
-    labels = {
-        label.text()
-        for label in dialog.findChildren(QLabel, "playerAttributeLabel")
-    }
+    labels = {label.text() for label in dialog.findChildren(QLabel, "playerAttributeLabel")}
     assert "Handling" in labels
     assert "handling" in dialog.attributeInputs
 
@@ -107,8 +101,7 @@ def testPlayerEditorExposesSharedStylingHooks(qtbot) -> None:  # type: ignore[no
 
     assert dialog.objectName() == "playerEditorDialog"
     assert all(
-        editor.objectName() == "playerAttributeInput"
-        for editor in dialog.attributeInputs.values()
+        editor.objectName() == "playerAttributeInput" for editor in dialog.attributeInputs.values()
     )
     buttons = dialog.findChild(QDialogButtonBox, "playerEditorButtons")
     assert buttons is not None
@@ -195,6 +188,7 @@ def testPlayersTabRemoveDeletesSavedPlayerAndPersists(qtbot) -> None:  # type: i
         updatedAt=datetime(2026, 8, 18),
         evidenceSuperseded=False,
     )
+
     class Host(QWidget):
         def __init__(self) -> None:
             super().__init__()
@@ -209,9 +203,7 @@ def testPlayersTabRemoveDeletesSavedPlayerAndPersists(qtbot) -> None:  # type: i
 
     assert tab.removePlayerButton.isEnabled() is False
     stowellRow = next(
-        row
-        for row in range(tab.table.rowCount())
-        if "Stowell" in tab.table.item(row, 0).text()
+        row for row in range(tab.table.rowCount()) if "Stowell" in tab.table.item(row, 0).text()
     )
     tab.table.selectRow(stowellRow)
     assert tab.removePlayerButton.isEnabled() is True

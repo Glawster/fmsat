@@ -29,7 +29,7 @@ def tacticRename(engine: Engine, oldName: str, newName: str) -> str:
     try:
         with Session(engine) as session, session.begin():
             tactic = session.scalar(
-                select(Tactic).where(Tactic.normalizedName == oldNormalized)
+                select(Tactic).where(Tactic.normalizedName == oldNormalized),
             )
             if tactic is None:
                 raise TacticRenameError(f"Tactic {oldClean!r} was not found")

@@ -14,9 +14,7 @@ def testWeightEditorLoadsAllPolicyWeightsOnTenPointScale(qtbot, tmp_path: Path) 
                 "version": 2,
                 "weightScale": {"minimum": 0, "maximum": 10},
                 "roles": {
-                    "channelMidfielder": {
-                        "attributeWeights": {"passing": 8, "work_rate": 10}
-                    }
+                    "channelMidfielder": {"attributeWeights": {"passing": 8, "work_rate": 10}}
                 },
             },
             sort_keys=False,

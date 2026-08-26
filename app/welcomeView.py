@@ -22,9 +22,9 @@ from PySide6.QtWidgets import (
 )
 
 from fmsat.app.colourPalette import (
-    button as buttonColour,
-    buttonBorder,
-    buttonSelected,
+    BUTTON as buttonColour,
+    BUTTON_BORDER as buttonBorder,
+    BUTTON_SELECTED as buttonSelected,
 )
 
 from fmsat.core.parser import TacticVocabulary
@@ -344,7 +344,7 @@ class WelcomeView(QWidget):
         try:
             tactics, squads, roles = self.service.summariesLoad()
         except DatabaseError as exc:
-            logger.warning("welcome summaries unavailable: %s", exc)
+            logger.warning(f"welcome summaries unavailable: {exc}")
             error = QLabel(f"Stored data could not be loaded.\n{exc}")
             error.setObjectName("welcomeError")
             error.setWordWrap(True)

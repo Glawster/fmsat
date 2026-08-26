@@ -56,7 +56,9 @@ class RoleAssessmentPolicyService:
             temporary.replace(self.policyPath)
         except OSError as exc:
             temporary.unlink(missing_ok=True)
-            raise RoleAssessmentPolicyError(f"Unable to save role assessment policy: {exc}") from exc
+            raise RoleAssessmentPolicyError(
+                f"Unable to save role assessment policy: {exc}"
+            ) from exc
         roles = data["roles"]
         return RoleAssessmentPolicyPreview(
             roleCount=len(roles),
@@ -74,19 +76,25 @@ class RoleAssessmentPolicyService:
                 encoding="utf-8",
             )
         except OSError as exc:
-            raise RoleAssessmentPolicyError(f"Unable to export role assessment policy: {exc}") from exc
+            raise RoleAssessmentPolicyError(
+                f"Unable to export role assessment policy: {exc}"
+            ) from exc
 
     def _loadAndValidate(self, source: Path) -> tuple[dict[str, object], bool]:
         try:
             data = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
         except (OSError, yaml.YAMLError) as exc:
-            raise RoleAssessmentPolicyError(f"Unable to read role assessment policy: {exc}") from exc
+            raise RoleAssessmentPolicyError(
+                f"Unable to read role assessment policy: {exc}"
+            ) from exc
         if not isinstance(data, dict):
             raise RoleAssessmentPolicyError("Role assessment policy must be a YAML mapping")
 
         roles = data.get("roles")
         if not isinstance(roles, dict) or not roles:
-            raise RoleAssessmentPolicyError("Role assessment policy requires a non-empty roles mapping")
+            raise RoleAssessmentPolicyError(
+                "Role assessment policy requires a non-empty roles mapping"
+            )
 
         unknownRoles = sorted(set(roles) - self.roleCodes)
         if unknownRoles:
@@ -95,7 +103,9 @@ class RoleAssessmentPolicyService:
         scale = data.get("weightScale")
         legacy = scale in (None, {"minimum": 1, "maximum": 5}, {"minimum": 0, "maximum": 5})
         if not legacy and scale != {"minimum": 0, "maximum": 10}:
-            raise RoleAssessmentPolicyError("Weight scale must be 0-10, or an explicit legacy 0/1-5 scale")
+            raise RoleAssessmentPolicyError(
+                "Weight scale must be 0-10, or an explicit legacy 0/1-5 scale"
+            )
 
         normalizedRoles: dict[str, object] = {}
         for roleCode, roleData in roles.items():

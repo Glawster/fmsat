@@ -99,12 +99,8 @@ def testTacticShowCanReplaceDisplayedModelData(qtbot) -> None:  # type: ignore[n
         assignedSquads="First Team",
         updated="11 Aug 2026",
         revisions=("Current",),
-        formationSlots=(
-            DisplaySlot("01", "GK", "GK", "Defend", 0.5, 0.9, "goalkeeper"),
-        ),
-        outOfPossessionSlots=(
-            DisplaySlot("01", "GK", "GK", "Defend", 0.5, 0.9, "goalkeeper"),
-        ),
+        formationSlots=(DisplaySlot("01", "GK", "GK", "Defend", 0.5, 0.9, "goalkeeper"),),
+        outOfPossessionSlots=(DisplaySlot("01", "GK", "GK", "Defend", 0.5, 0.9, "goalkeeper"),),
         summaryItems=(("Model Source", "Saved tactic model"),),
         notes="Loaded from object model.",
         instructionGroups=(("Transition", (("Counter", "On"),)),),

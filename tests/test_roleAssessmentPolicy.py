@@ -132,9 +132,7 @@ def testBulkPolicyPreservesTenPointWeights(tmp_path: Path) -> None:
                 "version": 2,
                 "weightScale": {"minimum": 0, "maximum": 10},
                 "roles": {
-                    "trackingWideMidfielder": {
-                        "attributeWeights": {"work_rate": 10, "stamina": 9}
-                    }
+                    "trackingWideMidfielder": {"attributeWeights": {"work_rate": 10, "stamina": 9}}
                 },
             },
             sort_keys=False,

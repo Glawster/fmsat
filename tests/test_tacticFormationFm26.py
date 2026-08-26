@@ -50,10 +50,12 @@ def testFocusedRoleLabelOcrRecoversAbbreviationMissedByExpandedCrop(monkeypatch)
     """A clean role-label retry should win when the larger player-card crop returns junk."""
 
     pitch = np.full((200, 300, 3), 40, dtype=np.uint8)
-    ocr = FakeOcr([
-        [OcrResult("B", 0.75)],
-        [OcrResult("BGK", 0.99)],
-    ])
+    ocr = FakeOcr(
+        [
+            [OcrResult("B", 0.75)],
+            [OcrResult("BGK", 0.99)],
+        ]
+    )
     extractor = TacticFormationExtractor(
         ocr,
         TacticVocabulary(),
@@ -89,10 +91,12 @@ def testFocusedRoleLabelRetainsPlainGoalkeeperEvidence(monkeypatch) -> None:
     """GK in the exact role box is role evidence even though GK is also a position code."""
 
     pitch = np.full((200, 300, 3), 40, dtype=np.uint8)
-    ocr = FakeOcr([
-        [OcrResult("Walker", 0.95)],
-        [OcrResult("GK", 0.99)],
-    ])
+    ocr = FakeOcr(
+        [
+            [OcrResult("Walker", 0.95)],
+            [OcrResult("GK", 0.99)],
+        ]
+    )
     extractor = TacticFormationExtractor(
         ocr,
         TacticVocabulary(),
@@ -128,10 +132,12 @@ def testFormationRejectsPhaseLabelFromFocusedOcr(monkeypatch) -> None:
     """A phase tab inside the calibrated crop is chrome, not a formation slot."""
 
     pitch = np.full((200, 300, 3), 40, dtype=np.uint8)
-    ocr = FakeOcr([
-        [OcrResult("In Possession", 0.95)],
-        [OcrResult("In Possession", 0.99)],
-    ])
+    ocr = FakeOcr(
+        [
+            [OcrResult("In Possession", 0.95)],
+            [OcrResult("In Possession", 0.99)],
+        ]
+    )
     extractor = TacticFormationExtractor(
         ocr,
         TacticVocabulary(),
@@ -183,10 +189,12 @@ def testFormationRejectsCandidateWithoutRoleLabelText(monkeypatch) -> None:
     """Geometry alone is not enough evidence that a detected rectangle is a role tile."""
 
     pitch = np.full((200, 300, 3), 40, dtype=np.uint8)
-    ocr = FakeOcr([
-        [OcrResult("Player Name", 0.95)],
-        [],
-    ])
+    ocr = FakeOcr(
+        [
+            [OcrResult("Player Name", 0.95)],
+            [],
+        ]
+    )
     extractor = TacticFormationExtractor(
         ocr,
         TacticVocabulary(),

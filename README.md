@@ -12,11 +12,15 @@ application.
 
 - [Architecture](documentation/architecture.md)
 - [Best XI assignment](documentation/bestXi.md)
+- [Football object model](documentation/footballObjectModel.md)
+- [OCR zone geometry](documentation/ocrZoneGeometry.md)
 - [Sample screenshot guidance](documentation/sampleScreenshots.md)
+- [User data](documentation/userData.md)
 - [Project records and delivery status](project/README.md)
-- [Repository layout](.github/repositoryLayout.md)
-- [Requirements management](.github/requirementsManagement.md)
-- [Release process](.github/howToRelease.md)
+- [Repository layout](documentation/repositoryLayout.md)
+- [Requirements management](documentation/requirementsManagement.md)
+- [Testing process](documentation/testingProcess.md)
+- [Release process](documentation/howToRelease.md)
 
 ## Workspace and import workflow
 
@@ -200,9 +204,6 @@ the local machine. The application makes no changes to Football Manager.
 
 ## Roadmap
 
-The active delivery increment is **007C — Best XI and clean-room stabilization**. FMSAT now
-includes Generic Role Fit, simultaneous role depth, position-family-eligible Best XI,
-editable role assessment weights and reconciled incremental squad evidence. Requirement 007
-remains in progress for Tactical Fit, Overall Suitability, candidate comparison and Role
-Health. See the [current increment](project/currentIncrement.md) and
-[development status](documentation/developmentStatus.md) for current acceptance evidence.
+FMSAT is developed through evidence-backed requirements and small increments. See the
+[roadmap](project/roadmap.md) for sequencing and the
+[current increment](project/currentIncrement.md) for the sole authoritative delivery status.

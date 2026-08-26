@@ -23,9 +23,7 @@ def tacticDetailModelBuild(
     complete: bool,
     confirmed: bool,
     metadata: dict[str, str] | None = None,
-    phaseSlots: (
-        dict[str, tuple[tuple[str, str, str, str, float, float], ...]] | None
-    ) = None,
+    phaseSlots: dict[str, tuple[tuple[str, str, str, str, float, float], ...]] | None = None,
     assignedSquads: tuple[str, ...] = (),
     updatedAt: datetime | None = None,
     regenerationRequired: bool = False,
@@ -66,7 +64,8 @@ def tacticDetailModelBuild(
     return TacticDetailModel(
         formation=formationLabel,
         mentality=mentalityLabel,
-        status=statusOverride or (
+        status=statusOverride
+        or (
             "Regeneration required"
             if regenerationRequired
             else _statusText(source, complete, confirmed)
@@ -322,13 +321,15 @@ def _slotsBuild(formation: Formation) -> tuple[DisplaySlot, ...]:
                     role=(
                         _roleAbbreviation(position.canonicalRole)
                         if position.canonicalRole
-                        else position.roleProfile.name
-                        if position.role.identity is RoleIdentity.UNRESOLVED
-                        or (
-                            position.duty is None
-                            and position.roleProfile.name != "Observed role"
+                        else (
+                            position.roleProfile.name
+                            if position.role.identity is RoleIdentity.UNRESOLVED
+                            or (
+                                position.duty is None
+                                and position.roleProfile.name != "Observed role"
+                            )
+                            else position.role.identity.value
                         )
-                        else position.role.identity.value
                     ),
                     duty=position.duty or "Not shown",
                     x=max(0.0, min(1.0, x)),

@@ -8,13 +8,13 @@ This allows the application to be upgraded without risking user data.
 
 Linux
 
-```
+```text
 ~/.local/state/fmsat/
 ```
 
 If `XDG_STATE_HOME` is defined, FMSAT instead uses
 
-```
+```text
 $XDG_STATE_HOME/fmsat/
 ```
 
@@ -22,7 +22,7 @@ $XDG_STATE_HOME/fmsat/
 
 ## Directory layout
 
-```
+```text
 fmsat/
 ├── fmsat.sqlite3
 ├── screenshots/

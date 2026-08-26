@@ -39,13 +39,19 @@ def buildParser() -> argparse.ArgumentParser:
         action="store_true",
         help="Print the parsed tactic model report",
     )
-    parser.add_argument("--compare", type=Path, help="Compare selected tactic against another tactic")
+    parser.add_argument(
+        "--compare", type=Path, help="Compare selected tactic against another tactic"
+    )
     parser.add_argument("--save", action="store_true", help="Store --tactic as the default tactic")
     parser.add_argument("--unity", type=Path, help="Unity bundle file to inspect")
-    parser.add_argument("--list", action="store_true", help="List assets in the selected Unity bundle")
+    parser.add_argument(
+        "--list", action="store_true", help="List assets in the selected Unity bundle"
+    )
     parser.add_argument("--preview", type=int, help="Preview a Unity bundle asset by path ID")
     parser.add_argument("--gui", action="store_true", help="Launch the Qt Unity bundle explorer")
-    parser.add_argument("--filter", default="", help="Filter bundle assets by name, type, container, or path ID")
+    parser.add_argument(
+        "--filter", default="", help="Filter bundle assets by name, type, container, or path ID"
+    )
     parser.add_argument("--type", default="", help="Filter bundle assets by Unity object type")
     parser.add_argument("--limit", type=int, default=100, help="Maximum bundle assets to print")
     subparsers = parser.add_subparsers(dest="command")
@@ -66,9 +72,7 @@ def buildParser() -> argparse.ArgumentParser:
     hexCommand.add_argument("file", type=Path)
     hexCommand.add_argument("--offset", type=int, default=0)
     hexCommand.add_argument("--length", type=int, default=256)
-    structuresCommand = subparsers.add_parser(
-        "structures", help="Find repeated binary structures"
-    )
+    structuresCommand = subparsers.add_parser("structures", help="Find repeated binary structures")
     structuresCommand.add_argument("file", type=Path)
 
     return parser
@@ -97,11 +101,11 @@ def main(argv: list[str] | None = None) -> int:
         if _hasUnityAction(args):
             return _unityActionRun(args)
     except BundleError as error:
-        logger.error("bundle command failed: %s", error)
+        logger.error(f"bundle command failed: {error}")
         print(f"Error: {error}", file=sys.stderr)
         return 1
     except Exception as error:
-        logger.error("fmsat command failed: %s", error)
+        logger.error(f"fmsat command failed: {error}")
         print(f"Error: {error}", file=sys.stderr)
         return 1
 
@@ -114,8 +118,7 @@ def configTacticResolve(tacticPath: Path | None) -> Path:
     selectedPath = tacticPath or tacticDefaultGet()
     if selectedPath is None:
         raise FileNotFoundError(
-            "No tactic file supplied. Use --tactic PATH or store one with "
-            "--tactic PATH --save."
+            "No tactic file supplied. Use --tactic PATH or store one with " "--tactic PATH --save."
         )
     return pathValidateFile(selectedPath)
 
