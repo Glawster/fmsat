@@ -2,7 +2,7 @@ import yaml
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialogButtonBox, QLabel, QMessageBox, QPushButton, QTableWidgetItem
 
-from fmsat.app.colourPalette import cellHeader, cellHeaderText
+from fmsat.app.colourPalette import CELL_HEADER, CELL_HEADER_TEXT
 from fmsat.app.roleProfileDialog import RoleProfileReviewDialog
 from fmsat.core.config import AttributeDefinition
 from fmsat.core.parser import RoleProfileEvidence, TacticalPhase, TacticVocabulary
@@ -76,8 +76,8 @@ def testReviewDialogAllowsMissingPhaseAndShowsWeightedAttributeGrid(qtbot, tmp_p
     assert dialog.attributeTable.item(0, 1).text() == "4"
     assert dialog.attributeTable.cellWidget(0, 2).currentText() == "Top three"
     assert "gridline-color" in dialog.attributeTable.styleSheet()
-    assert cellHeader in dialog.attributeTable.styleSheet()
-    assert cellHeaderText in dialog.attributeTable.styleSheet()
+    assert CELL_HEADER in dialog.attributeTable.styleSheet()
+    assert CELL_HEADER_TEXT in dialog.attributeTable.styleSheet()
 
     dialog.bothPhasesRadio.setChecked(True)
     dialog.attributeTable.setItem(0, 1, QTableWidgetItem("5"))

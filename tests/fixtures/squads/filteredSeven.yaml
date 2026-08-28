@@ -1,0 +1,45 @@
+fixture: filteredSeven
+reviewedFrom: Football Manager filtered Default 1 screenshot supplied 2026-08-24
+notes: >
+  Seven visible rows in a filtered senior-squad view. OCR must accept this subset
+  without requiring a near-full table. Player identity follows the reviewed Bristol
+  Women names; Danique/Daniquie is the same person.
+columnSets:
+  default1:
+    columns:
+    - crossing
+    - dribbling
+    - finishing
+    - first_touch
+    - heading
+    - marking
+    - passing
+    - tackling
+    - technique
+    - acceleration
+    - agility
+    - balance
+    - jumping_reach
+    - natural_fitness
+    - long_shots
+    ignoredByFmsat:
+    - long_shots
+screenshots:
+  default1.png:
+    columnSet: default1
+    players:
+    - Daniquie Tolhoek
+    - Laura Freigang
+    - Priscila
+    - Peta Trimis
+    - Libby Isaac
+    - Indie Power
+    - Alessia Russo
+players:
+  Daniquie Tolhoek: {positions: 'DM, AM (C), ST (C)', ca: 133, pa: 152, default1: [10, 12, 16, 13, 10, 10, 15, 8, 12, 13, 15, 12, 10, 15, 10]}
+  Laura Freigang: {positions: 'AM (C), ST (C)', ca: 164, pa: 165, default1: [12, 15, 16, 17, 12, 6, 16, 5, 17, 15, 15, 14, 10, 16, 13]}
+  Priscila: {positions: 'ST (C)', ca: 131, pa: 155, default1: [9, 15, 16, 16, 16, 10, 12, 5, 16, 16, 12, 12, 13, 14, 10]}
+  Peta Trimis: {positions: 'AM (RL), ST (C)', ca: 133, pa: 153, default1: [14, 13, 12, 13, 5, 6, 10, 8, 12, 14, 14, 14, 5, 11, 14]}
+  Libby Isaac: {positions: 'D/M (C), ST (C)', ca: 104, pa: 130, default1: [8, 8, 6, 8, 12, 11, 12, 12, 10, 14, 15, 16, 10, 10, 9]}
+  Indie Power: {positions: 'AM (L), ST (C)', ca: 84, pa: 108, default1: [8, 11, 14, 12, 11, 4, 10, 2, 8, 14, 12, 13, 7, 11, 7]}
+  Alessia Russo: {positions: 'ST (C)', ca: 184, pa: 189, default1: [13, 12, 18, 16, 15, 9, 15, 9, 16, 14, 12, 15, 13, 16, 11]}

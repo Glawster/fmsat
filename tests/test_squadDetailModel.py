@@ -14,6 +14,41 @@ from fmsat.core.squadAssessment import (
 from fmsat.core.squadModel import SquadModel, SquadModelPlayer
 
 
+def testMissingWeightsAreNotPresentedAsNoCandidates() -> None:
+    """Unavailable assessment policy is distinct from an assessable uncovered role."""
+
+    player = SquadModelPlayer("Player", "AM (C)", "", "", 0.9, ())
+    squad = SquadModel(
+        "First Team",
+        (player,),
+        datetime(2026, 8, 25),
+        datetime(2026, 8, 25),
+        False,
+    )
+    role = RequiredRoleAssessment(
+        "attackingMidfielder",
+        1,
+        "Attacking Midfielder",
+        "AM",
+        ("AMC",),
+        ("In Possession",),
+        (
+            RoleCandidate(
+                player,
+                GenericRoleFit(None, "No assessment weights are defined", ()),
+            ),
+        ),
+        None,
+        None,
+        True,
+    )
+
+    display = squadDetailModelBuild(SquadAssessment(squad, "Tactic", ("Tactic",), 1, (role,)))
+
+    assert display.roles[0].coverage == "Unavailable — weights not defined"
+    assert display.roles[0].resolutionState == "missingWeights"
+
+
 def testCandidateRowsExposePlayersBestAvailableRole() -> None:
     """Each candidate row should identify the player's strongest calculable role."""
 
@@ -118,15 +153,15 @@ def testUnresolvedSlotRolesAreVisibleAndExplicitlyUnknown() -> None:
     assert semanticRole.resolutionState == "unknownRole"
     assert semanticRole.phases == "OOP"
     semanticSlot = next(slot for slot in display.requiredSlots if slot.position == "AMR")
-    assert semanticSlot.oopRole == "Unknown role"
+    assert semanticSlot.oopRole == "Tracking Winger"
 
-    identityRole = next(
-        role for role in display.roles if role.roleCode == "unresolved:10:OOP"
-    )
+    identityRole = next(role for role in display.roles if role.roleCode == "unresolved:10:OOP")
     assert identityRole.displayName == "Unknown OOP role at STC"
     assert identityRole.resolutionState == "unknownRole"
     identitySlot = next(slot for slot in display.requiredSlots if slot.position == "STC")
     assert identitySlot.oopRole == "Unknown role"
+    assert semanticSlot.oopRoleCode == "trackingWinger"
+    assert identitySlot.oopRoleCode == ""
 
 
 def testUnavailableEvidenceIsNotRepeatedAsWeakPositionFinding() -> None:

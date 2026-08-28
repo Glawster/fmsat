@@ -85,9 +85,7 @@ class ManagementWindow(QMainWindow):
         self.tacticTable.setRowCount(len(tacticRecords))
         for row, record in enumerate(tacticRecords):
             selected = QTableWidgetItem()
-            selected.setFlags(
-                Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable
-            )
+            selected.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable)
             selected.setCheckState(Qt.CheckState.Unchecked)
             self.tacticTable.setItem(row, 0, selected)
             thumbnail = QTableWidgetItem("No Formation image")
@@ -108,9 +106,7 @@ class ManagementWindow(QMainWindow):
         self.squadTable.setRowCount(len(squadRecords))
         for row, record in enumerate(squadRecords):
             selected = QTableWidgetItem()
-            selected.setFlags(
-                Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable
-            )
+            selected.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable)
             selected.setCheckState(Qt.CheckState.Unchecked)
             self.squadTable.setItem(row, 0, selected)
             self.squadTable.setItem(row, 1, QTableWidgetItem(record.name))
@@ -192,13 +188,8 @@ class ManagementWindow(QMainWindow):
             QMessageBox.critical(self, "Database error", str(exc))
             return
         failures = self.screenshotStore.capturesRemove(list(result.imageFilenames))
-        ownedData = (
-            "capture records and player data" if kind == "squad" else "capture records"
-        )
-        message = (
-            f"Deleted {result.deletedCount} {kind}(s), including associated "
-            f"{ownedData}."
-        )
+        ownedData = "capture records and player data" if kind == "squad" else "capture records"
+        message = f"Deleted {result.deletedCount} {kind}(s), including associated " f"{ownedData}."
         if failures:
             paths = "\n".join(str(path) for path in failures)
             message += (
@@ -283,9 +274,7 @@ class ManagementWindow(QMainWindow):
             f"merged {merged} unambiguous duplicate player(s)."
         )
         if ambiguous:
-            message += (
-                f" {ambiguous} possible duplicate(s) were retained for later review."
-            )
+            message += f" {ambiguous} possible duplicate(s) were retained for later review."
             QMessageBox.warning(self, "Squad cleanup needs review", message)
         else:
             self.statusBar().showMessage(message, 8000)

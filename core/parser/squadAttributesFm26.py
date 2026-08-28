@@ -356,8 +356,7 @@ class SquadAttributesParser(_BaseSquadAttributesParser):
         groups: list[list[OcrResult]] = []
         for width in (2, 3):
             groups.extend(
-                candidates[start : start + width]
-                for start in range(len(candidates) - width + 1)
+                candidates[start : start + width] for start in range(len(candidates) - width + 1)
             )
         # Paddle can interleave a tiny neighbouring-column fragment between the
         # two words of First Touch. Try every nearby pair as a second pass.
@@ -374,9 +373,7 @@ class SquadAttributesParser(_BaseSquadAttributesParser):
             if any(not token for token in tokens):
                 continue
             joined = "".join(tokens)
-            if joined != expected and not (
-                len(joined) >= 3 and expected.startswith(joined)
-            ):
+            if joined != expected and not (len(joined) >= 3 and expected.startswith(joined)):
                 continue
             left = min(result.bounds[0] for result in group if result.bounds is not None)
             top = min(result.bounds[1] for result in group if result.bounds is not None)

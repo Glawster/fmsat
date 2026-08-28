@@ -175,9 +175,7 @@ class SquadRolesTab(BaseSquadRolesTab):
         self.roleTable.setMinimumWidth(390)
         self.roleTable.setColumnWidth(2, 210)
         self.candidateTable.setWordWrap(False)
-        self.candidateTable.verticalHeader().setSectionResizeMode(
-            QHeaderView.ResizeMode.Fixed
-        )
+        self.candidateTable.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
         self.candidateTable.verticalHeader().setDefaultSectionSize(28)
         self.roleTable.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
         self.roleTable.verticalHeader().setDefaultSectionSize(28)
@@ -263,11 +261,7 @@ class SquadRolesTab(BaseSquadRolesTab):
             self._allCandidatesShow()
             return
         self._candidatesPopulate(
-            tuple(
-                candidate
-                for candidate in role.candidates
-                if _candidateEligible(role, candidate)
-            )
+            tuple(candidate for candidate in role.candidates if _candidateEligible(role, candidate))
         )
 
     def _selectionClear(self) -> None:
@@ -287,10 +281,7 @@ class SquadRolesTab(BaseSquadRolesTab):
                 current = best.get(key)
                 if current is None or (
                     candidate.available
-                    and (
-                        not current.available
-                        or float(candidate.score) > float(current.score)
-                    )
+                    and (not current.available or float(candidate.score) > float(current.score))
                 ):
                     best[key] = candidate
         self._candidatesPopulate(
@@ -449,8 +440,7 @@ class SquadAnalysisTab(BaseSquadAnalysisTab):
             if (
                 widget is not None
                 and widget is not context
-                and widget
-                not in {self.depthTable, self.playerTable, self.findingsTable}
+                and widget not in {self.depthTable, self.playerTable, self.findingsTable}
             ):
                 widget.deleteLater()
         if context is not None:

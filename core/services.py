@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field, replace
-from difflib import SequenceMatcher
 from pathlib import Path
 
 import numpy as np
 from fmsat.core.logUtils import getLogger
+from fmsat.core.playerIdentity import playerEvidenceMatches, preferredPlayerName
 
 from .detection import ScreenDetector, ScreenType
 from .images import ImagePreprocessor, imageLoad
@@ -75,28 +75,8 @@ def _playerMatch(
     player: ExtractedPlayer,
     candidates: list[ExtractedPlayer],
 ) -> ExtractedPlayer | None:
-    normalizedName = _nameNormalize(player.name)
-    exact = [
-        candidate for candidate in candidates if _nameNormalize(candidate.name) == normalizedName
-    ]
-    if len(exact) == 1:
-        return exact[0]
-    identity = [
-        candidate
-        for candidate in candidates
-        if player.ca.strip()
-        and player.pa.strip()
-        and candidate.ca.strip() == player.ca.strip()
-        and candidate.pa.strip() == player.pa.strip()
-    ]
-    if len(identity) == 1:
-        return identity[0]
-    similarities = [
-        (SequenceMatcher(None, normalizedName, _nameNormalize(candidate.name)).ratio(), candidate)
-        for candidate in candidates
-    ]
-    score, candidate = max(similarities, default=(0.0, None), key=lambda item: item[0])
-    return candidate if score >= 0.86 else None
+    matches = [candidate for candidate in candidates if playerEvidenceMatches(player, candidate)]
+    return matches[0] if len(matches) == 1 else None
 
 
 def _playerMerge(
@@ -112,7 +92,7 @@ def _playerMerge(
             conflicts.append(f"{first.name}: {name} {firstValue} / {secondValue}")
         attributes[name] = firstValue if firstValue is not None else secondValue
     return ExtractedPlayer(
-        name=_textMerge(first.name, second.name, first.name, "name", conflicts),
+        name=preferredPlayerName(first, second),
         positions=_textMerge(
             first.positions,
             second.positions,

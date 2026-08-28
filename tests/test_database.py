@@ -248,9 +248,7 @@ def testStoredSquadCleanupResolvesAndRemovesCompositeOcrRows(tmp_path) -> None:
         ExtractedPlayer("Lewis Boney", "D/WB (L)", "65", "112", {}, 0.98),
         ExtractedPlayer("Harry Parr", "M (C), AM (LC)", "42", "95", {}, 0.98),
         ExtractedPlayer("Paul Mullin", "ST (C)", "100", "110", {}, 0.98),
-        ExtractedPlayer(
-            "Stephen Humphrys", "AM (RLC), ST (C)", "109", "130 120", {}, 0.98
-        ),
+        ExtractedPlayer("Stephen Humphrys", "AM (RLC), ST (C)", "109", "130 120", {}, 0.98),
         ExtractedPlayer("Tyreik Wright", "WB/M/AM (L)", "98", "115", {}, 0.98),
     ]
     errors = [

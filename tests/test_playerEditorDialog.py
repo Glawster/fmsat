@@ -1,9 +1,17 @@
 """Regression coverage for focused squad player editing."""
 
+from dataclasses import replace
 from datetime import datetime
 from unittest.mock import patch
 
-from PySide6.QtWidgets import QAbstractItemView, QDialog, QDialogButtonBox, QLabel
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QDialog,
+    QDialogButtonBox,
+    QLabel,
+    QMessageBox,
+    QWidget,
+)
 
 from fmsat.app.playerEditorDialog import PlayerEditorDialog
 from fmsat.app.squadPlayersWorkspace import SquadPlayersTab
@@ -60,10 +68,7 @@ def testPlayerEditorUsesFullAttributeNamesAndHidesGoalkeeperOnlyFields(qtbot) ->
     dialog = PlayerEditorDialog(_player(), _attributes())
     qtbot.addWidget(dialog)
 
-    labels = {
-        label.text()
-        for label in dialog.findChildren(QLabel, "playerAttributeLabel")
-    }
+    labels = {label.text() for label in dialog.findChildren(QLabel, "playerAttributeLabel")}
     assert "Acceleration" in labels
     assert "Natural Fitness" in labels
     assert "Acc" not in labels
@@ -84,10 +89,7 @@ def testGoalkeeperEditorShowsGoalkeeperAttributes(qtbot) -> None:  # type: ignor
     dialog = PlayerEditorDialog(goalkeeper, _attributes())
     qtbot.addWidget(dialog)
 
-    labels = {
-        label.text()
-        for label in dialog.findChildren(QLabel, "playerAttributeLabel")
-    }
+    labels = {label.text() for label in dialog.findChildren(QLabel, "playerAttributeLabel")}
     assert "Handling" in labels
     assert "handling" in dialog.attributeInputs
 
@@ -100,8 +102,7 @@ def testPlayerEditorExposesSharedStylingHooks(qtbot) -> None:  # type: ignore[no
 
     assert dialog.objectName() == "playerEditorDialog"
     assert all(
-        editor.objectName() == "playerAttributeInput"
-        for editor in dialog.attributeInputs.values()
+        editor.objectName() == "playerAttributeInput" for editor in dialog.attributeInputs.values()
     )
     buttons = dialog.findChild(QDialogButtonBox, "playerEditorButtons")
     assert buttons is not None
@@ -170,3 +171,98 @@ def testPlayersTabLaunchesEditorWithConfiguredAttributes(qtbot) -> None:  # type
     assert launchedPlayer.name == "Alessia Russo"
     assert launchedAttributes == attributes
     assert launchedParent is tab
+
+
+def testCorrectingOneUncertainPlayerPreservesOtherWarning(qtbot) -> None:  # type: ignore[no-untyped-def]
+    """Accepting one player editor must not confirm every uncertain squad row."""
+
+    first = replace(_player(), name="Smith, Qe Ella", validationState="uncertain")
+    second = replace(
+        _player(),
+        name="Rennie, Q Sophie",
+        sourceImportSessionId=13,
+        validationState="uncertain",
+    )
+    model = SquadModel(
+        name="First Team",
+        players=(first, second),
+        generatedAt=datetime(2026, 8, 18),
+        updatedAt=datetime(2026, 8, 18),
+        evidenceSuperseded=False,
+    )
+    tab = SquadPlayersTab(model, _attributes())
+    qtbot.addWidget(tab)
+    firstRow = next(
+        row for row in range(tab.table.rowCount()) if "Smith" in tab.table.item(row, 0).text()
+    )
+
+    with patch("fmsat.app.squadPlayersWorkspace.PlayerEditorDialog") as dialogClass:
+        dialogClass.return_value.exec.return_value = QDialog.DialogCode.Accepted
+        dialogClass.return_value.editedPlayer.return_value = replace(
+            first,
+            name="Ella Smith",
+            validationState="corrected",
+        )
+        tab._playerEditorOpen(firstRow, 0)
+
+    rebuilt = tab.modelBuild()
+    states = {player.name: player.validationState for player in rebuilt.players}
+    assert states["Ella Smith"] == "corrected"
+    assert sorted(states.values()) == ["corrected", "uncertain"]
+
+
+def testPlayersTabRemoveDeletesSavedPlayerAndPersists(qtbot) -> None:  # type: ignore[no-untyped-def]
+    extra = SquadModelPlayer(
+        name="Ella Stowell",
+        positions="M (C)",
+        ca="100",
+        pa="120",
+        confidence=0.9,
+        attributes=(),
+    )
+    model = SquadModel(
+        name="First Team",
+        players=(_player(), extra),
+        generatedAt=datetime(2026, 8, 18),
+        updatedAt=datetime(2026, 8, 18),
+        evidenceSuperseded=False,
+    )
+
+    class Host(QWidget):
+        def __init__(self) -> None:
+            super().__init__()
+            self.saved: list[SquadModel] = []
+
+        def _squadModelSave(self, model: SquadModel) -> None:
+            self.saved.append(model)
+
+    host = Host()
+    tab = SquadPlayersTab(model, _attributes(), parent=host)
+    qtbot.addWidget(host)
+
+    assert tab.removePlayerButton.isEnabled() is False
+    stowellRow = next(
+        row for row in range(tab.table.rowCount()) if "Stowell" in tab.table.item(row, 0).text()
+    )
+    tab.table.selectRow(stowellRow)
+    assert tab.removePlayerButton.isEnabled() is True
+
+    with patch(
+        "fmsat.app.squadPlayersWorkspace.QMessageBox.question",
+        return_value=QMessageBox.StandardButton.No,
+    ):
+        tab.removePlayerButton.click()
+    assert tab.table.rowCount() == 2
+    assert host.saved == []
+
+    with patch(
+        "fmsat.app.squadPlayersWorkspace.QMessageBox.question",
+        return_value=QMessageBox.StandardButton.Yes,
+    ):
+        tab.removePlayerButton.click()
+
+    assert tab.table.rowCount() == 1
+    assert [player.name for player in tab.modelBuild().players] == ["Alessia Russo"]
+    assert len(host.saved) == 1
+    assert [player.name for player in host.saved[0].players] == ["Alessia Russo"]
+    assert host.saved[0].evidenceSuperseded is True

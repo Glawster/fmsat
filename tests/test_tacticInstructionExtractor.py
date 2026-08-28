@@ -28,10 +28,15 @@ def _configuration():
 def testInstructionExtractorPersistsOnlyVisiblySelectedValue() -> None:
     image = np.full((100, 200, 3), 35, dtype=np.uint8)
     image[10:40, 10:90] = (180, 20, 180)
-    ocr = FakeOcr([[
-        OcrResult("Higher", 0.96, (15, 15, 75, 35)),
-        OcrResult("Standard", 0.99, (110, 60, 180, 80)),
-    ]], suppliesGeometry=True)
+    ocr = FakeOcr(
+        [
+            [
+                OcrResult("Higher", 0.96, (15, 15, 75, 35)),
+                OcrResult("Standard", 0.99, (110, 60, 180, 80)),
+            ]
+        ],
+        suppliesGeometry=True,
+    )
 
     result = TacticInstructionExtractor(
         ocr, TacticVocabulary(), _configuration()
@@ -48,10 +53,15 @@ def testInstructionExtractorPersistsOnlyVisiblySelectedValue() -> None:
 
 def testInstructionExtractorReportsMissingAndAmbiguousSelectedEvidence() -> None:
     image = np.full((100, 200, 3), (180, 20, 180), dtype=np.uint8)
-    ambiguous = FakeOcr([[
-        OcrResult("Higher", 0.96, (10, 10, 70, 30)),
-        OcrResult("Lower", 0.96, (100, 10, 160, 30)),
-    ]], suppliesGeometry=True)
+    ambiguous = FakeOcr(
+        [
+            [
+                OcrResult("Higher", 0.96, (10, 10, 70, 30)),
+                OcrResult("Lower", 0.96, (100, 10, 160, 30)),
+            ]
+        ],
+        suppliesGeometry=True,
+    )
     missing = FakeOcr([[]], suppliesGeometry=True)
 
     ambiguousResult = TacticInstructionExtractor(
@@ -74,19 +84,24 @@ def testInstructionExtractorChoosesOnlyClearlyDominantOptionRow() -> None:
     image[8:34, :] = (180, 20, 180)
     image[48:74, :55] = (180, 20, 180)
     image[88:114, :60] = (180, 20, 180)
-    ocr = FakeOcr([[
-        OcrResult("Stay On Feet", 0.96, (40, 10, 150, 30)),
-        OcrResult("Balanced", 0.98, (55, 50, 145, 70)),
-        OcrResult("Get Stuck In", 0.97, (40, 90, 155, 110)),
-    ]], suppliesGeometry=True)
+    ocr = FakeOcr(
+        [
+            [
+                OcrResult("Stay On Feet", 0.96, (40, 10, 150, 30)),
+                OcrResult("Balanced", 0.98, (55, 50, 145, 70)),
+                OcrResult("Get Stuck In", 0.97, (40, 90, 155, 110)),
+            ]
+        ],
+        suppliesGeometry=True,
+    )
     configuration = _configuration()
     configuration["instructionRegions"]["outOfPossession"] = {
         "tackling": {"x": 0.0, "y": 0.0, "width": 1.0, "height": 1.0},
     }
 
-    result = TacticInstructionExtractor(
-        ocr, TacticVocabulary(), configuration
-    ).instructionsExtract(image, TacticalPhase.OUT_OF_POSSESSION, "oop.png")
+    result = TacticInstructionExtractor(ocr, TacticVocabulary(), configuration).instructionsExtract(
+        image, TacticalPhase.OUT_OF_POSSESSION, "oop.png"
+    )
 
     assert len(result.instructions) == 1
     assert result.instructions[0].category == "tackling"
@@ -96,9 +111,14 @@ def testInstructionExtractorChoosesOnlyClearlyDominantOptionRow() -> None:
 
 def testInstructionExtractorPreservesUnknownSelectedTextAsIssue() -> None:
     image = np.full((100, 200, 3), (180, 20, 180), dtype=np.uint8)
-    ocr = FakeOcr([[
-        OcrResult("Unrecognized Tempo", 0.97, (10, 10, 150, 30)),
-    ]], suppliesGeometry=True)
+    ocr = FakeOcr(
+        [
+            [
+                OcrResult("Unrecognized Tempo", 0.97, (10, 10, 150, 30)),
+            ]
+        ],
+        suppliesGeometry=True,
+    )
 
     result = TacticInstructionExtractor(
         ocr, TacticVocabulary(), _configuration()
@@ -113,18 +133,23 @@ def testOverviewCardTreatsItsSingleDisplayedValueAsSelectedEvidence() -> None:
     """FM26 overview cards show the current value without a selected-row fill."""
 
     image = np.full((100, 200, 3), 35, dtype=np.uint8)
-    ocr = FakeOcr([[
-        OcrResult("Standard", 0.97, (70, 70, 135, 90)),
-    ]], suppliesGeometry=True)
+    ocr = FakeOcr(
+        [
+            [
+                OcrResult("Standard", 0.97, (70, 70, 135, 90)),
+            ]
+        ],
+        suppliesGeometry=True,
+    )
     configuration = _configuration()
     configuration["selection"]["mode"] = "displayedValue"
     configuration["instructionRegions"]["outOfPossession"] = {
         "tackling": {"x": 0.0, "y": 0.0, "width": 1.0, "height": 1.0},
     }
 
-    result = TacticInstructionExtractor(
-        ocr, TacticVocabulary(), configuration
-    ).instructionsExtract(image, TacticalPhase.OUT_OF_POSSESSION, "oop.png")
+    result = TacticInstructionExtractor(ocr, TacticVocabulary(), configuration).instructionsExtract(
+        image, TacticalPhase.OUT_OF_POSSESSION, "oop.png"
+    )
 
     assert len(result.instructions) == 1
     assert result.instructions[0].value == "balanced"

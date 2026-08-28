@@ -114,7 +114,9 @@ def testReferencesSignalAcceptsLargeUnityPathIds(qapp) -> None:
     emitted: list[tuple[int, int, object]] = []
     large_pathId = 8889112869717200915
 
-    signals.finished.connect(lambda generation, asset_id, refs: emitted.append((generation, asset_id, refs)))
+    signals.finished.connect(
+        lambda generation, asset_id, refs: emitted.append((generation, asset_id, refs))
+    )
     signals.finished.emit(1, large_pathId, ())
 
     assert emitted == [(1, large_pathId, ())]

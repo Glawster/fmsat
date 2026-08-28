@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from importlib.resources import files
-
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QHBoxLayout,
     QLayout,
+    QMenu,
     QMessageBox,
     QPushButton,
     QTabWidget,
@@ -23,6 +22,7 @@ from fmsat.app.tacticDetailPrototype import tacticDetailPrototype
 from fmsat.app.tacticDetailTabs import AnalysisTab, InstructionsTab, OverviewTab, ShapeTab
 from fmsat.app.tacticPitchWidget import PitchWidget
 from fmsat.app.tacticValidationWidget import BuildResult
+from fmsat.app.styles import styleSheetLoad
 from fmsat.app.workspaceWidgets import FactCard, WorkspaceHeader
 from fmsat.database.tacticNaming import TacticRenameError, tacticRename
 
@@ -37,6 +37,7 @@ class TacticDetailView(QWidget):
     importToModelRequested = Signal(str)
     modelEditRequested = Signal(str)
     renameRequested = Signal(str, str)
+    squadRequested = Signal(str)
 
     def __init__(
         self,
@@ -89,8 +90,30 @@ class TacticDetailView(QWidget):
             ("ASSIGNED SQUADS", self.model.assignedSquads),
             ("UPDATED", self.model.updated),
         ):
-            facts.addWidget(FactCard(label, value, self), 1)
+            card = FactCard(label, value, self)
+            if label == "ASSIGNED SQUADS" and self.model.assignedSquadNames:
+                card.interactionEnable("Open assigned squad")
+                card.activated.connect(lambda card=card: self._assignedSquadsOpen(card))
+                self.assignedSquadsCard = card
+            facts.addWidget(card, 1)
         return facts
+
+    def _assignedSquadsOpen(self, card: FactCard) -> None:
+        """Open the sole assigned squad or offer a menu when several are assigned."""
+
+        squads = self.model.assignedSquadNames
+        if len(squads) == 1:
+            self.squadRequested.emit(squads[0])
+            return
+        menu = QMenu(card)
+        menu.setObjectName("assignedSquadsMenu")
+        for squadName in squads:
+            action = menu.addAction(squadName)
+            action.triggered.connect(
+                lambda checked=False, name=squadName: self.squadRequested.emit(name)
+            )
+        self.assignedSquadsMenu = menu
+        menu.popup(card.mapToGlobal(card.rect().bottomLeft()))
 
     def _headerCreate(self) -> QHBoxLayout:
         """Create the tactic header using the shared workspace header component."""
@@ -176,9 +199,7 @@ class TacticDetailView(QWidget):
         footer.addStretch()
         editButton = QPushButton("Edit Model")
         editButton.setObjectName("secondaryButton")
-        editButton.clicked.connect(
-            lambda: self.modelEditRequested.emit(self.tacticName)
-        )
+        editButton.clicked.connect(lambda: self.modelEditRequested.emit(self.tacticName))
         footer.addWidget(editButton)
         self.importToModelButton = QPushButton("Regenerate Model")
         self.importToModelButton.clicked.connect(
@@ -201,7 +222,7 @@ class TacticDetailView(QWidget):
 
     @staticmethod
     def _styleLoad() -> str:
-        return files("fmsat.app").joinpath("fmsat.qss").read_text(encoding="utf-8")
+        return styleSheetLoad()
 
     def _layoutClear(self, layout: QLayout) -> None:
         """Delete all child widgets/layouts from one Qt layout container."""

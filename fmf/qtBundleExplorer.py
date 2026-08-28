@@ -38,7 +38,6 @@ try:
         QMainWindow,
         QMessageBox,
         QPlainTextEdit,
-        QPushButton,
         QSplitter,
         QStatusBar,
         QTabWidget,
@@ -48,7 +47,9 @@ try:
         QWidget,
     )
 except ImportError as error:  # pragma: no cover - exercised only without optional dependency.
-    raise BundleError("PySide6 is required for the Qt prototype. Install with `pip install .[gui]`.") from error
+    raise BundleError(
+        "PySide6 is required for the Qt prototype. Install with `pip install .[gui]`."
+    ) from error
 
 
 class AssetTableModel(QAbstractTableModel):
@@ -77,7 +78,10 @@ class AssetTableModel(QAbstractTableModel):
         return 0 if parent.isValid() else len(self.COLUMNS)
 
     def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole) -> Any:
-        if not index.isValid() or role not in (Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.UserRole):
+        if not index.isValid() or role not in (
+            Qt.ItemDataRole.DisplayRole,
+            Qt.ItemDataRole.UserRole,
+        ):
             return None
         asset = self._assets[index.row()]
         values = (
@@ -174,7 +178,10 @@ class ReferenceTableModel(QAbstractTableModel):
         return 0 if parent.isValid() else len(self.COLUMNS)
 
     def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole) -> Any:
-        if not index.isValid() or role not in (Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.UserRole):
+        if not index.isValid() or role not in (
+            Qt.ItemDataRole.DisplayRole,
+            Qt.ItemDataRole.UserRole,
+        ):
             return None
         reference = self._references[index.row()]
         values = (
@@ -198,7 +205,9 @@ class ReferenceTableModel(QAbstractTableModel):
     def sort(self, column: int, order: Qt.SortOrder = Qt.SortOrder.AscendingOrder) -> None:
         reverse = order == Qt.SortOrder.DescendingOrder
         self.layoutAboutToBeChanged.emit()
-        self._references.sort(key=lambda reference: _referenceSortValue(reference, column), reverse=reverse)
+        self._references.sort(
+            key=lambda reference: _referenceSortValue(reference, column), reverse=reverse
+        )
         self.layoutChanged.emit()
 
 
@@ -269,8 +278,7 @@ class _DeepSearchWorker(QRunnable):
     def run(self) -> None:
         try:
             values = {
-                asset.pathId: self.reader.assetSearchText(asset.pathId)
-                for asset in self.assets
+                asset.pathId: self.reader.assetSearchText(asset.pathId) for asset in self.assets
             }
         except Exception as error:  # noqa: BLE001 - send readable dialog plus log detail.
             self.signals.failed.emit(str(error), traceback.format_exc())
@@ -488,7 +496,9 @@ class BundleExplorerWindow(QMainWindow):
 
     def closeEvent(self, event: Any) -> None:  # noqa: N802
         self._settings.setValue("geometry", self.saveGeometry())
-        self._settings.setValue("last_bundle_dir", str(self._bundlePath.parent) if self._bundlePath else "")
+        self._settings.setValue(
+            "last_bundle_dir", str(self._bundlePath.parent) if self._bundlePath else ""
+        )
         super().closeEvent(event)
 
     def _bundleChoose(self) -> None:
@@ -562,7 +572,9 @@ class BundleExplorerWindow(QMainWindow):
 
     def _graphExport(self) -> None:
         if self._reader is None or self._selected_asset_id is None:
-            QMessageBox.information(self, "Bundle Explorer", "Select an asset before exporting a graph.")
+            QMessageBox.information(
+                self, "Bundle Explorer", "Select an asset before exporting a graph."
+            )
             return
         file_name, selected_filter = QFileDialog.getSaveFileName(
             self,
@@ -573,7 +585,9 @@ class BundleExplorerWindow(QMainWindow):
         if not file_name:
             return
         path = Path(file_name)
-        format_name = "dot" if "DOT" in selected_filter or path.suffix.casefold() == ".dot" else "json"
+        format_name = (
+            "dot" if "DOT" in selected_filter or path.suffix.casefold() == ".dot" else "json"
+        )
         if not path.suffix:
             path = path.with_suffix(f".{format_name}")
         text = self._reader.assetGraphText(self._selected_asset_id, format_name)

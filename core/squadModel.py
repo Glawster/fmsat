@@ -10,7 +10,13 @@ from fmsat.core.config import AttributeDefinition, Configuration
 from fmsat.core.images import ImagePreprocessor, PreprocessingOptions, imageLoad
 from fmsat.core.logUtils import getLogger
 from fmsat.core.ocr import PaddleOcrEngine
-from fmsat.core.parser import SquadAttributesParser
+from fmsat.core.parser import ExtractedPlayer, SquadAttributesParser
+from fmsat.core.playerIdentity import (
+    playerEvidenceMatches,
+    playerNameClean,
+    playerNameIsUncertain,
+    preferredPlayerName,
+)
 from fmsat.core.services import ImportResult, squadCapturesMerge
 from fmsat.core.detection import ScreenType
 from fmsat.database.models import (
@@ -56,6 +62,100 @@ class SquadModel:
     regenerationRequired: bool = False
 
 
+def squadPlayersMerge(
+    existing: tuple[SquadModelPlayer, ...],
+    incoming: list[ExtractedPlayer],
+    *,
+    sourceImportSessionId: int | None = None,
+) -> tuple[SquadModelPlayer, ...]:
+    """Update matching players and append new ones. Absence never deletes."""
+
+    merged = list(existing)
+    for extracted in incoming:
+        normalized = playerNameClean(extracted.name).casefold()
+        if not normalized:
+            continue
+        exact = [
+            index
+            for index, player in enumerate(merged)
+            if playerNameClean(player.name).casefold() == normalized
+        ]
+        matches = exact or [
+            index for index, player in enumerate(merged) if playerEvidenceMatches(player, extracted)
+        ]
+        index = matches[0] if len(matches) == 1 else None
+        if index is None:
+            merged.append(
+                _extractedPlayerToModel(
+                    extracted,
+                    sourceImportSessionId=sourceImportSessionId,
+                )
+            )
+            continue
+        merged[index] = _playerFactsMerge(
+            merged[index],
+            extracted,
+            sourceImportSessionId=sourceImportSessionId,
+        )
+    return tuple(merged)
+
+
+def _extractedPlayerToModel(
+    extracted: ExtractedPlayer,
+    *,
+    sourceImportSessionId: int | None,
+) -> SquadModelPlayer:
+    """Create one object-model player from a newly observed screenshot row."""
+
+    return SquadModelPlayer(
+        name=playerNameClean(extracted.name),
+        positions=extracted.positions.strip(),
+        ca=extracted.ca.strip(),
+        pa=extracted.pa.strip(),
+        confidence=extracted.confidence,
+        sourceImportSessionId=sourceImportSessionId,
+        validationState=("uncertain" if playerNameIsUncertain(extracted.name) else "extracted"),
+        attributes=tuple(sorted(extracted.attributes.items())),
+    )
+
+
+def _playerFactsMerge(
+    existing: SquadModelPlayer,
+    incoming: ExtractedPlayer,
+    *,
+    sourceImportSessionId: int | None,
+) -> SquadModelPlayer:
+    """Apply newly observed values without clearing unobserved attributes."""
+
+    attributes = dict(existing.attributes)
+    for name, value in incoming.attributes.items():
+        if value is not None or name not in attributes:
+            attributes[name] = value
+    return SquadModelPlayer(
+        name=(
+            existing.name
+            if existing.validationState == "corrected"
+            else preferredPlayerName(existing, incoming)
+        ),
+        positions=incoming.positions.strip() or existing.positions,
+        ca=incoming.ca.strip() or existing.ca,
+        pa=incoming.pa.strip() or existing.pa,
+        confidence=incoming.confidence if incoming.confidence is not None else existing.confidence,
+        sourceImportSessionId=sourceImportSessionId or existing.sourceImportSessionId,
+        validationState=(
+            "corrected"
+            if existing.validationState == "corrected"
+            else (
+                "uncertain"
+                if playerNameIsUncertain(preferredPlayerName(existing, incoming))
+                else "extracted"
+            )
+        ),
+        attributes=tuple(sorted(attributes.items())),
+        traits=existing.traits,
+    )
+
+
 class SquadModelService:
     """Keep screenshot evidence separate from the editable current squad model."""
 
@@ -77,6 +177,66 @@ class SquadModelService:
         if not create:
             return None
         return self._modelGenerate(cleanName)
+
+    def modelRefreshFromEvidence(self, squadName: str) -> SquadModel | None:
+        """Rebuild the editable model from saved import rows without re-OCR.
+
+        Supplementary screenshots can add or update players. Players absent from
+        the latest capture remain if earlier captures still contain them.
+        """
+
+        cleanName = squadName.strip()
+        if not cleanName:
+            return None
+        now = datetime.now()
+        with Session(self.engine) as session, session.begin():
+            source = session.scalar(
+                select(Squad)
+                .where(Squad.normalizedName == cleanName.casefold())
+                .options(
+                    selectinload(Squad.screenshots)
+                    .selectinload(SquadScreenshot.importSession)
+                    .selectinload(ImportSession.players)
+                    .selectinload(Player.attributes)
+                )
+            )
+            if source is None:
+                return None
+            stored = self._storedLoad(session, cleanName)
+            correctedPlayers = tuple(
+                player
+                for player in (stored.players if stored is not None else ())
+                if player.validationState == "corrected"
+            )
+            if stored is None:
+                stored = ObjectModelSquad(
+                    name=source.name,
+                    normalizedName=source.normalizedName,
+                    sourceSquad=source,
+                    generatedAt=now,
+                    updatedAt=now,
+                )
+                session.add(stored)
+            else:
+                stored.players.clear()
+                session.flush()
+                stored.sourceSquad = source
+                stored.updatedAt = now
+            for _, evidenceRows in self._playerEvidenceGroups(source):
+                corrected = self._correctedPlayerFind(correctedPlayers, evidenceRows[0])
+                stored.players.append(
+                    self._playerFromEvidenceRows(
+                        evidenceRows,
+                        traits=(
+                            tuple(trait.traitName for trait in corrected.traits)
+                            if corrected is not None
+                            else ()
+                        ),
+                        correctedName=corrected.name if corrected is not None else None,
+                    )
+                )
+            session.flush()
+            return self._modelDetach(stored)
 
     def modelSave(self, model: SquadModel) -> SquadModel:
         """Persist edits, or explicitly regenerate a model marked as stale."""
@@ -110,7 +270,11 @@ class SquadModelService:
             stored.sourceSquad = source
             stored.updatedAt = now
             stored.players.extend(
-                self._playerStore(player, manual=True) for player in model.players
+                self._playerStore(
+                    player,
+                    manual=player.validationState == "corrected",
+                )
+                for player in model.players
             )
 
             if source is not None:
@@ -163,16 +327,12 @@ class SquadModelService:
                 select(Squad)
                 .where(Squad.normalizedName == squadName.casefold())
                 .options(
-                    selectinload(Squad.screenshots).selectinload(
-                        SquadScreenshot.importSession
-                    )
+                    selectinload(Squad.screenshots).selectinload(SquadScreenshot.importSession)
                 )
             )
             if source is None:
                 raise ValueError(f"Squad evidence does not exist: {squadName}")
-            captures = tuple(
-                sorted(source.screenshots, key=lambda item: item.importSessionId)
-            )
+            captures = tuple(sorted(source.screenshots, key=lambda item: item.importSessionId))
             filenames = tuple(capture.importSession.imageFilename for capture in captures)
             sourceImportSessionId = max(
                 (capture.importSessionId for capture in captures),
@@ -219,13 +379,9 @@ class SquadModelService:
             stored = self._storedLoad(session, squadName)
             if source is None or stored is None:
                 raise ValueError(f"Squad model does not exist: {squadName}")
-            traitsByPlayer = {
-                player.normalizedName: tuple(
-                    trait.traitName
-                    for trait in sorted(player.traits, key=lambda item: item.traitName.casefold())
-                )
-                for player in stored.players
-            }
+            correctedPlayers = tuple(
+                player for player in stored.players if player.validationState == "corrected"
+            )
             stored.players.clear()
             session.flush()
             stored.name = source.name
@@ -234,17 +390,27 @@ class SquadModelService:
             stored.generatedAt = now
             stored.updatedAt = now
             for extracted in merged.players:
-                normalizedName = extracted.name.strip().casefold()
+                corrected = self._correctedPlayerFind(correctedPlayers, extracted)
+                resolvedName = (
+                    corrected.name if corrected is not None else playerNameClean(extracted.name)
+                )
+                normalizedName = resolvedName.casefold()
                 stored.players.append(
                     ObjectModelPlayer(
-                        name=extracted.name.strip(),
+                        name=resolvedName,
                         normalizedName=normalizedName,
                         positions=extracted.positions.strip(),
                         ca=extracted.ca.strip(),
                         pa=extracted.pa.strip(),
                         confidence=extracted.confidence,
                         sourceImportSessionId=sourceImportSessionId,
-                        validationState="extracted",
+                        validationState=(
+                            "corrected"
+                            if corrected is not None
+                            else (
+                                "uncertain" if playerNameIsUncertain(resolvedName) else "extracted"
+                            )
+                        ),
                         attributes=[
                             ObjectModelPlayerAttribute(
                                 attributeName=name,
@@ -258,7 +424,11 @@ class SquadModelService:
                                 traitName=trait,
                                 validationState="corrected",
                             )
-                            for trait in traitsByPlayer.get(normalizedName, ())
+                            for trait in (
+                                (item.traitName for item in corrected.traits)
+                                if corrected is not None
+                                else ()
+                            )
                         ],
                     )
                 )
@@ -299,9 +469,9 @@ class SquadModelService:
     def _playerEvidenceGroups(
         source: Squad,
     ) -> tuple[tuple[str, tuple[Player, ...]], ...]:
-        """Group every OCR row per player, newest first, so views can complement each other."""
+        """Group corroborated OCR rows per player, newest first, across captures."""
 
-        grouped: dict[str, list[Player]] = {}
+        groups: list[list[Player]] = []
         for capture in sorted(
             source.screenshots,
             key=lambda item: (item.importSession.date, item.importSession.id),
@@ -312,29 +482,46 @@ class SquadModelService:
                 key=lambda item: item.id,
                 reverse=True,
             ):
-                normalizedName = player.name.strip().casefold()
-                grouped.setdefault(normalizedName, []).append(player)
-        return tuple((name, tuple(grouped[name])) for name in sorted(grouped))
+                matches = [
+                    group
+                    for group in groups
+                    if group[0].importSessionId != player.importSessionId
+                    and playerEvidenceMatches(group[0], player)
+                ]
+                if len(matches) == 1:
+                    matches[0].append(player)
+                else:
+                    groups.append([player])
+        return tuple(
+            (preferredPlayerName(group[0], group[-1]).casefold(), tuple(group))
+            for group in sorted(groups, key=lambda rows: rows[0].name.casefold())
+        )
 
     @staticmethod
     def _playerFromEvidenceRows(
         players: tuple[Player, ...],
         *,
         traits: tuple[str, ...] = (),
+        correctedName: str | None = None,
     ) -> ObjectModelPlayer:
         """Merge complementary screenshot rows, preferring newest observed values."""
 
         if not players:
             raise ValueError("At least one player evidence row is required")
         newest = players[0]
+        preferredEvidence = newest
+        for player in players[1:]:
+            preferredName = preferredPlayerName(preferredEvidence, player)
+            if preferredName == playerNameClean(player.name):
+                preferredEvidence = player
+        preferredName = correctedName or playerNameClean(preferredEvidence.name)
 
         def newestText(field: str) -> str:
             return next(
                 (
                     str(value).strip()
                     for player in players
-                    if (value := getattr(player, field, None)) is not None
-                    and str(value).strip()
+                    if (value := getattr(player, field, None)) is not None and str(value).strip()
                 ),
                 "",
             )
@@ -355,14 +542,18 @@ class SquadModelService:
             default=None,
         )
         return ObjectModelPlayer(
-            name=newest.name,
-            normalizedName=newest.name.strip().casefold(),
+            name=preferredName,
+            normalizedName=preferredName.casefold(),
             positions=newestText("positions"),
             ca=newestText("ca"),
             pa=newestText("pa"),
             confidence=confidence,
             sourceImportSessionId=sourceImportSessionId,
-            validationState="extracted",
+            validationState=(
+                "corrected"
+                if correctedName is not None
+                else ("uncertain" if playerNameIsUncertain(preferredName) else "extracted")
+            ),
             attributes=[
                 ObjectModelPlayerAttribute(
                     attributeName=name,
@@ -376,6 +567,17 @@ class SquadModelService:
                 for name in traits
             ],
         )
+
+    @staticmethod
+    def _correctedPlayerFind(
+        candidates: tuple[ObjectModelPlayer, ...], evidence: Player | ExtractedPlayer
+    ) -> ObjectModelPlayer | None:
+        """Return one unambiguous manual identity matching refreshed OCR evidence."""
+
+        matches = [
+            candidate for candidate in candidates if playerEvidenceMatches(candidate, evidence)
+        ]
+        return matches[0] if len(matches) == 1 else None
 
     ## persistence mapping
 
@@ -410,11 +612,15 @@ class SquadModelService:
                     validationState=player.validationState,
                     attributes=tuple(
                         (attribute.attributeName, attribute.attributeValue)
-                        for attribute in sorted(player.attributes, key=lambda item: item.attributeName)
+                        for attribute in sorted(
+                            player.attributes, key=lambda item: item.attributeName
+                        )
                     ),
                     traits=tuple(
                         trait.traitName
-                        for trait in sorted(player.traits, key=lambda item: item.traitName.casefold())
+                        for trait in sorted(
+                            player.traits, key=lambda item: item.traitName.casefold()
+                        )
                     ),
                 )
                 for player in sorted(stored.players, key=lambda item: item.name.casefold())
@@ -424,7 +630,9 @@ class SquadModelService:
             evidenceSuperseded=bool(
                 stored.sourceSquad
                 and stored.sourceSquad.screenshots
-                and all(capture.supersededAt is not None for capture in stored.sourceSquad.screenshots)
+                and all(
+                    capture.supersededAt is not None for capture in stored.sourceSquad.screenshots
+                )
             ),
             regenerationRequired=bool(
                 sourceImportIds

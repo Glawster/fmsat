@@ -81,7 +81,9 @@ def roleAssessmentIntegrityCheck(
             elif weights:
                 unweightedKeys = sorted(set(keyAttributes) - set(weights))
                 if unweightedKeys:
-                    roleIssues.append("key attributes without weights: " + ", ".join(unweightedKeys))
+                    roleIssues.append(
+                        "key attributes without weights: " + ", ".join(unweightedKeys)
+                    )
 
         if roleIssues:
             incomplete.add(roleCode)

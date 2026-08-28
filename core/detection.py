@@ -63,12 +63,16 @@ class KeywordScreenDetector(ScreenDetector):
         )
         roleProfileWords = self.keywords.get(ScreenType.ROLE_PROFILE, set())
         headerText = " ".join(result.text for result in headerResults).casefold()
-        if roleProfileWords and "player roles" in headerText and (
-            "in possession role" in headerText or "out of possession role" in headerText
+        if (
+            roleProfileWords
+            and "player roles" in headerText
+            and ("in possession role" in headerText or "out of possession role" in headerText)
         ):
             return ScreenType.ROLE_PROFILE
-        if roleProfileWords and {"key", "attributes"}.issubset(recognized) and (
-            "ability" in recognized or "instructions" in recognized
+        if (
+            roleProfileWords
+            and {"key", "attributes"}.issubset(recognized)
+            and ("ability" in recognized or "instructions" in recognized)
         ):
             return ScreenType.ROLE_PROFILE
         keywordUseCount = {

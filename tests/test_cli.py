@@ -14,7 +14,6 @@ def testCliNoArgumentsShowsHelp(capsys) -> None:  # type: ignore[no-untyped-def]
 
 
 def testCliTacticPathCanBeStoredAsDefault(
-
     tmp_path: Path,
     monkeypatch,  # type: ignore[no-untyped-def]
     capsys,  # type: ignore[no-untyped-def]
@@ -32,7 +31,6 @@ def testCliTacticPathCanBeStoredAsDefault(
 
 
 def testCliInspectUsesConfiguredTactic(
-
     tmp_path: Path,
     monkeypatch,  # type: ignore[no-untyped-def]
     capsys,  # type: ignore[no-untyped-def]
@@ -51,7 +49,6 @@ def testCliInspectUsesConfiguredTactic(
 
 
 def testCliSaveStoresTacticWhileRunningAction(
-
     tmp_path: Path,
     monkeypatch,  # type: ignore[no-untyped-def]
     capsys,  # type: ignore[no-untyped-def]
@@ -84,7 +81,6 @@ def testCliCompareUsesFlagLedWorkflow(tmp_path: Path, capsys) -> None:  # type: 
 
 
 def testCliRejectsMixedTacticAndUnityModes(
-
     tmp_path: Path,
     capsys,  # type: ignore[no-untyped-def]
 ) -> None:

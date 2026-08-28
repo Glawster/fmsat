@@ -13,19 +13,19 @@ from fmsat.database.tacticNaming import TacticRenameError, tacticRename
 def testTacticRenameKeepsScreenshotIdentityAndRenamesLinkedModel(tmp_path) -> None:
     database = Database(tmp_path / "rename.sqlite3")
     database.initialize()
-    imported = database.tacticImportSave(
-        "formation.png", ScreenType.TACTIC_FORMATION, "Old Name"
-    )
+    imported = database.tacticImportSave("formation.png", ScreenType.TACTIC_FORMATION, "Old Name")
     with Session(database.engine) as session, session.begin():
         tactic = session.scalar(select(Tactic).where(Tactic.name == "Old Name"))
         assert tactic is not None
         tacticID = tactic.id
-        session.add(ObjectModelTactic(
-            name="Old Name",
-            normalizedName="old name",
-            sourceTacticId=tactic.id,
-            sourceImportSessionId=imported.id,
-        ))
+        session.add(
+            ObjectModelTactic(
+                name="Old Name",
+                normalizedName="old name",
+                sourceTacticId=tactic.id,
+                sourceImportSessionId=imported.id,
+            )
+        )
 
     assert tacticRename(database.engine, "Old Name", "New Name") == "New Name"
 

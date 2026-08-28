@@ -7,11 +7,8 @@ from dataclasses import dataclass, field
 from fmsat.core.builder.tacticBuilder import TacticBuildIssue, TacticBuilder
 from fmsat.database.models import (
     ObjectModelFormation,
-    ObjectModelFormationInstruction,
     ObjectModelPosition,
-    ObjectModelPositionInstruction,
     ObjectModelTactic,
-    ObjectModelTransitionInstruction,
     ScreenshotDerivedTacticDefinition,
     Tactic as DatabaseTactic,
 )
@@ -131,9 +128,7 @@ class TacticModelLoader:
                 source="objectModel",
                 issues=self._structuredIssues(objectModel.sourceTactic),
                 complete=(sourceDefinition.complete if sourceDefinition is not None else True),
-                confirmed=(
-                    sourceDefinition.confirmed if sourceDefinition is not None else True
-                ),
+                confirmed=(sourceDefinition.confirmed if sourceDefinition is not None else True),
                 metadata=structuredMetadata,
                 # The saved object model is authoritative for its formation.
                 # Latest extraction issues may be newer, but partial structured
@@ -162,10 +157,7 @@ class TacticModelLoader:
         if source is None or not source.screenshots:
             return False
         latestImportId = max(capture.importSessionId for capture in source.screenshots)
-        return (
-            model.sourceImportSessionId is None
-            or latestImportId > model.sourceImportSessionId
-        )
+        return model.sourceImportSessionId is None or latestImportId > model.sourceImportSessionId
 
     @staticmethod
     def _structuredIssues(tactic: DatabaseTactic | None) -> tuple[TacticBuildIssue, ...]:
@@ -180,11 +172,20 @@ class TacticModelLoader:
 
     ## mapping
 
-    def _formationFromObjectModel(self, model: ObjectModelFormation) -> Formation:
+    def _formationFromObjectModel(
+        self,
+        model: ObjectModelFormation,
+        slotIds: dict[int, str] | None = None,
+    ) -> Formation:
         """Map one persisted object-model phase into one Formation object."""
 
+        slotIds = slotIds or {}
+
         positions = [
-            self._positionFromObjectModel(position)
+            self._positionFromObjectModel(
+                position,
+                slotIds.get(position.ordinal),
+            )
             for position in sorted(model.positions, key=lambda item: item.ordinal)
         ]
         return Formation(
@@ -207,7 +208,40 @@ class TacticModelLoader:
             instructionSet[instruction] = value
         return instructionSet
 
-    def _positionFromObjectModel(self, model: ObjectModelPosition) -> Position:
+    @staticmethod
+    def _structuredSlotIdsByPhase(
+        sourceTactic: DatabaseTactic | None,
+    ) -> dict[str, dict[int, str]]:
+        """Recover slot IDs for legacy object-model rows from structured evidence."""
+
+        if sourceTactic is None or sourceTactic.structuredDefinition is None:
+            return {}
+
+        result: dict[str, dict[int, str]] = {}
+
+        for slot in sourceTactic.structuredDefinition.slots:
+            if slot.phase not in {"inPossession", "outOfPossession"}:
+                continue
+
+            # Historic clean-room captures use slot-01 through slot-11. Their
+            # suffix is the persisted object-model ordinal plus one.
+            try:
+                prefix, suffix = slot.slotId.rsplit("-", 1)
+                ordinal = int(suffix) - 1
+            except ValueError:
+                continue
+            if prefix != "slot" or ordinal < 0:
+                continue
+
+            result.setdefault(slot.phase, {})[ordinal] = slot.slotId
+
+        return result
+
+    def _positionFromObjectModel(
+        self,
+        model: ObjectModelPosition,
+        fallbackSlotId: str | None = None,
+    ) -> Position:
         """Map one persisted object-model position into one Position object."""
 
         identity = PositionIdentity(model.positionIdentity)
@@ -223,7 +257,9 @@ class TacticModelLoader:
             canonicalPosition=model.canonicalPosition or model.positionIdentity,
             canonicalRole=model.canonicalRole,
             instructions=self._instructionSetBuild(model.instructions),
-            slotId=model.slotId,
+            # Current structured extraction owns cross-phase slot linkage. A
+            # stored object-model ID is retained only when that evidence is absent.
+            slotId=fallbackSlotId or model.slotId,
             duty=model.duty,
             x=model.x,
             y=model.y,
@@ -248,10 +284,17 @@ class TacticModelLoader:
                 outOfPossession=Formation(name="outOfPossession", positions=[]),
                 transition=Transition(),
             )
+        slotIds = self._structuredSlotIdsByPhase(model.sourceTactic)
         return Tactic(
             name=model.name,
-            inPossession=self._formationFromObjectModel(inPossession),
-            outOfPossession=self._formationFromObjectModel(outOfPossession),
+            inPossession=self._formationFromObjectModel(
+                inPossession,
+                slotIds.get("inPossession"),
+            ),
+            outOfPossession=self._formationFromObjectModel(
+                outOfPossession,
+                slotIds.get("outOfPossession"),
+            ),
             transition=Transition(
                 instructions=self._instructionSetBuild(model.transitionInstructions)
             ),

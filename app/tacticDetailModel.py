@@ -34,3 +34,4 @@ class TacticDetailModel:
     summaryItems: tuple[tuple[str, str], ...]
     notes: str
     instructionGroups: tuple[tuple[str, tuple[tuple[str, str], ...]], ...]
+    assignedSquadNames: tuple[str, ...] = ()

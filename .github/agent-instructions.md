@@ -1,4 +1,4 @@
-<!-- deployed from Glawster/organiseMyProjects release 0.4 -- do not edit directly -->
+<!-- deployed from Glawster/organiseMyProjects release 0.5 -- do not edit directly -->
 # Agent Instructions -- Master Development Guidelines (v2)
 
 ## Table of Contents
@@ -22,6 +22,11 @@
 ## Overview
 
 These are master development guidelines for all projects.
+
+Read `documentation/requirementsManagement.md`.
+Read `documentation/repositoryLayout.md` before adding or moving repository content.
+Read `documentation/testingProcess.md` before planning or reviewing tests.
+Read `documentation/howToRelease.md` before planning or reviewing releases.
 
 Project-specific details belong in:
 
@@ -288,7 +293,7 @@ class Example:
 ## Project Structure Standard
 
 Before adding or moving repository content, read the repository layout
-definition at `.github/repositoryLayout.md`. That document is authoritative
+definition at `documentation/repositoryLayout.md`. That document is authoritative
 for project-specific directory and file placement. This file remains
 authoritative for universal development and safety rules.
 Repository-specific layout exceptions belong in
@@ -822,6 +827,9 @@ Rules:
 
 ## Testing Standards
 
+- Follow `documentation/testingProcess.md` as the authoritative testing process.\
+- Name Python test modules `test_camelCaseName.py`; pytest discovery must use
+  `python_files = test_[a-z]*.py`.\
 - Core logic \>90% coverage\
 - Critical functions 100% coverage\
 - Use Arrange--Act--Assert\
@@ -842,6 +850,37 @@ Refactor when:
 - Class \> 300 lines\
 - Nesting \> 3 levels\
 - Repeated logic appears twice
+
+## Development Status and Documentation Ownership
+
+Status has one owner. Requirements describe obligations, design documentation
+describes behaviour, and Git records delivery history.
+`project/currentIncrement.md` alone records transient implementation status.
+
+When implementing or completing an increment, update
+`project/currentIncrement.md` with the active increment, objective, scope,
+acceptance work, verification still required and immediate next action. Replace
+the previous increment's transient detail when the next increment starts; do
+not turn the file into a running delivery history.
+
+Do not propagate implementation-status statements into requirements, README
+files, ADRs or design documentation unless the work changes the durable truth
+that document is responsible for describing:
+
+- requirements record durable obligations and acceptance criteria; supported
+  lifecycle metadata such as `ToDo`, `InProgress` and `Completed` may remain;
+- ADRs record architectural decisions and rationale;
+- `documentation/` describes durable implemented behaviour and changes when
+  that behaviour or design changes;
+- `README.md` provides a stable introduction, capabilities and navigation, and
+  changes for meaningful durable capability or release changes where useful;
+- tests provide executable acceptance and regression evidence; and
+- commits, pull requests, tags and releases record what was delivered and when.
+
+For example, an algorithm behaviour change updates its durable design guide; a
+requirement scope change updates the requirement; completing one increment and
+starting another updates `project/currentIncrement.md` and relies on Git for
+the delivery history.
 
 ## Common Principles to Always Follow
 

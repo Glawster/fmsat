@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import yaml
 
@@ -20,6 +21,65 @@ class AttributeDefinition:
     name: str
     abbreviation: str
     order: int
+    active: bool = True
+
+
+class AttributeConfigurationService:
+    """Persist whether configured FM attributes participate in FMSAT."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path.resolve()
+
+    def definitionsLoad(self) -> tuple[AttributeDefinition, ...]:
+        """Return all configured attributes, including currently inactive ones."""
+
+        try:
+            data = yaml.safe_load(self.path.read_text(encoding="utf-8")) or {}
+        except (OSError, yaml.YAMLError) as exc:
+            raise ConfigurationError(f"Unable to load {self.path}: {exc}") from exc
+        rawAttributes = data.get("attributes") if isinstance(data, dict) else None
+        if not isinstance(rawAttributes, dict):
+            raise ConfigurationError("attributes.yaml must contain an attributes mapping")
+        return tuple(
+            sorted(
+                (
+                    AttributeDefinition(
+                        name=str(name),
+                        abbreviation=str(values["abbreviation"]),
+                        order=int(values["order"]),
+                        active=bool(values.get("active", True)),
+                    )
+                    for name, values in rawAttributes.items()
+                    if isinstance(values, dict)
+                ),
+                key=lambda item: item.order,
+            )
+        )
+
+    def activeSet(self, attributeName: str, active: bool) -> tuple[AttributeDefinition, ...]:
+        """Atomically toggle one attribute without disturbing its other configuration."""
+
+        try:
+            data = yaml.safe_load(self.path.read_text(encoding="utf-8")) or {}
+        except (OSError, yaml.YAMLError) as exc:
+            raise ConfigurationError(f"Unable to load {self.path}: {exc}") from exc
+        rawAttributes = data.get("attributes") if isinstance(data, dict) else None
+        if not isinstance(rawAttributes, dict):
+            raise ConfigurationError("attributes.yaml must contain an attributes mapping")
+        values = rawAttributes.get(attributeName)
+        if not isinstance(values, dict):
+            raise ConfigurationError(f"Unknown configured attribute: {attributeName}")
+        values["active"] = bool(active)
+
+        temporary = self.path.parent / f".{self.path.name}-{uuid4().hex}.tmp"
+        try:
+            with temporary.open("x", encoding="utf-8") as stream:
+                yaml.safe_dump(data, stream, sort_keys=False, allow_unicode=False)
+            temporary.replace(self.path)
+        except OSError as exc:
+            temporary.unlink(missing_ok=True)
+            raise ConfigurationError(f"Unable to save {self.path}: {exc}") from exc
+        return self.definitionsLoad()
 
 
 class Configuration:
@@ -31,23 +91,14 @@ class Configuration:
         self.regions = self._yamlLoad("regions.yaml")
         self.tacticExtraction = self._yamlLoad("tacticExtraction.yaml")
         self.roleAssessment = self._yamlLoad("roleAssessment.yaml")
-        attributeData = self._yamlLoad("attributes.yaml")
-        rawAttributes = attributeData.get("attributes", {})
-        if not isinstance(rawAttributes, dict):
-            raise ConfigurationError("attributes.yaml must contain an attributes mapping")
-        self.attributes = tuple(
-            sorted(
-                (
-                    AttributeDefinition(
-                        name=name,
-                        abbreviation=str(values["abbreviation"]),
-                        order=int(values["order"]),
-                    )
-                    for name, values in rawAttributes.items()
-                ),
-                key=lambda item: item.order,
-            )
-        )
+        self.attributeService = AttributeConfigurationService(self.directory / "attributes.yaml")
+        self.attributes = self.attributeService.definitionsLoad()
+
+    @property
+    def activeAttributes(self) -> tuple[AttributeDefinition, ...]:
+        """Return only attributes currently participating in normal FMSAT workflows."""
+
+        return tuple(attribute for attribute in self.attributes if attribute.active)
 
     def confidenceThreshold(self) -> float:
         """Return the row confidence threshold as a value between zero and one."""
@@ -73,14 +124,13 @@ class Configuration:
         return result
 
     def roleAssessmentWeights(self) -> dict[str, dict[str, int]]:
-        """Return validated Generic Role Fit weights by assessable semantic role code.
+        """Return validated 0-10 Generic Role Fit weights by semantic role code."""
 
-        Tactical vocabulary can contain recognition-only roles observed in FM screenshots
-        before FMSAT has an explicit assessment policy for them. Such roles must still
-        normalize correctly during tactic regeneration, but Generic Role Fit remains
-        unavailable until a policy is deliberately added. Set ``assessmentRequired: false``
-        on those vocabulary entries; every other canonical role must retain complete weights.
-        """
+        scale = self.roleAssessment.get("weightScale")
+        if scale != {"minimum": 0, "maximum": 10}:
+            raise ConfigurationError(
+                "roleAssessment.yaml must declare weightScale minimum 0 and maximum 10"
+            )
 
         roles = self.roleAssessment.get("roles")
         if not isinstance(roles, dict):
@@ -96,7 +146,8 @@ class Configuration:
         assessableCodes = {
             str(roleCode)
             for roleCode, roleData in canonicalRoles.items()
-            if not isinstance(roleData, dict) or roleData.get("assessmentRequired", True) is not False
+            if not isinstance(roleData, dict)
+            or roleData.get("assessmentRequired", True) is not False
         }
         missingRoles = sorted(assessableCodes - configuredCodes)
         unknownRoles = sorted(configuredCodes - canonicalCodes)
@@ -117,7 +168,7 @@ class Configuration:
             invalid = {
                 name: value
                 for name, value in weights.items()
-                if not isinstance(value, int) or not 1 <= value <= 5
+                if not isinstance(value, int) or not 0 <= value <= 10
             }
             if unknown or invalid:
                 raise ConfigurationError(

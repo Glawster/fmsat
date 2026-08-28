@@ -34,7 +34,7 @@ class TacticLayoutAnchor(_BaseTacticLayoutAnchor):
         settings = self.configuration.get("anchors", {})
         top = int(height * float(settings.get("tabBandYMin", 0.08)))
         bottom = int(height * float(settings.get("tabBandYMax", 0.24)))
-        band = panel[max(0, top):min(height, bottom)]
+        band = panel[max(0, top) : min(height, bottom)]
         if band.size == 0:
             return None
 
@@ -65,8 +65,4 @@ class TacticLayoutAnchor(_BaseTacticLayoutAnchor):
             return None
         center = max(candidates)[1] / max(1, width)
         split = float(settings.get("instructionTabSplit", 0.18))
-        return (
-            TacticalPhase.IN_POSSESSION
-            if center < split
-            else TacticalPhase.OUT_OF_POSSESSION
-        )
+        return TacticalPhase.IN_POSSESSION if center < split else TacticalPhase.OUT_OF_POSSESSION

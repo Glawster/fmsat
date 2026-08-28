@@ -22,19 +22,14 @@ def _knowledge(weights, definitions=()):
 def testIntegrityReportIdentifiesKnownRoleWithoutWeights() -> None:
     vocabulary = TacticVocabulary()
     missingRole = next(iter(vocabulary.roles))
-    weights = {
-        roleCode: {"pace": 5}
-        for roleCode in vocabulary.roles
-        if roleCode != missingRole
-    }
+    weights = {roleCode: {"pace": 5} for roleCode in vocabulary.roles if roleCode != missingRole}
 
     result = roleAssessmentIntegrityCheck(vocabulary, _knowledge(weights))
 
     assert result.knownRoles == len(vocabulary.roles)
     assert result.completeRoles == len(vocabulary.roles) - 1
     assert any(
-        issue.startswith(missingRole)
-        and "assessment weights MISSING" in issue
+        issue.startswith(missingRole) and "assessment weights MISSING" in issue
         for issue in result.issues
     )
 

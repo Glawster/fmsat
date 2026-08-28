@@ -59,7 +59,6 @@ class BestXiAssignment:
 class _State:
     totalScore: float
     weakestScore: float
-    familiarCount: int
     assignments: tuple[str | None, ...]
     scores: tuple[float | None, ...]
 
@@ -67,46 +66,34 @@ class _State:
 class BestXiAssignmentService:
     """Choose the strongest whole XI rather than greedily filling slots in order."""
 
-    _UNAVAILABLE_ROLE_LABELS = {
-        "",
-        "—",
-        "unavailable",
-        "unknown",
-        "unknown role",
-        "unknown abbreviation",
-    }
-
     def assignmentBuild(
         self,
         requiredSlots: Iterable[object],
         roles: Iterable[object],
     ) -> BestXiAssignment:
-        """Optimise coverage, total fit, weakest fit, familiarity, then stable identity.
+        """Optimise coverage, total fit, weakest fit, then stable identity.
+
+        Candidate eligibility is established before optimisation: a player must
+        have captured familiarity with the tactic slot's position family.  Generic
+        Role Fit alone is deliberately not evidence that the player can reasonably
+        be fielded there now.
 
         Objective priority is deliberately lexicographic:
 
         1. maximise covered simultaneous tactic slots;
         2. maximise summed slot Generic Role Fit;
         3. maximise the weakest selected slot fit;
-        4. maximise familiar-position selections;
-        5. use deterministic alphabetical assignment as the final tie-break.
+        4. use deterministic alphabetical assignment as the final tie-break.
 
         One player can be assigned to at most one simultaneous slot.
         """
 
         slots = tuple(requiredSlots)
         roleCatalogue = tuple(roles)
-        slotCandidates = tuple(
-            self._slotCandidates(slot, roleCatalogue)
-            for slot in slots
-        )
+        slotCandidates = tuple(self._slotCandidates(slot, roleCatalogue) for slot in slots)
         evidenceAvailable = any(slotCandidates)
         playerNames = sorted(
-            {
-                candidate.playerName
-                for candidates in slotCandidates
-                for candidate in candidates
-            },
+            {candidate.playerName for candidates in slotCandidates for candidate in candidates},
             key=str.casefold,
         )
         byPlayerSlot = {
@@ -118,9 +105,7 @@ class BestXiAssignmentService:
         slotCount = len(slots)
         emptyAssignments: tuple[str | None, ...] = (None,) * slotCount
         emptyScores: tuple[float | None, ...] = (None,) * slotCount
-        states: dict[int, _State] = {
-            0: _State(0.0, inf, 0, emptyAssignments, emptyScores)
-        }
+        states: dict[int, _State] = {0: _State(0.0, inf, emptyAssignments, emptyScores)}
 
         for playerName in playerNames:
             playerKey = playerName.casefold()
@@ -139,7 +124,6 @@ class BestXiAssignmentService:
                     proposed = _State(
                         totalScore=round(state.totalScore + candidate.score, 6),
                         weakestScore=min(state.weakestScore, candidate.score),
-                        familiarCount=state.familiarCount + int(candidate.familiar),
                         assignments=tuple(assignments),
                         scores=tuple(scores),
                     )
@@ -153,9 +137,7 @@ class BestXiAssignmentService:
             if mask.bit_count() > bestMask.bit_count():
                 bestMask, bestState = mask, state
                 continue
-            if mask.bit_count() == bestMask.bit_count() and self._stateBetter(
-                state, bestState
-            ):
+            if mask.bit_count() == bestMask.bit_count() and self._stateBetter(state, bestState):
                 bestMask, bestState = mask, state
 
         covered = bestMask.bit_count()
@@ -205,15 +187,19 @@ class BestXiAssignmentService:
         roles: tuple[object, ...],
     ) -> tuple[BestXiSlotCandidate, ...]:
         requirements = []
-        for phase, attribute in (("IP", "ipRole"), ("OOP", "oopRole")):
-            label = str(getattr(slot, attribute, "") or "").strip()
-            if label.casefold() in self._UNAVAILABLE_ROLE_LABELS:
-                continue
-            role = self._roleResolve(label, phase, roles)
+        for phase, labelAttribute, codeAttribute in (
+            ("IP", "ipRole", "ipRoleCode"),
+            ("OOP", "oopRole", "oopRoleCode"),
+        ):
+            label = str(getattr(slot, labelAttribute, "") or "").strip()
+            roleCode = str(getattr(slot, codeAttribute, "") or "").strip()
+            role = self._roleResolveByCode(roleCode, phase, roles) if roleCode else None
             if role is None:
+                # A slot is indivisible evidence: never optimise from the phase
+                # that happened to resolve while silently dropping the other.
                 return ()
-            requirements.append((phase, label, role))
-        if not requirements:
+            requirements.append((phase, label or roleCode, role))
+        if len(requirements) != 2:
             return ()
 
         candidateMaps = []
@@ -254,6 +240,12 @@ class BestXiAssignmentService:
             slotScore = round(sum(scores) / len(scores), 1)
             capturedFamilies = playerPositionFamilies(capturedPositions)
             familiar = requiredFamily is not None and requiredFamily in capturedFamilies
+            # Best XI is a current deployability judgement, so position-family
+            # evidence has authority over an otherwise strong Generic Role Fit.
+            # Unfamiliar candidates remain available to role-depth and future
+            # retraining-opportunity analysis; only Best XI excludes them.
+            if not familiar:
+                continue
             results.append(
                 BestXiSlotCandidate(
                     playerName=playerName,
@@ -267,7 +259,6 @@ class BestXiAssignmentService:
                 results,
                 key=lambda candidate: (
                     -candidate.score,
-                    not candidate.familiar,
                     candidate.playerName.casefold(),
                 ),
             )
@@ -305,7 +296,8 @@ class BestXiAssignmentService:
         matches = [
             role
             for role in roles
-            if cls._phaseMatches(role, phase)
+            if cls._isAssignableRole(role)
+            and cls._phaseMatches(role, phase)
             and folded
             in {
                 str(getattr(role, "abbreviation", "") or "").casefold(),
@@ -317,6 +309,34 @@ class BestXiAssignmentService:
             return None
         return matches[0]
 
+    @classmethod
+    def _roleResolveByCode(
+        cls,
+        roleCode: str,
+        phase: str,
+        roles: tuple[object, ...],
+    ) -> object | None:
+        """Resolve one tactic slot by durable roleCode, ignoring unresolved placeholders."""
+
+        folded = roleCode.casefold()
+        matches = [
+            role
+            for role in roles
+            if cls._isAssignableRole(role)
+            and cls._phaseMatches(role, phase)
+            and str(getattr(role, "roleCode", "") or "").casefold() == folded
+        ]
+        if len(matches) != 1:
+            return None
+        return matches[0]
+
+    @staticmethod
+    def _isAssignableRole(role: object) -> bool:
+        """Exclude unresolved placeholder rows that only exist for Role Editor workflow."""
+
+        state = str(getattr(role, "resolutionState", "ready") or "ready").casefold()
+        return state not in {"unknownrole", "unknown_role"}
+
     @staticmethod
     def _stateBetter(proposed: _State, existing: _State | None) -> bool:
         if existing is None:
@@ -324,21 +344,15 @@ class BestXiAssignmentService:
         proposedObjective = (
             proposed.totalScore,
             proposed.weakestScore,
-            proposed.familiarCount,
         )
         existingObjective = (
             existing.totalScore,
             existing.weakestScore,
-            existing.familiarCount,
         )
         if proposedObjective != existingObjective:
             return proposedObjective > existingObjective
-        proposedKey = tuple(
-            (value or "\uffff").casefold() for value in proposed.assignments
-        )
-        existingKey = tuple(
-            (value or "\uffff").casefold() for value in existing.assignments
-        )
+        proposedKey = tuple((value or "\uffff").casefold() for value in proposed.assignments)
+        existingKey = tuple((value or "\uffff").casefold() for value in existing.assignments)
         return proposedKey < existingKey
 
     @staticmethod
@@ -376,11 +390,5 @@ class BestXiAssignmentService:
                         f"{localBest.playerName} scores higher locally at {localBest.score:.1f}, "
                         "but the whole-XI objective favours this assignment."
                     )
-        if selected.familiar:
-            parts.append("Captured positional evidence covers this slot family.")
-        else:
-            parts.append(
-                "Captured positional evidence does not cover this slot family; positional "
-                "training may be required."
-            )
+        parts.append("Captured positional evidence covers this slot family.")
         return " ".join(parts)

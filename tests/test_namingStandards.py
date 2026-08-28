@@ -22,6 +22,8 @@ testFilePattern = re.compile(r"test_[a-zA-Z]+\.py")
 def _hasInternalUnderscore(identifier: str) -> bool:
     if identifier.startswith("__") and identifier.endswith("__"):
         return False
+    if re.fullmatch(r"[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*", identifier):
+        return False
     return "_" in identifier.lstrip("_")
 
 

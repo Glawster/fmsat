@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 import re
 import unicodedata
@@ -15,7 +14,6 @@ from fmsat.core.config import Configuration
 from fmsat.core.ocr import PaddleOcrEngine
 from fmsat.core.parser import SquadAttributesParser
 
-
 _FIXTURE_PATH = Path(__file__).parent / "fixtures" / "squads" / "bristolWomen.yaml"
 _SCREENSHOT_ROOT = Path(__file__).parent / "screenshots" / "squads" / "bristolWomen"
 _SCREENSHOTS = ("squad1.png", "squad2.png", "squad3.png", "squad4.png", "goalkeeper.png")
@@ -27,17 +25,13 @@ def _fixtureLoad() -> dict:
     return content
 
 
-def _ocrEnabled() -> bool:
-    return os.environ.get("FMSAT_OCR_FIXTURES", "").strip() == "1"
-
-
 @pytest.fixture(scope="module")
 def squadOcrParser() -> SquadAttributesParser:
     configuration = Configuration()
     return SquadAttributesParser(
         PaddleOcrEngine(),
         configuration.regions,
-        configuration.attributes,
+        configuration.activeAttributes,
     )
 
 
@@ -106,9 +100,7 @@ def _expectedNameResolve(fixture: dict, actualName: str, ca: str, pa: str) -> st
     matches = [
         name
         for name, values in fixture["players"].items()
-        if _nameEquivalent(actualName, name)
-        and str(values["ca"]) == ca
-        and str(values["pa"]) == pa
+        if _nameEquivalent(actualName, name) and str(values["ca"]) == ca and str(values["pa"]) == pa
     ]
     assert len(matches) == 1, f"Unable to resolve OCR player identity: {actualName!r}"
     return str(matches[0])
@@ -123,9 +115,7 @@ def _attributeDifferences(
         actualValue = actual.get(attribute, "<missing>")
         expectedValue = expected.get(attribute, "<not expected>")
         if actualValue != expectedValue:
-            differences.append(
-                f"{attribute}: expected={expectedValue!r} actual={actualValue!r}"
-            )
+            differences.append(f"{attribute}: expected={expectedValue!r} actual={actualValue!r}")
     return differences
 
 
@@ -139,7 +129,7 @@ def testBristolWomenFixtureContainsCanonicalScreenshots() -> None:
 
 def testBristolWomenFixtureCoversConfiguredSquadAttributes() -> None:
     fixture = _fixtureLoad()
-    configured = {attribute.name for attribute in Configuration().attributes}
+    configured = {attribute.name for attribute in Configuration().activeAttributes}
     represented = {
         str(column)
         for columnSet in fixture["columnSets"].values()
@@ -178,10 +168,7 @@ def testBristolWomenFixtureDefinesThirtyEightDistinctPlayersAndFourGoalkeepers()
 
 
 @pytest.mark.parametrize("screenshotName", _SCREENSHOTS)
-@pytest.mark.skipif(
-    not _ocrEnabled(),
-    reason="Set FMSAT_OCR_FIXTURES=1 to run real PaddleOCR screenshot regressions",
-)
+@pytest.mark.expensive
 def testBristolWomenScreenshotOcrMatchesReviewedTruth(
     screenshotName: str,
     squadOcrParser: SquadAttributesParser,
@@ -228,13 +215,9 @@ def testBristolWomenScreenshotOcrMatchesReviewedTruth(
                 f"{expectedName} positions: expected={expected['positions']!r} actual={actual.positions!r}"
             )
         if actual.ca != str(expected["ca"]):
-            rowErrors.append(
-                f"{expectedName} CA: expected={expected['ca']!r} actual={actual.ca!r}"
-            )
+            rowErrors.append(f"{expectedName} CA: expected={expected['ca']!r} actual={actual.ca!r}")
         if actual.pa != str(expected["pa"]):
-            rowErrors.append(
-                f"{expectedName} PA: expected={expected['pa']!r} actual={actual.pa!r}"
-            )
+            rowErrors.append(f"{expectedName} PA: expected={expected['pa']!r} actual={actual.pa!r}")
         expectedAttributes = _expectedAttributes(fixture, expectedName, columnSet)
         for difference in _attributeDifferences(actual.attributes, expectedAttributes):
             rowErrors.append(f"{expectedName} {difference}")
@@ -243,10 +226,7 @@ def testBristolWomenScreenshotOcrMatchesReviewedTruth(
         pytest.fail(f"{screenshotName} OCR mismatches:\n" + "\n".join(rowErrors))
 
 
-@pytest.mark.skipif(
-    not _ocrEnabled(),
-    reason="Set FMSAT_OCR_FIXTURES=1 to run real PaddleOCR screenshot regressions",
-)
+@pytest.mark.expensive
 def testBristolWomenFourSquadPagesMergeToReviewedThirtyEightPlayers(
     squadOcrParser: SquadAttributesParser,
 ) -> None:

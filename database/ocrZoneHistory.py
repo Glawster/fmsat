@@ -26,7 +26,6 @@ from fmsat.core.ocrZoneHistory import (
     OcrZoneGeometry,
 )
 
-
 metadata = MetaData()
 observations = Table(
     "ocr_zone_observations",
@@ -73,12 +72,14 @@ class OcrZoneHistoryStore:
 
         statement = (
             select(observations)
-            .where(and_(
-                observations.c.screen_type == screenType,
-                observations.c.layout_profile == layoutProfile,
-                observations.c.zone_name == zoneName,
-                observations.c.accepted_baseline.is_(True),
-            ))
+            .where(
+                and_(
+                    observations.c.screen_type == screenType,
+                    observations.c.layout_profile == layoutProfile,
+                    observations.c.zone_name == zoneName,
+                    observations.c.accepted_baseline.is_(True),
+                )
+            )
             .order_by(observations.c.observed_at, observations.c.id)
         )
         with self.engine.connect() as connection:
@@ -136,16 +137,18 @@ class OcrZoneHistoryStore:
         """Append an observation without deleting previous geometry evidence."""
 
         with self.engine.begin() as connection:
-            connection.execute(insert(observations).values(
-                observed_at=datetime.now(),
-                source_import_session_id=sourceImportSessionId,
-                screen_type=screenType,
-                layout_profile=layoutProfile,
-                zone_name=zoneName,
-                x=geometry.x,
-                y=geometry.y,
-                width=geometry.width,
-                height=geometry.height,
-                classification=classification,
-                accepted_baseline=acceptedBaseline,
-            ))
+            connection.execute(
+                insert(observations).values(
+                    observed_at=datetime.now(),
+                    source_import_session_id=sourceImportSessionId,
+                    screen_type=screenType,
+                    layout_profile=layoutProfile,
+                    zone_name=zoneName,
+                    x=geometry.x,
+                    y=geometry.y,
+                    width=geometry.width,
+                    height=geometry.height,
+                    classification=classification,
+                    accepted_baseline=acceptedBaseline,
+                )
+            )

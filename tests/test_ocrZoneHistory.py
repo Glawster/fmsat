@@ -80,9 +80,7 @@ def testAnomalousObservationIsRetainedButNeverLearnsBaseline() -> None:
     )
 
     assert anomaly.state == "anomalous"
-    history = store.history(
-        "tactic-in-possession", "instructionModal", "instructionPanel"
-    )
+    history = store.history("tactic-in-possession", "instructionModal", "instructionPanel")
     assert len(history) == 5
     assert all(item.geometry.x < 0.21 for item in history)
 
@@ -101,9 +99,7 @@ def testUnvalidatedObservationNeverLearnsBaseline() -> None:
         validated=False,
     )
 
-    assert store.history(
-        "tactic-out-of-possession", "instructionModal", "instructionPanel"
-    ) == ()
+    assert store.history("tactic-out-of-possession", "instructionModal", "instructionPanel") == ()
 
 
 def _expectedRegions(
@@ -123,9 +119,7 @@ def testAcceptedTacticGeometryIsAnExplicitRegressionContract() -> None:
     """Moving any known-good normalized zone requires an intentional test update."""
 
     configuration = Configuration().tacticExtraction
-    profiles = {
-        profile["name"]: profile for profile in configuration["phaseRegionProfiles"]
-    }
+    profiles = {profile["name"]: profile for profile in configuration["phaseRegionProfiles"]}
     assert profiles["compactTwoPitch"]["regions"] == {
         "inPossession": {"x": 0.026, "y": 0.227, "width": 0.484, "height": 0.700},
         "outOfPossession": {"x": 0.522, "y": 0.227, "width": 0.474, "height": 0.700},

@@ -115,15 +115,9 @@ class TacticValidationWidget(QFrame):
         self.issueScroll.setObjectName("validationIssueScroll")
         self.issueScroll.setWidgetResizable(True)
         self.issueScroll.setFrameShape(QFrame.Shape.NoFrame)
-        self.issueScroll.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-        )
-        self.issueScroll.setVerticalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAsNeeded
-        )
-        self.issueScroll.setSizeAdjustPolicy(
-            QAbstractScrollArea.SizeAdjustPolicy.AdjustIgnored
-        )
+        self.issueScroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.issueScroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.issueScroll.setSizeAdjustPolicy(QAbstractScrollArea.SizeAdjustPolicy.AdjustIgnored)
         self.issueScroll.setSizePolicy(
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Ignored,
@@ -173,9 +167,7 @@ class TacticValidationWidget(QFrame):
 
         lines = [self.statusLabel.text(), self.detailLabel.text()]
         lines.extend(
-            label.text()
-            for label in self.content.findChildren(QLabel)
-            if label.text().strip()
+            label.text() for label in self.content.findChildren(QLabel) if label.text().strip()
         )
         QApplication.clipboard().setText("\n".join(lines))
         self.copyButton.setText("Copied")

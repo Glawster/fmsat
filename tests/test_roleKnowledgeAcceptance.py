@@ -14,7 +14,6 @@ from fmsat.core.config import AttributeDefinition
 from fmsat.core.parser import RoleProfileEvidence, TacticalPhase, TacticVocabulary
 from fmsat.core.roleKnowledge import RoleKnowledgeService
 
-
 FIXTURE_DIRECTORY = Path(__file__).parent / "fixtures" / "roleKnowledge"
 EXPECTED_ROLE_CODES = {"trackingWinger", "trackingWideMidfielder"}
 

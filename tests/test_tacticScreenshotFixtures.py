@@ -9,7 +9,6 @@ from PySide6.QtWidgets import QTabWidget
 from fmsat.app.tacticDetailModel import DisplaySlot, TacticDetailModel
 from fmsat.app.tacticDetailView import PitchWidget, TacticDetailView
 
-
 _FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "tactics"
 _SCREENSHOT_ROOT = Path(__file__).parent / "screenshots" / "tactics"
 _FIXTURES = ("highPress", "highPress2", "libero1974", "liberoWealdstone")

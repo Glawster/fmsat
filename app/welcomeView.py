@@ -22,13 +22,17 @@ from PySide6.QtWidgets import (
 )
 
 from fmsat.app.colourPalette import (
-    button as buttonColour,
-    buttonBorder,
-    buttonSelected,
+    BUTTON as buttonColour,
+    BUTTON_BORDER as buttonBorder,
+    BUTTON_SELECTED as buttonSelected,
 )
 
 from fmsat.core.parser import TacticVocabulary
 from fmsat.core.roleKnowledge import RoleKnowledgeService
+from fmsat.core.rolePositionCompatibility import (
+    RolePositionFamilyPolicy,
+    capturedRolePositionFamilies,
+)
 from fmsat.database import Database, DatabaseError
 from fmsat.database.records import SquadRecord, TacticRecord
 
@@ -83,9 +87,7 @@ class PositionRoleGroup(QWidget):
         self.summaryButton.setObjectName("positionSummaryButton")
         self.summaryButton.setProperty("position", position)
         roleLabel = "role" if roleCount == 1 else "roles"
-        self.summaryButton.setText(
-            f"{self._positionLabel(position)} — {roleCount} {roleLabel}"
-        )
+        self.summaryButton.setText(f"{position} — {roleCount} {roleLabel}")
         self.summaryButton.setCheckable(True)
         self.summaryButton.setChecked(False)
         self.summaryButton.setArrowType(Qt.ArrowType.NoArrow)
@@ -116,17 +118,6 @@ class PositionRoleGroup(QWidget):
 
         self.summaryButton.toggled.connect(self._expandedSet)
 
-    @staticmethod
-    def _positionLabel(position: str) -> str:
-        """Render a stored position code in familiar Football Manager notation."""
-
-        if position in {"GK", "Unassigned"}:
-            return position
-        match = re.fullmatch(r"(DM|AM|WB|ST|D|M)(CR|CL|C|R|L)", position)
-        if match is None:
-            return position
-        return f"{match.group(1)} ({match.group(2)})"
-
     def _expandedSet(self, expanded: bool) -> None:
         self.rolesContainer.setVisible(expanded)
 
@@ -143,6 +134,16 @@ class WelcomeService:
         self.database = database
         self.tacticVocabulary = tacticVocabulary
         self.roleKnowledgeService = roleKnowledgeService
+        self.positionFamilyPolicy = RolePositionFamilyPolicy.load()
+
+    def rolePositionFamilies(self, role: CapturedRoleSummary) -> tuple[str, ...]:
+        """Resolve catalogue families through the shared compatibility policy."""
+
+        return capturedRolePositionFamilies(
+            role.reference,
+            role.positions,
+            self.positionFamilyPolicy,
+        )
 
     def summariesLoad(
         self,
@@ -343,7 +344,7 @@ class WelcomeView(QWidget):
         try:
             tactics, squads, roles = self.service.summariesLoad()
         except DatabaseError as exc:
-            logger.warning("welcome summaries unavailable: %s", exc)
+            logger.warning(f"welcome summaries unavailable: {exc}")
             error = QLabel(f"Stored data could not be loaded.\n{exc}")
             error.setObjectName("welcomeError")
             error.setWordWrap(True)
@@ -393,15 +394,15 @@ class WelcomeView(QWidget):
             self.rolesLayout.addWidget(empty)
             self.rolesLayout.addStretch()
             return
-        rolesByPosition: dict[str, list[CapturedRoleSummary]] = {}
+        rolesByPosition: dict[str, dict[str, CapturedRoleSummary]] = {}
         for summary in roles:
-            positions = summary.positions or ("Unassigned",)
-            for position in positions:
-                rolesByPosition.setdefault(position, []).append(summary)
+            families = self.service.rolePositionFamilies(summary) or ("Unassigned",)
+            for family in families:
+                rolesByPosition.setdefault(family, {})[summary.reference] = summary
 
         for position in sorted(rolesByPosition, key=self.service.positionSortKey):
             positionRoles = sorted(
-                rolesByPosition[position],
+                rolesByPosition[position].values(),
                 key=lambda summary: summary.displayName.casefold(),
             )
             group = PositionRoleGroup(position, len(positionRoles), self.rolesWidget)
@@ -526,9 +527,8 @@ class WelcomeView(QWidget):
             return
         for record in records:
             detail = f"Formation not recorded · {record.captureCount} captures"
-            needsProcessing = (
-                record.captureCount > 0
-                and not getattr(record, "hasObjectModelData", False)
+            needsProcessing = record.captureCount > 0 and not getattr(
+                record, "hasObjectModelData", False
             )
             self._summaryAdd(
                 record.name,

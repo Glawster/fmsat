@@ -91,8 +91,7 @@ def testPlayersTableUsesConfiguredAttributeAbbreviationsAndWidths(qtbot) -> None
     assert tab.attributeNames == ("Finishing", "Passing", "Vision")
     assert {tab.table.columnWidth(column) for column in range(4, 7)} == {52}
     assert all(
-        tab.table.horizontalHeader().sectionResizeMode(column)
-        is QHeaderView.ResizeMode.Fixed
+        tab.table.horizontalHeader().sectionResizeMode(column) is QHeaderView.ResizeMode.Fixed
         for column in range(4, 7)
     )
     assert tab.table.horizontalHeaderItem(tab.table.columnCount() - 1).text() == "Known Traits"
@@ -110,10 +109,7 @@ def testPlayersTableUsesConfiguredAttributeAbbreviationsAndWidths(qtbot) -> None
         == (Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         for row in range(tab.table.rowCount())
     )
-    assert not (
-        tab.table.item(0, tab.table.columnCount() - 1).flags()
-        & Qt.ItemFlag.ItemIsEditable
-    )
+    assert not (tab.table.item(0, tab.table.columnCount() - 1).flags() & Qt.ItemFlag.ItemIsEditable)
 
 
 def testPlayersTableFiltersRowsByPositionUnitWithoutChangingModel(qtbot) -> None:  # type: ignore[no-untyped-def]
@@ -179,12 +175,15 @@ def testTraitDialogGroupsSearchesAndReviewsSelectedTraits(qtbot) -> None:  # typ
 
     dialog.search.clear()
     dialog.selectedOnly.setChecked(True)
-    assert sum(
-        not parent.child(row).isHidden()
-        for parentIndex in range(dialog.tree.topLevelItemCount())
-        for parent in (dialog.tree.topLevelItem(parentIndex),)
-        for row in range(parent.childCount())
-    ) == 2
+    assert (
+        sum(
+            not parent.child(row).isHidden()
+            for parentIndex in range(dialog.tree.topLevelItemCount())
+            for parent in (dialog.tree.topLevelItem(parentIndex),)
+            for row in range(parent.childCount())
+        )
+        == 2
+    )
 
 
 def testPlayersTableEditsKnownTraitsAsModelValues(qtbot) -> None:  # type: ignore[no-untyped-def]
@@ -227,26 +226,17 @@ def testRolesTablesAreSortableAndFillAvailableWidth(qtbot) -> None:  # type: ign
 
     assert tab.roleTable.isSortingEnabled()
     assert tab.candidateTable.isSortingEnabled()
+    assert tab.roleTable.horizontalHeader().sectionResizeMode(2) is QHeaderView.ResizeMode.Stretch
     assert (
-        tab.roleTable.horizontalHeader().sectionResizeMode(2)
-        is QHeaderView.ResizeMode.Stretch
-    )
-    assert (
-        tab.candidateTable.horizontalHeader().sectionResizeMode(4)
-        is QHeaderView.ResizeMode.Stretch
+        tab.candidateTable.horizontalHeader().sectionResizeMode(4) is QHeaderView.ResizeMode.Stretch
     )
     assert tab.candidateTable.horizontalHeaderItem(3).text() == "Best role"
     assert tab.roleTable.viewport().palette().color(QPalette.ColorRole.Base).name() == "#101f2e"
     assert (
-        tab.candidateTable.viewport().palette().color(QPalette.ColorRole.Base).name()
-        == "#101f2e"
+        tab.candidateTable.viewport().palette().color(QPalette.ColorRole.Base).name() == "#101f2e"
     )
     assert (
-        tab.roleTable.verticalHeader()
-        .viewport()
-        .palette()
-        .color(QPalette.ColorRole.Window)
-        .name()
+        tab.roleTable.verticalHeader().viewport().palette().color(QPalette.ColorRole.Window).name()
         == "#101f2e"
     )
     assert tab.roleTable.verticalHeader().viewport().autoFillBackground()

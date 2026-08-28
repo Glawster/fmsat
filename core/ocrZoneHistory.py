@@ -54,10 +54,12 @@ class OcrZoneDriftClassifier:
         if len(samples) < self.minimumHistory:
             return OcrZoneDriftResult("unavailable", None, len(samples), None, None)
 
-        baseline = OcrZoneGeometry(*(
-            median(tuple(getattr(item, field) for item in samples))
-            for field in ("x", "y", "width", "height")
-        ))
+        baseline = OcrZoneGeometry(
+            *(
+                median(tuple(getattr(item, field) for item in samples))
+                for field in ("x", "y", "width", "height")
+            )
+        )
         delta = OcrZoneGeometry(
             current.x - baseline.x,
             current.y - baseline.y,
@@ -75,8 +77,6 @@ class OcrZoneDriftClassifier:
         state = (
             "normal"
             if score <= self.normalScoreMax
-            else "drifting"
-            if score <= self.driftingScoreMax
-            else "anomalous"
+            else "drifting" if score <= self.driftingScoreMax else "anomalous"
         )
         return OcrZoneDriftResult(state, score, len(samples), baseline, delta)

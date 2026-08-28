@@ -6,7 +6,7 @@ from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
-from fmsat.app.colourPalette import formationRows, formationUnknown
+from fmsat.app.colourPalette import FORMATION_ROWS, FORMATION_UNKNOWN
 from fmsat.app.tacticDetailModel import DisplaySlot
 
 
@@ -62,7 +62,7 @@ class PitchWidget(QWidget):
             pitch.top() + slot.y * pitch.height(),
         )
         card = QRectF(centre.x() - 47, centre.y() - 24, 94, 48)
-        colour = QColor(formationRows.get(slot.row, formationUnknown))
+        colour = QColor(FORMATION_ROWS.get(slot.row, FORMATION_UNKNOWN))
         painter.setPen(QPen(colour.lighter(145), 1.5))
         painter.setBrush(colour)
         painter.drawRoundedRect(card, 9, 9)

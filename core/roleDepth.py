@@ -145,9 +145,7 @@ class RoleDepthService:
 
         slotCount = len(slots)
         emptyAssignment: tuple[str | None, ...] = (None,) * slotCount
-        states: dict[int, tuple[float, tuple[str | None, ...]]] = {
-            0: (0.0, emptyAssignment)
-        }
+        states: dict[int, tuple[float, tuple[str | None, ...]]] = {0: (0.0, emptyAssignment)}
 
         for playerKey in sorted(players):
             currentStates = dict(states)
@@ -173,9 +171,7 @@ class RoleDepthService:
             if mask.bit_count() > bestMask.bit_count():
                 bestMask, bestState = mask, state
                 continue
-            if mask.bit_count() == bestMask.bit_count() and self._stateBetter(
-                state, bestState
-            ):
+            if mask.bit_count() == bestMask.bit_count() and self._stateBetter(state, bestState):
                 bestMask, bestState = mask, state
 
         return {
@@ -217,28 +213,36 @@ class RoleDepthService:
             return ()
 
         slotIdsByPhase: dict[str, tuple[str, ...]] = {}
-        linkageValid = True
+        uniquePositionsByPhase: dict[str, dict[str, object]] = {}
         for phase, positions in nonEmpty:
             ids = tuple(str(getattr(position, "slotId", "") or "") for position in positions)
-            if not all(ids) or len(set(ids)) != len(ids):
-                linkageValid = False
             slotIdsByPhase[phase] = ids
+            counts = {slotId: ids.count(slotId) for slotId in set(ids) if slotId}
+            uniquePositionsByPhase[phase] = {
+                slotId: position
+                for slotId, position in zip(ids, positions)
+                if slotId and counts[slotId] == 1
+            }
 
         referencePhase, referencePositions = max(nonEmpty, key=lambda item: len(item[1]))
-        referenceIds = slotIdsByPhase.get(referencePhase, ())
-        if linkageValid:
-            referenceSet = set(referenceIds)
-            linkageValid = all(
-                len(ids) == len(referenceIds) and set(ids) == referenceSet
-                for ids in slotIdsByPhase.values()
-            )
+        durableIds = set.intersection(
+            *(set(positions) for positions in uniquePositionsByPhase.values())
+        )
+        unlinkedPositions: tuple[object, ...] = ()
 
         phaseBySlot: dict[str, dict[str, object]]
-        if linkageValid:
-            phaseBySlot = {
-                phase: {str(position.slotId): position for position in positions}
-                for phase, positions in nonEmpty
-            }
+        if durableIds:
+            # A malformed or missing ID on one position must not discard the
+            # independently valid durable links for every other tactic slot.
+            phaseBySlot = uniquePositionsByPhase
+            referenceIds = tuple(
+                slotId for slotId in slotIdsByPhase[referencePhase] if slotId in durableIds
+            )
+            unlinkedPositions = tuple(
+                position
+                for position in referencePositions
+                if str(getattr(position, "slotId", "") or "") not in durableIds
+            )
         else:
             spatial = self._spatialPhaseLink(nonEmpty)
             if spatial is None:
@@ -247,15 +251,12 @@ class RoleDepthService:
                     "unambiguous spatial evidence is required"
                 )
                 return tuple(
-                    RequiredSlotAssessment(
-                        slotId=f"unlinked:{index + 1}",
-                        position=self._positionName(position),
-                        roles=(),
-                        candidates=(),
-                        bestCandidate=None,
-                        backupCandidate=None,
-                        uncovered=True,
-                        unavailableReason=reason,
+                    self._unlinkedSlotBuild(
+                        index,
+                        position,
+                        referencePhase,
+                        roleCatalogue,
+                        reason,
                     )
                     for index, position in enumerate(referencePositions)
                 )
@@ -269,39 +270,12 @@ class RoleDepthService:
             for phase, _positions in nonEmpty:
                 position = phaseBySlot[phase][slotId]
                 positionName = positionName or self._positionName(position)
-                observedAbbreviation = self._observedRoleAbbreviation(position)
-                roleCode = self._roleCodeResolve(position, roleCatalogue)
-                role = roleCatalogue.get(roleCode) if roleCode else None
-                if roleCode is None:
-                    slotReason = f"{phase} roleCode is unavailable"
-                    requirements.append(
-                        SlotRoleRequirement(
-                            phase,
-                            None,
-                            observedAbbreviation or "Unknown role",
-                            observedAbbreviation or "Unknown",
-                        )
-                    )
-                    continue
-                if role is None:
-                    slotReason = f"{phase} roleCode {roleCode} has no role assessment evidence"
-                    requirements.append(
-                        SlotRoleRequirement(
-                            phase,
-                            roleCode,
-                            roleCode,
-                            observedAbbreviation or roleCode,
-                        )
-                    )
-                    continue
-                requirements.append(
-                    SlotRoleRequirement(
-                        phase=phase,
-                        roleCode=roleCode,
-                        displayName=str(getattr(role, "displayName", roleCode)),
-                        abbreviation=str(getattr(role, "abbreviation", roleCode)),
-                    )
+                requirement, requirementReason = self._requirementFromPosition(
+                    phase, position, roleCatalogue
                 )
+                requirements.append(requirement)
+                if requirementReason is not None:
+                    slotReason = requirementReason
 
             candidates = self._candidatesBuild(tuple(requirements), roleCatalogue, slotReason)
             slots.append(
@@ -316,7 +290,95 @@ class RoleDepthService:
                     unavailableReason=slotReason,
                 )
             )
+
+        if unlinkedPositions:
+            reason = (
+                "Tactic slot linkage is unavailable for this position; a matching "
+                "durable slotId in every phase is required"
+            )
+            slots.extend(
+                self._unlinkedSlotBuild(
+                    index,
+                    position,
+                    referencePhase,
+                    roleCatalogue,
+                    reason,
+                )
+                for index, position in enumerate(unlinkedPositions)
+            )
         return tuple(slots)
+
+    def _unlinkedSlotBuild(
+        self,
+        index: int,
+        position: object,
+        phase: str,
+        roleCatalogue: Mapping[str, object],
+        reason: str,
+    ) -> RequiredSlotAssessment:
+        """Keep the observed phase role when pairing evidence is missing.
+
+        Do not invent an IP/OOP partner by ordinal index. Assignment stays
+        unavailable until durable slotId or unambiguous spatial evidence exists.
+        """
+
+        requirement, _requirementReason = self._requirementFromPosition(
+            phase, position, roleCatalogue
+        )
+        return RequiredSlotAssessment(
+            slotId=f"unlinked:{index + 1}",
+            position=self._positionName(position),
+            roles=(requirement,),
+            candidates=(),
+            bestCandidate=None,
+            backupCandidate=None,
+            uncovered=True,
+            unavailableReason=reason,
+        )
+
+    def _requirementFromPosition(
+        self,
+        phase: str,
+        position: object,
+        roleCatalogue: Mapping[str, object],
+    ) -> tuple[SlotRoleRequirement, str | None]:
+        """Resolve one phase-role from a tactic position without inventing identity."""
+
+        observedAbbreviation = self._observedRoleAbbreviation(position)
+        roleCode = self._roleCodeResolve(position, roleCatalogue)
+        role = roleCatalogue.get(roleCode) if roleCode else None
+        if roleCode is None:
+            return (
+                SlotRoleRequirement(
+                    phase,
+                    None,
+                    observedAbbreviation or "Unknown role",
+                    observedAbbreviation or "Unknown",
+                ),
+                f"{phase} roleCode is unavailable",
+            )
+        if role is None:
+            return (
+                SlotRoleRequirement(
+                    phase,
+                    roleCode,
+                    roleCode,
+                    observedAbbreviation or roleCode,
+                ),
+                f"{phase} roleCode {roleCode} has no role assessment evidence",
+            )
+        abbreviation = str(getattr(role, "abbreviation", roleCode) or roleCode)
+        if observedAbbreviation and abbreviation.casefold() == roleCode.casefold():
+            abbreviation = observedAbbreviation
+        return (
+            SlotRoleRequirement(
+                phase=phase,
+                roleCode=roleCode,
+                displayName=str(getattr(role, "displayName", roleCode)),
+                abbreviation=abbreviation,
+            ),
+            None,
+        )
 
     def _spatialPhaseLink(
         self,
@@ -373,21 +435,14 @@ class RoleDepthService:
         )
         if max(pairDistances, default=0.0) > self._SPATIAL_MAX_DISTANCE:
             return None
-        if (
-            secondCost is not None
-            and secondCost - bestCost < self._SPATIAL_AMBIGUITY_MARGIN
-        ):
+        if secondCost is not None and secondCost - bestCost < self._SPATIAL_AMBIGUITY_MARGIN:
             return None
 
         slotIds = tuple(f"spatial:{index + 1:02d}" for index in range(count))
         phaseBySlot = {
-            firstPhase: {
-                slotId: source[index]
-                for index, slotId in enumerate(slotIds)
-            },
+            firstPhase: {slotId: source[index] for index, slotId in enumerate(slotIds)},
             secondPhase: {
-                slotId: target[targetIndex]
-                for slotId, targetIndex in zip(slotIds, bestAssignment)
+                slotId: target[targetIndex] for slotId, targetIndex in zip(slotIds, bestAssignment)
             },
         }
         return slotIds, phaseBySlot
@@ -479,11 +534,27 @@ class RoleDepthService:
 
     @staticmethod
     def _observedRoleAbbreviation(position: object) -> str:
-        """Return the exact role text retained from FM when semantic role knowledge is absent."""
+        """Return the exact role text retained from FM.
+
+        Normal object-model rows may use the generic profile name ``Observed role``
+        while retaining the actual FM abbreviation at the start of the profile
+        description, for example ``CFD (Observed role)``.  Role-depth analysis must
+        consume the same semantic evidence as squad role assessment.
+        """
 
         profile = getattr(position, "roleProfile", None)
-        value = str(getattr(profile, "name", "") or "").strip()
-        return "" if value.casefold() in {"", "observed role", "unresolved"} else value
+
+        name = str(getattr(profile, "name", "") or "").strip()
+        if name.casefold() not in {"", "observed role", "unresolved"}:
+            return name
+
+        description = str(getattr(profile, "description", "") or "").strip()
+        if description:
+            observed = description.split(" (", 1)[0].strip()
+            if observed.casefold() not in {"", "observed role", "unresolved"}:
+                return observed
+
+        return ""
 
     @classmethod
     def _roleCodeResolve(
@@ -509,6 +580,13 @@ class RoleDepthService:
             ]
             if len(matches) == 1:
                 return matches[0]
+        if canonical:
+            # Exact position codes are eligibility context, never a fallback role
+            # identity.  This guards corrupted/legacy mappings such as AMC in the
+            # canonicalRole column without rejecting confirmed custom role codes.
+            position = cls._positionName(position)
+            if canonical.casefold() == position.casefold():
+                return None
         return canonical or None
 
     @staticmethod
