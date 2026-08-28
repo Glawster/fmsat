@@ -117,8 +117,8 @@ facts. No speculative football judgements are invented.
 
 ## Traceability
 
-- Implementation: pending
-- Tests: pending
+- Implementation: `core/tacticSlots.py` (pairing only); analysis service pending
+- Tests: `tests/test_tacticSlots.py`; Role Depth and Best XI suites remain green
 - Documentation: pending (`documentation/tacticAnalysis.md` after behaviour is
   delivered)
 - Pull request: pending
@@ -128,3 +128,5 @@ facts. No speculative football judgements are invented.
 
 - 2026-08-28: created — allocate tactic demand analysis as requirement 011
   before core/UI delivery; 009 keeps the empty shell.
+- 2026-08-28: PR 1 — extract shared IP/OOP position pairing without changing
+  Role Depth resolution or Best XI.

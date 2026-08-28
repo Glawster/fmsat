@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from math import dist
 from typing import Any, Mapping
 
 from fmsat.core.squadModel import SquadModelPlayer
+from fmsat.core.tacticSlots import LinkedTacticSlot, slotsLink
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,9 +61,6 @@ class RequiredSlotAssessment:
 
 class RoleDepthService:
     """Build slot-level depth without introducing Tactical Fit or Best XI logic."""
-
-    _SPATIAL_MAX_DISTANCE = 0.38
-    _SPATIAL_AMBIGUITY_MARGIN = 0.05
 
     def __init__(self, aggregationPolicy: str = "Unavailable") -> None:
         self.aggregationPolicy = aggregationPolicy
@@ -202,111 +199,76 @@ class RoleDepthService:
         tactic: object,
         roleCatalogue: Mapping[str, object],
     ) -> tuple[RequiredSlotAssessment, ...]:
-        """Link IP/OOP positions by durable id or unambiguous spatial evidence."""
+        """Map shared position pairing onto slot depth without changing resolution."""
 
-        phasePositions = (
-            ("IP", tuple(getattr(getattr(tactic, "inPossession", None), "positions", ()))),
-            ("OOP", tuple(getattr(getattr(tactic, "outOfPossession", None), "positions", ()))),
-        )
-        nonEmpty = tuple((phase, positions) for phase, positions in phasePositions if positions)
-        if not nonEmpty:
+        linked = slotsLink(tactic)
+        if not linked:
             return ()
 
-        slotIdsByPhase: dict[str, tuple[str, ...]] = {}
-        uniquePositionsByPhase: dict[str, dict[str, object]] = {}
-        for phase, positions in nonEmpty:
-            ids = tuple(str(getattr(position, "slotId", "") or "") for position in positions)
-            slotIdsByPhase[phase] = ids
-            counts = {slotId: ids.count(slotId) for slotId in set(ids) if slotId}
-            uniquePositionsByPhase[phase] = {
-                slotId: position
-                for slotId, position in zip(ids, positions)
-                if slotId and counts[slotId] == 1
-            }
-
-        referencePhase, referencePositions = max(nonEmpty, key=lambda item: len(item[1]))
-        durableIds = set.intersection(
-            *(set(positions) for positions in uniquePositionsByPhase.values())
-        )
-        unlinkedPositions: tuple[object, ...] = ()
-
-        phaseBySlot: dict[str, dict[str, object]]
-        if durableIds:
-            # A malformed or missing ID on one position must not discard the
-            # independently valid durable links for every other tactic slot.
-            phaseBySlot = uniquePositionsByPhase
-            referenceIds = tuple(
-                slotId for slotId in slotIdsByPhase[referencePhase] if slotId in durableIds
-            )
-            unlinkedPositions = tuple(
-                position
-                for position in referencePositions
-                if str(getattr(position, "slotId", "") or "") not in durableIds
-            )
-        else:
-            spatial = self._spatialPhaseLink(nonEmpty)
-            if spatial is None:
-                reason = (
-                    "Tactic slot linkage is unavailable; complete matching slotId or "
-                    "unambiguous spatial evidence is required"
-                )
-                return tuple(
+        # Pairing retains every leftover phase position so later Tactic Analysis
+        # can count them. Role Depth still shows one assignment row per
+        # simultaneous slot and therefore keeps only the larger phase's leftovers.
+        referencePhase = self._referencePhase(linked)
+        slots: list[RequiredSlotAssessment] = []
+        unlinkedIndex = 0
+        for item in linked:
+            if item.unavailableReason is not None:
+                position = item.ipPosition if referencePhase == "IP" else item.oopPosition
+                if position is None:
+                    continue
+                slots.append(
                     self._unlinkedSlotBuild(
-                        index,
+                        unlinkedIndex,
                         position,
                         referencePhase,
                         roleCatalogue,
-                        reason,
+                        item.unavailableReason,
                     )
-                    for index, position in enumerate(referencePositions)
                 )
-            referenceIds, phaseBySlot = spatial
-
-        slots: list[RequiredSlotAssessment] = []
-        for slotId in referenceIds:
-            requirements: list[SlotRoleRequirement] = []
-            positionName = ""
-            slotReason: str | None = None
-            for phase, _positions in nonEmpty:
-                position = phaseBySlot[phase][slotId]
-                positionName = positionName or self._positionName(position)
-                requirement, requirementReason = self._requirementFromPosition(
-                    phase, position, roleCatalogue
-                )
-                requirements.append(requirement)
-                if requirementReason is not None:
-                    slotReason = requirementReason
-
-            candidates = self._candidatesBuild(tuple(requirements), roleCatalogue, slotReason)
-            slots.append(
-                RequiredSlotAssessment(
-                    slotId=slotId,
-                    position=positionName,
-                    roles=tuple(requirements),
-                    candidates=candidates,
-                    bestCandidate=None,
-                    backupCandidate=None,
-                    uncovered=True,
-                    unavailableReason=slotReason,
-                )
-            )
-
-        if unlinkedPositions:
-            reason = (
-                "Tactic slot linkage is unavailable for this position; a matching "
-                "durable slotId in every phase is required"
-            )
-            slots.extend(
-                self._unlinkedSlotBuild(
-                    index,
-                    position,
-                    referencePhase,
-                    roleCatalogue,
-                    reason,
-                )
-                for index, position in enumerate(unlinkedPositions)
-            )
+                unlinkedIndex += 1
+                continue
+            slots.append(self._linkedSlotBuild(item, roleCatalogue))
         return tuple(slots)
+
+    @staticmethod
+    def _referencePhase(linked: tuple[LinkedTacticSlot, ...]) -> str:
+        """Prefer the phase that contributed more observed positions; IP when tied."""
+
+        ipCount = sum(slot.ipPosition is not None for slot in linked)
+        oopCount = sum(slot.oopPosition is not None for slot in linked)
+        return "IP" if ipCount >= oopCount else "OOP"
+
+    def _linkedSlotBuild(
+        self,
+        item: LinkedTacticSlot,
+        roleCatalogue: Mapping[str, object],
+    ) -> RequiredSlotAssessment:
+        """Resolve catalogue roles for each present phase; omit a missing phase."""
+
+        requirements: list[SlotRoleRequirement] = []
+        positionName = ""
+        slotReason: str | None = None
+        for phase, position in (("IP", item.ipPosition), ("OOP", item.oopPosition)):
+            if position is None:
+                continue
+            positionName = positionName or self._positionName(position)
+            requirement, requirementReason = self._requirementFromPosition(
+                phase, position, roleCatalogue
+            )
+            requirements.append(requirement)
+            if requirementReason is not None:
+                slotReason = requirementReason
+
+        return RequiredSlotAssessment(
+            slotId=item.slotId,
+            position=positionName,
+            roles=tuple(requirements),
+            candidates=self._candidatesBuild(tuple(requirements), roleCatalogue, slotReason),
+            bestCandidate=None,
+            backupCandidate=None,
+            uncovered=True,
+            unavailableReason=slotReason,
+        )
 
     def _unlinkedSlotBuild(
         self,
@@ -379,73 +341,6 @@ class RoleDepthService:
             ),
             None,
         )
-
-    def _spatialPhaseLink(
-        self,
-        nonEmpty: tuple[tuple[str, tuple[object, ...]], ...],
-    ) -> tuple[tuple[str, ...], dict[str, dict[str, object]]] | None:
-        """Recover complete phase linkage only when the global spatial match is unique."""
-
-        if len(nonEmpty) != 2:
-            return None
-        firstPhase, firstPositions = nonEmpty[0]
-        secondPhase, secondPositions = nonEmpty[1]
-        if len(firstPositions) != len(secondPositions) or not firstPositions:
-            return None
-        if any(
-            getattr(position, "x", None) is None or getattr(position, "y", None) is None
-            for _phase, positions in nonEmpty
-            for position in positions
-        ):
-            return None
-
-        source = tuple(sorted(firstPositions, key=lambda item: (float(item.y), float(item.x))))
-        target = tuple(secondPositions)
-        count = len(source)
-        states: dict[int, list[tuple[float, tuple[int, ...]]]] = {0: [(0.0, ())]}
-        for sourceIndex in range(count):
-            nextStates: dict[int, list[tuple[float, tuple[int, ...]]]] = {}
-            for mask, candidates in states.items():
-                for total, assignment in candidates:
-                    for targetIndex, targetPosition in enumerate(target):
-                        if mask & (1 << targetIndex):
-                            continue
-                        distance = dist(
-                            (float(source[sourceIndex].x), float(source[sourceIndex].y)),
-                            (float(targetPosition.x), float(targetPosition.y)),
-                        )
-                        nextMask = mask | (1 << targetIndex)
-                        bucket = nextStates.setdefault(nextMask, [])
-                        bucket.append((total + distance, assignment + (targetIndex,)))
-                        bucket.sort(key=lambda item: (item[0], item[1]))
-                        del bucket[2:]
-            states = nextStates
-
-        full = states.get((1 << count) - 1, [])
-        if not full:
-            return None
-        bestCost, bestAssignment = full[0]
-        secondCost = full[1][0] if len(full) > 1 else None
-        pairDistances = tuple(
-            dist(
-                (float(source[index].x), float(source[index].y)),
-                (float(target[targetIndex].x), float(target[targetIndex].y)),
-            )
-            for index, targetIndex in enumerate(bestAssignment)
-        )
-        if max(pairDistances, default=0.0) > self._SPATIAL_MAX_DISTANCE:
-            return None
-        if secondCost is not None and secondCost - bestCost < self._SPATIAL_AMBIGUITY_MARGIN:
-            return None
-
-        slotIds = tuple(f"spatial:{index + 1:02d}" for index in range(count))
-        phaseBySlot = {
-            firstPhase: {slotId: source[index] for index, slotId in enumerate(slotIds)},
-            secondPhase: {
-                slotId: target[targetIndex] for slotId, targetIndex in zip(slotIds, bestAssignment)
-            },
-        }
-        return slotIds, phaseBySlot
 
     def _candidatesBuild(
         self,

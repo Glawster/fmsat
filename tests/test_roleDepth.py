@@ -375,6 +375,24 @@ def testRoleDepthRejectsAmbiguousSpatialLinkage() -> None:
     assert all(slot.roles and slot.roles[0].roleCode == "role" for slot in depth)
 
 
+def testRoleDepthOnePhaseOmitsMissingPhaseWithoutLinkageFailure() -> None:
+    """An IP-only tactic still scores from the present phase; it is not unlinked."""
+
+    role = _role("role", "Role", "R", {"Alpha": 80.0})
+    tactic = SimpleNamespace(
+        inPossession=SimpleNamespace(positions=(_position("slot-one", "role", "AMC"),)),
+        outOfPossession=SimpleNamespace(positions=()),
+    )
+
+    depth = RoleDepthService("phaseMean").depthBuild(tactic, {"role": role})
+
+    assert len(depth) == 1
+    assert depth[0].slotId == "slot-one"
+    assert [requirement.phase for requirement in depth[0].roles] == ["IP"]
+    assert depth[0].bestCandidate == "Alpha"
+    assert depth[0].unavailableReason is None
+
+
 def testRoleDepthIsUnavailableWithoutExplicitAggregationPolicy() -> None:
     """A multi-phase slot score must not be invented when its policy is missing."""
 
