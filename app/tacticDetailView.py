@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from importlib.resources import files
-
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QComboBox,
@@ -24,6 +22,7 @@ from fmsat.app.tacticDetailPrototype import tacticDetailPrototype
 from fmsat.app.tacticDetailTabs import AnalysisTab, InstructionsTab, OverviewTab, ShapeTab
 from fmsat.app.tacticPitchWidget import PitchWidget
 from fmsat.app.tacticValidationWidget import BuildResult
+from fmsat.app.styles import styleSheetLoad
 from fmsat.app.workspaceWidgets import FactCard, WorkspaceHeader
 from fmsat.database.tacticNaming import TacticRenameError, tacticRename
 
@@ -223,7 +222,7 @@ class TacticDetailView(QWidget):
 
     @staticmethod
     def _styleLoad() -> str:
-        return files("fmsat.app").joinpath("fmsat.qss").read_text(encoding="utf-8")
+        return styleSheetLoad()
 
     def _layoutClear(self, layout: QLayout) -> None:
         """Delete all child widgets/layouts from one Qt layout container."""

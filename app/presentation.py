@@ -119,4 +119,6 @@ def rolePositionSortKey(role) -> tuple[int, int, str, str]:
 
     positionKeys = [positionSortKey(position) for position in role.positions]
     line, side = min(positionKeys, default=(6, 3))
-    return line, side, role.displayName.casefold(), role.roleCode.casefold()
+    displayName = str(getattr(role, "displayName", ""))
+    roleCode = str(getattr(role, "code", getattr(role, "roleCode", displayName)))
+    return line, side, displayName.casefold(), roleCode.casefold()

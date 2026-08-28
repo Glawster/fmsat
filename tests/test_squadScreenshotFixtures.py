@@ -31,7 +31,7 @@ def squadOcrParser() -> SquadAttributesParser:
     return SquadAttributesParser(
         PaddleOcrEngine(),
         configuration.regions,
-        configuration.attributes,
+        configuration.activeAttributes,
     )
 
 
@@ -129,7 +129,7 @@ def testBristolWomenFixtureContainsCanonicalScreenshots() -> None:
 
 def testBristolWomenFixtureCoversConfiguredSquadAttributes() -> None:
     fixture = _fixtureLoad()
-    configured = {attribute.name for attribute in Configuration().attributes}
+    configured = {attribute.name for attribute in Configuration().activeAttributes}
     represented = {
         str(column)
         for columnSet in fixture["columnSets"].values()

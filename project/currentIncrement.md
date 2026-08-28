@@ -1,151 +1,48 @@
 # Current Development Increment
 
+## Increment
+
+007D — Role Assessment Weight Matrix
+
 ## Status
 
-Active — implementation complete; final clean-room acceptance in progress.
+Active
+
+## Requirement
+
+`project/requirements/features/007-roleCentricSquadAssessment.md`
 
 ## Objective
 
-Deliver requirement 007C: **Best XI and clean-room stabilization**.
+Provide a single visual overview of Generic Role Fit assessment policy and let the user
+control which configured Football Manager attributes participate in FMSAT.
 
-007C extends the Generic Role Fit and simultaneous role-depth foundation with an
-explainable Best XI while hardening the complete squad/tactic workflow against defects
-found during clean-room use. Requirement 007 remains `InProgress`: Tactical Fit, Overall
-Suitability, candidate comparison and Role Health are later scope.
+## Scope
 
-## Governing References
-
-- Primary Requirement: `project/requirements/features/007-roleCentricSquadAssessment.md`
-- Supporting Requirements:
-  - `project/requirements/features/006-structuredTacticExtraction.md`
-  - `project/requirements/features/010-positionAttributeRoleDefinitions.md`
-- Living Algorithm Guide: `documentation/bestXi.md`
-- Milestone / Roadmap: requirement 007C Best XI and clean-room stabilization
-
-## Evidence and Assignment Policy
-
-- `roleCode` remains the durable semantic role identity.
-- Generic Role Fit remains the scoring evidence; missing policy or attributes remain
-  `Unavailable`.
-- Best XI candidates must have captured position-family evidence for the tactic slot.
-  Position familiarity is an eligibility boundary, not a tie-break.
-- Best XI maximizes covered simultaneous slots, then total fit, then weakest selected fit,
-  with deterministic player identity as the final tie-break.
-- One player can occupy at most one simultaneous slot.
-- An incomplete or malformed phase slot makes that individual slot unavailable; it does
-  not invalidate otherwise linked simultaneous slots.
-- Manual player corrections are authoritative over OCR and survive reassessment and model
+- Expose **View → Weights** from the main application menu.
+- Display roles on the Y axis and configured attributes on the X axis.
+- Show each role/attribute 0–10 weight in the matrix.
+- Colour Top Three green, Important blue and Nice to Have grey.
+- Use the attribute column header itself as the active/inactive control.
+- Grey inactive attributes while retaining their configured role weights.
+- Apply attribute activation to subsequent capture and UI construction without OCR
   regeneration.
+- Open the existing Role Editor when the user clicks a role identifier, then refresh the
+  matrix when editing returns.
+- Retain validated YAML import/export and explicit legacy 0–5 migration.
+- Include confirmed runtime-created semantic roles where available.
 
-## Delivered Scope
+## Verification
 
-### Best XI and simultaneous-slot analysis
+- [ ] Focused configuration and weight-matrix tests pass.
+- [ ] Full automated suite passes.
+- [ ] View → Weights opens the matrix in the desktop application.
+- [ ] Role identifiers open the Role Editor and saved changes refresh the matrix.
+- [ ] Clicking an attribute heading persists and immediately reflects active/inactive state.
+- [ ] Activating Long Shots makes it available to subsequent FMSAT capture/presentation;
+      deactivating it preserves existing weights and evidence.
+- [ ] Explicit squad Reassess consumes changed role policy without OCR regeneration.
 
-- UI-independent global Best XI assignment with unique-player allocation and explainable
-  whole-XI trade-offs.
-- Position-family eligibility for current deployability; unfamiliar high Generic Role Fit
-  remains available to role-depth and future retraining analysis but is excluded from Best XI.
-- Partial durable-slot recovery: valid linked phase slots remain usable when a neighbouring
-  phase slot is incomplete or malformed.
-- Role-depth and Best XI regression coverage for coverage, weakest-link, deterministic and
-  malformed-slot behaviour.
+## Next
 
-### Player and squad evidence
-
-- Conservative player-name cleanup and cross-capture identity reconciliation using name,
-  position, CA/PA and overlapping attribute evidence.
-- Visible uncertainty state for suspicious OCR names; cleaner corroborated evidence wins
-  without silently deleting unfamiliar name fragments.
-- Player Editor corrections persist as final authority through refresh and regeneration.
-- Incremental squad imports merge complementary captures without deleting players absent
-  from a filtered screenshot.
-- Player editing and explicit removal rebuild derived squad assessment while retained source
-  screenshots remain provenance.
-- A retained filtered-seven squad screenshot, expected data and opt-in real-OCR regression
-  protect the supplementary-import workflow.
-
-### Role policy and vocabulary
-
-- Role Assessment Weight Editor for the canonical 0–10 policy, including validated YAML
-  import/export and explicit legacy 0–5 migration in the policy service.
-- Role-position compatibility and tracking-role policy corrections.
-- Role-profile, semantic vocabulary and runtime role-knowledge reconciliation fixes that
-  preserve unresolved observations rather than inventing definitions.
-
-### Clean-room workflow stabilization
-
-- Tactic model loading and screenshot extraction corrections found during clean-room review.
-- Welcome/import lifecycle fixes, including safer re-import, reassessment and window state
-  transitions.
-- Opt-in clean-room role-knowledge acceptance fixture covering confirmed and unresolved OCR
-  evidence states.
-
-## Verification Status
-
-Evidence exercised on the final integrated branch:
-
-- normal automated suite: **495 passed, 15 expensive tests deselected**;
-- project-wide Ruff passed;
-- Black, markup validation and `git diff --check` passed; and
-- strict organiseMyProjects repository validation passed with no failures or warnings.
-
-The expensive group has also been exercised: 14 tests pass and one clean-room goalkeeper
-OCR fixture currently fails because `Selma Panengstuen` is rendered as
-`Qel Selma Panengstuen`. This is retained as an open acceptance finding rather than hidden
-by a fixture change or an unsafe name-specific correction.
-
-## Remaining Acceptance
-
-- [x] Run the normal automated suite on the final integrated commit: 495 passed, 15
-  expensive tests deselected.
-- [ ] Resolve the remaining clean-room OCR name reconciliation mismatch and rerun the
-  clean-room role-knowledge and real filtered-seven OCR regressions with
-  `pytest -m expensive` in an OCR-capable environment.
-- [ ] Reassess the Bristol Women reference squad and confirm Best XI uniqueness,
-  position-family eligibility, partial-slot isolation and explanatory tooltips.
-- [ ] Confirm player corrections and supplementary screenshot merges through the desktop
-  workflow.
-
-## Explicit Exclusions
-
-- Tactical Fit and tactic-specific attribute modifiers.
-- Overall Suitability and configurable composite scoring.
-- Candidate comparison and dynamic role-attribute comparison columns.
-- Role Health, recruitment analysis and recommendations.
-- Form, morale, condition, injury, suspension or opposition-specific selection.
-- Rotation, alternative-XI and automated lineup generation.
-
-## Relevant Files and Components
-
-- `documentation/bestXi.md`
-- `core/bestXi.py`
-- `core/roleDepth.py`
-- `core/playerIdentity.py`
-- `core/squadModel.py`
-- `core/roleAssessmentPolicy.py`
-- `app/roleAssessmentWeightEditor.py`
-- `app/squadAnalysisWorkspace.py`
-- `app/squadPlayersWorkspace.py`
-- `tests/test_bestXi.py`
-- `tests/test_roleDepth.py`
-- `tests/test_playerIdentity.py`
-- `tests/test_squadModel.py`
-- `tests/test_roleAssessmentWeightEditor.py`
-- `tests/test_filteredSevenSquadOcr.py`
-- `tests/test_cleanRoom007b.py`
-
-## Definition of Done
-
-- Best XI uses deterministic global assignment and position-family eligibility.
-- One malformed phase slot cannot invalidate otherwise usable simultaneous slots.
-- Player identity reconciliation prefers corroborated clean evidence while preserving manual
-  authority and exposing uncertainty.
-- Incremental squad imports, editing and removal preserve provenance and rebuild assessment.
-- Role-policy editing and clean-room lifecycle fixes have focused regression coverage.
-- Final automated and manual clean-room acceptance evidence is recorded.
-- Requirement 007 remains `InProgress` for its undelivered later analysis stages.
-
-## Handoff
-
-Complete the remaining clean-room acceptance above. After 007C is accepted, return to the
-undelivered requirement 007 stages rather than marking the parent requirement complete.
+Complete 007D acceptance, then proceed to the tactic Analysis increment.

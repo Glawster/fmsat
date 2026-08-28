@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from importlib.resources import files
 import logging
 import re
 
@@ -28,7 +27,8 @@ from fmsat.app.squadDetailModel import SquadDetailModel
 from fmsat.app.squadDetailTabs import SquadOverviewTab
 from fmsat.app.squadPlayersWorkspace import SquadPlayersTab
 from fmsat.app.squadRolesWorkspace import SquadRolesTab
-from fmsat.app.workspaceWidgets import FactCard
+from fmsat.app.styles import styleSheetLoad
+from fmsat.app.workspaceWidgets import FactCard, WorkspaceHeader
 from fmsat.core.config import AttributeDefinition
 from fmsat.core.roleAssessmentIntegrity import roleAssessmentIntegrityCheck
 from fmsat.core.squadModel import SquadModel
@@ -79,7 +79,7 @@ class SquadDetailView(QWidget):
         self.regenerationProgressTotal = 0
         self.regenerationProgressChanged.connect(self._regenerationProgressUpdate)
         self.setObjectName("squadDetailView")
-        self.setStyleSheet(files("fmsat.app").joinpath("fmsat.qss").read_text(encoding="utf-8"))
+        self.setStyleSheet(styleSheetLoad())
         self.rootLayout = QVBoxLayout(self)
         self.rootLayout.setContentsMargins(28, 20, 28, 24)
         self.rootLayout.setSpacing(16)
@@ -112,26 +112,14 @@ class SquadDetailView(QWidget):
 
     def _headerCreate(self) -> QHBoxLayout:
         assert self.model is not None
-        header = QHBoxLayout()
-        back = QPushButton("←  FMSAT Workspace")
-        back.setObjectName("quietButton")
-        back.clicked.connect(self.backRequested.emit)
-        header.addWidget(back)
-        heading = QVBoxLayout()
-        eyebrow = QLabel("Squad Workspace  ·  Role-Level Assessment")
-        eyebrow.setObjectName("eyebrow")
-        heading.addWidget(eyebrow)
-        title = QLabel(self.squadName)
-        title.setObjectName("pageTitle")
-        heading.addWidget(title)
-        header.addLayout(heading, 1)
-
-        tacticControl = QVBoxLayout()
-        tacticControl.setSpacing(3)
-        tacticLabel = QLabel("APPLY TACTIC")
+        tacticControl = QWidget(self)
+        tacticLayout = QVBoxLayout(tacticControl)
+        tacticLayout.setContentsMargins(0, 0, 0, 0)
+        tacticLayout.setSpacing(3)
+        tacticLabel = QLabel("APPLY TACTIC", tacticControl)
         tacticLabel.setObjectName("factKey")
-        tacticControl.addWidget(tacticLabel)
-        self.tacticPicker = QComboBox()
+        tacticLayout.addWidget(tacticLabel)
+        self.tacticPicker = QComboBox(tacticControl)
         self.tacticPicker.setObjectName("squadTacticPicker")
         availableTactics = self._systemTactics()
         tacticAssigned = self.model.tacticName not in {
@@ -145,9 +133,16 @@ class SquadDetailView(QWidget):
                 self.tacticPicker.addItem(tacticName)
         self.tacticPicker.currentTextChanged.connect(self._tacticChange)
         self.tacticPicker.setEnabled(bool(availableTactics))
-        tacticControl.addWidget(self.tacticPicker)
-        header.addLayout(tacticControl)
-        return header
+        tacticLayout.addWidget(self.tacticPicker)
+
+        header = WorkspaceHeader(
+            workspace="Squad",
+            context="Role-Level Assessment",
+            title=self.squadName,
+            backRequested=self.backRequested.emit,
+            trailingActions=(tacticControl,),
+        )
+        return header.layout
 
     def _factsCreate(self) -> QHBoxLayout:
         assert self.model is not None

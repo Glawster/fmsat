@@ -1,78 +1,122 @@
-QWidget#tacticDetailView, QWidget#squadDetailView { background: #f7f7f5; color: #101f2e; }
-QLabel#eyebrow, QLabel#factKey, QLabel#factLabel { color: #239b78; font-size: 13px; font-weight: 700; letter-spacing: 1px; }
-QLabel#workspaceHeading { color: #239b78; font-size: 15px; font-weight: 700; letter-spacing: 1px; }
-QLabel#pageTitle { color: #101f2e; font-size: 28px; font-weight: 700; min-height: 34px; }
-QLabel#factValue { color: #f0f0f0; font-size: 14px; font-weight: 600; }
-QLabel#cardTitle, QLabel#emptyTitle { color: #f5f8fb; font-size: 17px; font-weight: 700; }
-QLabel#mutedText { color: #8fa3b8; }
-QLabel#overviewFieldKey { color: #d9e5ef; font-weight: 700; }
-QLabel#overviewFieldValue { color: #8fa3b8; }
-QLabel#emptyIcon { color: #56d6b0; font-size: 52px; }
-QLabel#summaryItem { background: #101f2e; color: #f5f8fb; border-radius: 7px; padding: 10px; }
-QLabel#valuePill { background: #163b38; color: #75e0bf; border: 1px solid #28675e; border-radius: 9px; padding: 4px 9px; }
-QFrame#factCard, QFrame#panel, QFrame#instructionCard { background: #101f2e; border: 1px solid #263b4e; border-radius: 10px; }
-QFrame#overviewPanel { background: #101f2e; border: 1px solid #263b4e; border-radius: 10px; }
-QFrame#validationPanel { background: #101f2e; border: 1px solid #263b4e; border-radius: 10px; }
-QFrame#validationPhase { background: #0c1926; border: 1px solid #203548; border-radius: 6px; }
-QLabel#validationPhaseName { color: #d9e5ef; font-weight: 600; }
+/* FMSAT_PALETTE
+canvas: #f7f7f5;
+surface: #101f2e;
+accentStrong: #239b78;
+textSoft: #f0f0f0;
+textPrimary: #f5f8fb;
+textMuted: #8fa3b8;
+textSecondary: #d9e5ef;
+accentHover: #56d6b0;
+successSurface: #163b38;
+successText: #75e0bf;
+successBorder: #28675e;
+border: #263b4e;
+borderMuted: #203548;
+warningSurface: #40351c;
+warningText: #f0c76a;
+warningBorder: #735f2d;
+errorSurface: #442329;
+errorText: #ff9da7;
+errorBorder: #7b3943;
+neutralSurface: #243545;
+neutralText: #9fb0c0;
+neutralBorder: #405366;
+bannerBorder: #8f5b2f;
+bannerTitle: #ffd29a;
+bannerText: #f4d9b5;
+accent: #31b98f;
+onAccent: #061510;
+disabledSurface: #9bbbad;
+disabledText: #52645d;
+borderStrong: #30465a;
+dialogText: #e8eef5;
+importanceBlue: #1a3044;
+inactiveText: #60788e;
+*/
+
+QWidget#tacticDetailView, QWidget#squadDetailView { background: {{canvas}}; color: {{surface}}; }
+QLabel#eyebrow, QLabel#factKey, QLabel#factLabel { color: {{accentStrong}}; font-size: 13px; font-weight: 700; letter-spacing: 1px; }
+QLabel#workspaceHeading { color: {{accentStrong}}; font-size: 15px; font-weight: 700; letter-spacing: 1px; }
+QLabel#pageTitle { color: {{surface}}; font-size: 28px; font-weight: 700; min-height: 34px; }
+QLabel#factValue { color: {{textSoft}}; font-size: 14px; font-weight: 600; }
+QLabel#cardTitle, QLabel#emptyTitle { color: {{textPrimary}}; font-size: 17px; font-weight: 700; }
+QLabel#mutedText { color: {{textMuted}}; }
+QLabel#overviewFieldKey { color: {{textSecondary}}; font-weight: 700; }
+QLabel#overviewFieldValue { color: {{textMuted}}; }
+QLabel#emptyIcon { color: {{accentHover}}; font-size: 52px; }
+QLabel#summaryItem { background: {{surface}}; color: {{textPrimary}}; border-radius: 7px; padding: 10px; }
+QLabel#valuePill { background: {{successSurface}}; color: {{successText}}; border: 1px solid {{successBorder}}; border-radius: 9px; padding: 4px 9px; }
+QFrame#factCard, QFrame#panel, QFrame#instructionCard { background: {{surface}}; border: 1px solid {{border}}; border-radius: 10px; }
+QFrame#overviewPanel { background: {{surface}}; border: 1px solid {{border}}; border-radius: 10px; }
+QFrame#validationPanel { background: {{surface}}; border: 1px solid {{border}}; border-radius: 10px; }
+QFrame#validationPhase { background: {{surface}}; border: 1px solid {{borderMuted}}; border-radius: 6px; }
+QLabel#validationPhaseName { color: {{textSecondary}}; font-weight: 600; }
 QLabel#validationStatus, QLabel#validationPhaseCount { border-radius: 8px; padding: 3px 8px; font-weight: 700; }
-QLabel#validationStatus[validationState="passed"], QLabel#validationPhaseCount[validationState="passed"] { background: #163b38; color: #75e0bf; border: 1px solid #28675e; }
-QLabel#validationStatus[validationState="warning"], QLabel#validationPhaseCount[validationState="warning"] { background: #40351c; color: #f0c76a; border: 1px solid #735f2d; }
-QLabel#validationStatus[validationState="error"] { background: #442329; color: #ff9da7; border: 1px solid #7b3943; }
-QLabel#validationStatus[validationState="unknown"], QLabel#validationPhaseCount[validationState="unknown"] { background: #243545; color: #9fb0c0; border: 1px solid #405366; }
-QLabel#validationIssue { color: #f0c76a; }
-QLabel#validationPassed { color: #75e0bf; }
-QFrame#pitchPanel { background: #101f2e; border: 1px solid #263b4e; border-radius: 10px; }
-QFrame#incompleteBanner { background: #3a2714; border: 1px solid #8f5b2f; border-radius: 10px; padding: 8px; }
-QLabel#incompleteBannerTitle { color: #ffd29a; font-size: 14px; font-weight: 700; }
-QLabel#incompleteBannerText { color: #f4d9b5; }
+QLabel#validationStatus[validationState="passed"], QLabel#validationPhaseCount[validationState="passed"] { background: {{successSurface}}; color: {{successText}}; border: 1px solid {{successBorder}}; }
+QLabel#validationStatus[validationState="warning"], QLabel#validationPhaseCount[validationState="warning"] { background: {{warningSurface}}; color: {{warningText}}; border: 1px solid {{warningBorder}}; }
+QLabel#validationStatus[validationState="error"] { background: {{errorSurface}}; color: {{errorText}}; border: 1px solid {{errorBorder}}; }
+QLabel#validationStatus[validationState="unknown"], QLabel#validationPhaseCount[validationState="unknown"] { background: {{neutralSurface}}; color: {{neutralText}}; border: 1px solid {{neutralBorder}}; }
+QLabel#validationIssue { color: {{warningText}}; }
+QLabel#validationPassed { color: {{successText}}; }
+QFrame#pitchPanel { background: {{surface}}; border: 1px solid {{border}}; border-radius: 10px; }
+QFrame#incompleteBanner { background: {{surface}}; border: 1px solid {{bannerBorder}}; border-radius: 10px; padding: 8px; }
+QLabel#incompleteBannerTitle { color: {{bannerTitle}}; font-size: 14px; font-weight: 700; }
+QLabel#incompleteBannerText { color: {{bannerText}}; }
 QFrame#factCard { min-height: 58px; }
-QWidget#tacticDetailView QPushButton, QWidget#squadDetailView QPushButton, QToolButton#playerFilterButton { background: #31b98f; color: #061510; border: 1px solid #31b98f; border-radius: 7px; padding: 9px 15px; font-weight: 700; }
-QWidget#tacticDetailView QPushButton:hover, QWidget#squadDetailView QPushButton:hover, QToolButton#playerFilterButton:hover { background: #56d6b0; border-color: #56d6b0; color: #061510; }
-QWidget#tacticDetailView QPushButton:disabled, QWidget#squadDetailView QPushButton:disabled, QToolButton#playerFilterButton:disabled { background: #9bbbad; border-color: #9bbbad; color: #52645d; }
-QPushButton#secondaryButton[copyState="copied"] { background: #56d6b0; color: #061510; border-color: #56d6b0; }
-QWidget#tacticDetailView QComboBox, QWidget#squadDetailView QComboBox { background: #31b98f; color: #061510; border: 1px solid #31b98f; border-radius: 7px; padding: 8px 12px; font-weight: 700; }
-QWidget#tacticDetailView QComboBox:hover, QWidget#squadDetailView QComboBox:hover { background: #56d6b0; border-color: #56d6b0; }
-QWidget#tacticDetailView QComboBox:disabled, QWidget#squadDetailView QComboBox:disabled { background: #9bbbad; border-color: #9bbbad; color: #52645d; }
+QWidget#tacticDetailView QPushButton, QWidget#squadDetailView QPushButton, QToolButton#playerFilterButton { background: {{accent}}; color: {{onAccent}}; border: 1px solid {{accent}}; border-radius: 7px; padding: 9px 15px; font-weight: 700; }
+QWidget#tacticDetailView QPushButton:hover, QWidget#squadDetailView QPushButton:hover, QToolButton#playerFilterButton:hover { background: {{accentHover}}; border-color: {{accentHover}}; color: {{onAccent}}; }
+QWidget#tacticDetailView QPushButton:disabled, QWidget#squadDetailView QPushButton:disabled, QToolButton#playerFilterButton:disabled { background: {{disabledSurface}}; border-color: {{disabledSurface}}; color: {{disabledText}}; }
+QPushButton#secondaryButton[copyState="copied"] { background: {{accentHover}}; color: {{onAccent}}; border-color: {{accentHover}}; }
+QWidget#tacticDetailView QComboBox, QWidget#squadDetailView QComboBox { background: {{accent}}; color: {{onAccent}}; border: 1px solid {{accent}}; border-radius: 7px; padding: 8px 12px; font-weight: 700; }
+QWidget#tacticDetailView QComboBox:hover, QWidget#squadDetailView QComboBox:hover { background: {{accentHover}}; border-color: {{accentHover}}; }
+QWidget#tacticDetailView QComboBox:disabled, QWidget#squadDetailView QComboBox:disabled { background: {{disabledSurface}}; border-color: {{disabledSurface}}; color: {{disabledText}}; }
 QComboBox { combobox-popup: 0; }
-QComboBox QAbstractItemView, QComboBox QListView { background: #101f2e; color: #d9e5ef; border: 1px solid #30465a; selection-background-color: #56d6b0; selection-color: #061510; }
-QComboBox QAbstractItemView::item, QComboBox QListView::item { background: #101f2e; color: #d9e5ef; min-height: 30px; padding: 5px 8px; }
-QComboBox QAbstractItemView::item:hover, QComboBox QAbstractItemView::item:selected, QComboBox QListView::item:hover, QComboBox QListView::item:selected { background: #56d6b0; color: #061510; }
-QMenu#playerFilterMenu { background: #101f2e; color: #f5f8fb; border: 1px solid #30465a; padding: 7px; }
-QMenu#playerFilterMenu QCheckBox { color: #f5f8fb; spacing: 9px; padding: 7px 12px; min-width: 170px; }
+QComboBox QAbstractItemView, QComboBox QListView { background: {{surface}}; color: {{textSecondary}}; border: 1px solid {{borderStrong}}; selection-background-color: {{accentHover}}; selection-color: {{onAccent}}; }
+QComboBox QAbstractItemView::item, QComboBox QListView::item { background: {{surface}}; color: {{textSecondary}}; min-height: 30px; padding: 5px 8px; }
+QComboBox QAbstractItemView::item:hover, QComboBox QAbstractItemView::item:selected, QComboBox QListView::item:hover, QComboBox QListView::item:selected { background: {{accentHover}}; color: {{onAccent}}; }
+QMenu#playerFilterMenu { background: {{surface}}; color: {{textPrimary}}; border: 1px solid {{borderStrong}}; padding: 7px; }
+QMenu#playerFilterMenu QCheckBox { color: {{textPrimary}}; spacing: 9px; padding: 7px 12px; min-width: 170px; }
 
 /* Shared dialog palette. Dialogs opened outside the squad workspace use this too. */
-QDialog { background: #08131f; color: #e8eef5; }
-QDialog QLabel, QDialog QRadioButton, QDialog QCheckBox, QDialog QGroupBox { color: #d9e5ef; }
+QDialog { background: {{surface}}; color: {{dialogText}}; }
+QDialog QLabel, QDialog QRadioButton, QDialog QCheckBox, QDialog QGroupBox { color: {{textSecondary}}; }
 QDialogButtonBox QPushButton { qproperty-iconSize: 0px 0px; }
 QDialog QPushButton {
-    background: #31b98f; color: #061510; border: 1px solid #31b98f;
+    background: {{accent}}; color: {{onAccent}}; border: 1px solid {{accent}};
     border-radius: 7px; padding: 7px 12px; font-weight: 700;
 }
-QDialog QPushButton:hover { background: #56d6b0; border-color: #56d6b0; }
-QDialog QPushButton:disabled { background: #243545; color: #60788e; border-color: #405366; }
+QDialog QPushButton:hover { background: {{accentHover}}; border-color: {{accentHover}}; }
+QDialog QPushButton:disabled { background: {{neutralSurface}}; color: {{inactiveText}}; border-color: {{neutralBorder}}; }
 QDialog QTableWidget {
-    background: #101f2e; alternate-background-color: #0c1926; color: #f5f8fb;
-    border: 1px solid #30465a; gridline-color: #263b4e;
-    selection-background-color: #163b38; selection-color: #75e0bf;
+    background: {{surface}}; alternate-background-color: {{surface}}; color: {{textPrimary}};
+    border: 1px solid {{borderStrong}}; gridline-color: {{border}};
+    selection-background-color: {{successSurface}}; selection-color: {{successText}};
 }
-QDialog QTableWidget::item { color: #f5f8fb; padding: 4px; }
-QDialog QTableWidget::item:selected { background: #163b38; color: #75e0bf; }
+QDialog QTableWidget::item { color: {{textPrimary}}; padding: 4px; }
+QDialog QTableWidget::item:selected { background: {{successSurface}}; color: {{successText}}; }
+
+/* Role-weight matrix semantic palettes. QTableWidgetItems consume these via
+   hidden provider widgets because individual items are not QSS objects. */
+QWidget#roleWeightDefault { background: {{surface}}; color: {{textPrimary}}; }
+QWidget#roleWeightInactive { background: {{surface}}; color: {{inactiveText}}; }
+QWidget#roleWeightTopThree { background: {{successSurface}}; color: {{textPrimary}}; }
+QWidget#roleWeightImportant { background: {{importanceBlue}}; color: {{textPrimary}}; }
+QWidget#roleWeightNiceToHave { background: {{neutralSurface}}; color: {{textPrimary}}; }
 QDialog QComboBox {
-    background: #101f2e; color: #f5f8fb; border: 1px solid #30465a;
+    background: {{surface}}; color: {{textPrimary}}; border: 1px solid {{borderStrong}};
     border-radius: 5px; padding: 5px 7px;
 }
 QInputDialog { min-width: 520px; }
-QLineEdit, QTextEdit, QPlainTextEdit { background: #101f2e; color: #f5f8fb; border: 1px solid #30465a; border-radius: 6px; padding: 8px; }
-QTreeWidget#playerTraitList { background: #101f2e; alternate-background-color: #0c1926; color: #f5f8fb; border: 1px solid #30465a; }
+QLineEdit, QTextEdit, QPlainTextEdit { background: {{surface}}; color: {{textPrimary}}; border: 1px solid {{borderStrong}}; border-radius: 6px; padding: 8px; }
+QTreeWidget#playerTraitList { background: {{surface}}; alternate-background-color: {{surface}}; color: {{textPrimary}}; border: 1px solid {{borderStrong}}; }
 QTreeWidget#playerTraitList::item { padding: 7px; }
-QTreeWidget#playerTraitList::item:hover { background: #132536; }
-QTreeWidget#playerTraitList::item:selected { background: #163b38; color: #75e0bf; }
+QTreeWidget#playerTraitList::item:hover { background: {{surface}}; }
+QTreeWidget#playerTraitList::item:selected { background: {{successSurface}}; color: {{successText}}; }
 QTableWidget#squadPlayersTable, QTableWidget#roleAssessmentTable, QTableWidget#roleCandidateTable,
 QTableWidget#roleDepthAnalysisTable, QTableWidget#playerRoleAnalysisTable, QTableWidget#squadFindingsTable {
-    background: #101f2e; alternate-background-color: #0c1926; color: #f5f8fb;
-    border: 1px solid #30465a; gridline-color: #263b4e; selection-background-color: #163b38;
-    selection-color: #75e0bf;
+    background: {{surface}}; alternate-background-color: {{surface}}; color: {{textPrimary}};
+    border: 1px solid {{borderStrong}}; gridline-color: {{border}}; selection-background-color: {{successSurface}};
+    selection-color: {{successText}};
 }
 QWidget#squadDetailView QTableWidget#roleAssessmentTable, QWidget#squadDetailView QTableWidget#roleCandidateTable { min-height: 240px; }
 QWidget#squadDetailView QTableWidget#playerRoleAnalysisTable { min-height: 165px; }
@@ -82,135 +126,135 @@ QTableWidget#roleAssessmentTable QWidget#qt_scrollarea_viewport,
 QTableWidget#roleCandidateTable QWidget#qt_scrollarea_viewport,
 QTableWidget#roleDepthAnalysisTable QWidget#qt_scrollarea_viewport,
 QTableWidget#playerRoleAnalysisTable QWidget#qt_scrollarea_viewport,
-QTableWidget#squadFindingsTable QWidget#qt_scrollarea_viewport { background: #101f2e; }
-QTableCornerButton::section { background: #132536; border: 0; border-right: 1px solid #30465a; border-bottom: 1px solid #30465a; }
+QTableWidget#squadFindingsTable QWidget#qt_scrollarea_viewport { background: {{surface}}; }
+QTableCornerButton::section { background: {{surface}}; border: 0; border-right: 1px solid {{borderStrong}}; border-bottom: 1px solid {{borderStrong}}; }
 QTableWidget#squadPlayersTable::item, QTableWidget#roleAssessmentTable::item, QTableWidget#roleDepthAnalysisTable::item { padding: 5px; }
 QTableWidget#roleCandidateTable::item, QTableWidget#playerRoleAnalysisTable::item, QTableWidget#squadFindingsTable::item { padding: 2px 5px; }
 QTableWidget#squadPlayersTable::item:selected, QTableWidget#roleAssessmentTable::item:selected, QTableWidget#roleCandidateTable::item:selected,
-QTableWidget#roleDepthAnalysisTable::item:selected, QTableWidget#playerRoleAnalysisTable::item:selected, QTableWidget#squadFindingsTable::item:selected { background: #163b38; color: #75e0bf; }
-QHeaderView { background: #101f2e; }
-QHeaderView::section { background: #132536; color: #d9e5ef; border: 0; border-right: 1px solid #30465a; padding: 6px; font-weight: 700; }
+QTableWidget#roleDepthAnalysisTable::item:selected, QTableWidget#playerRoleAnalysisTable::item:selected, QTableWidget#squadFindingsTable::item:selected { background: {{successSurface}}; color: {{successText}}; }
+QHeaderView { background: {{surface}}; }
+QHeaderView::section { background: {{surface}}; color: {{textSecondary}}; border: 0; border-right: 1px solid {{borderStrong}}; padding: 6px; font-weight: 700; }
 QTabWidget::pane { border: 0; background: transparent; }
-QTabBar::tab { color: #60788e; padding: 11px 22px; border-bottom: 2px solid transparent; font-weight: 600; }
-QTabBar::tab:selected { color: #239b78; border-bottom-color: #31b98f; }
+QTabBar::tab { color: {{inactiveText}}; padding: 11px 22px; border-bottom: 2px solid transparent; font-weight: 600; }
+QTabBar::tab:selected { color: {{accentStrong}}; border-bottom-color: {{accent}}; }
 QScrollArea { background: transparent; }
-QScrollArea#validationIssueScroll { background: #0c1926; border: 1px solid #203548; }
-QWidget#validationIssueContent { background: #0c1926; }
+QScrollArea#validationIssueScroll { background: {{surface}}; border: 1px solid {{borderMuted}}; }
+QWidget#validationIssueContent { background: {{surface}}; }
 
 /* Focused player editor */
-QDialog#playerEditorDialog { background: #08131f; color: #e8eef5; }
-QDialog#playerEditorDialog QLabel { color: #d9e5ef; }
-QDialog#playerEditorDialog QLabel#playerEditorContext { color: #8fa3b8; padding: 0 2px 2px 2px; }
+QDialog#playerEditorDialog { background: {{surface}}; color: {{dialogText}}; }
+QDialog#playerEditorDialog QLabel { color: {{textSecondary}}; }
+QDialog#playerEditorDialog QLabel#playerEditorContext { color: {{textMuted}}; padding: 0 2px 2px 2px; }
 QDialog#playerEditorDialog QGroupBox#playerEditorSection {
-    background: #0c1926;
-    border: 1px solid #263b4e;
+    background: {{surface}};
+    border: 1px solid {{border}};
     border-radius: 8px;
     margin-top: 10px;
     padding-top: 7px;
     font-weight: 700;
-    color: #d9e5ef;
+    color: {{textSecondary}};
 }
 QDialog#playerEditorDialog QGroupBox#playerEditorSection::title {
     subcontrol-origin: margin;
     left: 11px;
     padding: 0 5px;
-    color: #56d6b0;
+    color: {{accentHover}};
 }
 QDialog#playerEditorDialog QLineEdit {
-    background: #101f2e;
-    color: #f5f8fb;
-    border: 1px solid #30465a;
+    background: {{surface}};
+    color: {{textPrimary}};
+    border: 1px solid {{borderStrong}};
     border-radius: 6px;
     padding: 7px 9px;
     min-height: 19px;
 }
-QDialog#playerEditorDialog QLineEdit:focus { border-color: #56d6b0; }
+QDialog#playerEditorDialog QLineEdit:focus { border-color: {{accentHover}}; }
 QDialog#playerEditorDialog QLabel#playerEvidenceStatus {
-    background: #163b38;
-    color: #75e0bf;
-    border: 1px solid #28675e;
+    background: {{successSurface}};
+    color: {{successText}};
+    border: 1px solid {{successBorder}};
     border-radius: 8px;
     padding: 3px 8px;
     font-weight: 700;
 }
-QScrollArea#playerAttributeScroll { background: #101f2e; border: 0; }
-QWidget#playerAttributeContainer { background: #101f2e; }
-QLabel#playerAttributeLabel { color: #d9e5ef; font-weight: 700; min-width: 112px; }
+QScrollArea#playerAttributeScroll { background: {{surface}}; border: 0; }
+QWidget#playerAttributeContainer { background: {{surface}}; }
+QLabel#playerAttributeLabel { color: {{textSecondary}}; font-weight: 700; min-width: 112px; }
 QSpinBox#playerAttributeInput {
-    background: #0c1926;
-    color: #f5f8fb;
-    border: 1px solid #30465a;
+    background: {{surface}};
+    color: {{textPrimary}};
+    border: 1px solid {{borderStrong}};
     border-radius: 5px;
     padding: 5px 7px;
     min-height: 20px;
 }
-QSpinBox#playerAttributeInput:focus { border-color: #56d6b0; }
+QSpinBox#playerAttributeInput:focus { border-color: {{accentHover}}; }
 QSpinBox#playerAttributeInput::up-button, QSpinBox#playerAttributeInput::down-button {
-    background: #132536;
+    background: {{surface}};
     border: 0;
-    border-left: 1px solid #30465a;
+    border-left: 1px solid {{borderStrong}};
     width: 18px;
 }
 QLabel#playerTraitsSummary {
-    background: #101f2e;
-    color: #d9e5ef;
-    border: 1px solid #263b4e;
+    background: {{surface}};
+    color: {{textSecondary}};
+    border: 1px solid {{border}};
     border-radius: 6px;
     padding: 8px 10px;
 }
 QDialog#playerEditorDialog QPushButton#primaryButton,
 QDialog#playerTraitDialog QPushButton {
-    background: #31b98f;
-    color: #061510;
-    border: 1px solid #31b98f;
+    background: {{accent}};
+    color: {{onAccent}};
+    border: 1px solid {{accent}};
     border-radius: 7px;
     padding: 8px 14px;
     font-weight: 700;
 }
 QDialog#playerEditorDialog QPushButton#primaryButton:hover,
 QDialog#playerTraitDialog QPushButton:hover {
-    background: #56d6b0;
-    border-color: #56d6b0;
+    background: {{accentHover}};
+    border-color: {{accentHover}};
 }
 QDialog#playerEditorDialog QPushButton#secondaryButton {
-    background: #132536;
-    color: #d9e5ef;
-    border: 1px solid #30465a;
+    background: {{surface}};
+    color: {{textSecondary}};
+    border: 1px solid {{borderStrong}};
     border-radius: 7px;
     padding: 8px 14px;
     font-weight: 700;
 }
 QDialog#playerEditorDialog QPushButton#secondaryButton:hover {
-    background: #1a3044;
-    border-color: #56d6b0;
-    color: #f5f8fb;
+    background: {{importanceBlue}};
+    border-color: {{accentHover}};
+    color: {{textPrimary}};
 }
 
 /* Known-traits chooser */
-QDialog#playerTraitDialog { background: #08131f; color: #e8eef5; }
-QDialog#playerTraitDialog QLabel { color: #d9e5ef; }
+QDialog#playerTraitDialog { background: {{surface}}; color: {{dialogText}}; }
+QDialog#playerTraitDialog QLabel { color: {{textSecondary}}; }
 QDialog#playerTraitDialog QLineEdit { margin-bottom: 3px; }
-QDialog#playerTraitDialog QCheckBox { color: #d9e5ef; spacing: 8px; padding: 3px 0; }
+QDialog#playerTraitDialog QCheckBox { color: {{textSecondary}}; spacing: 8px; padding: 3px 0; }
 QDialog#playerTraitDialog QCheckBox::indicator,
 QDialog#playerTraitDialog QTreeWidget#playerTraitList::indicator {
     width: 15px;
     height: 15px;
-    background: #0c1926;
-    border: 1px solid #60788e;
+    background: {{surface}};
+    border: 1px solid {{inactiveText}};
     border-radius: 3px;
 }
 QDialog#playerTraitDialog QCheckBox::indicator:checked,
 QDialog#playerTraitDialog QTreeWidget#playerTraitList::indicator:checked {
-    background: #31b98f;
-    border-color: #56d6b0;
+    background: {{accent}};
+    border-color: {{accentHover}};
 }
 QDialog#playerTraitDialog QCheckBox::indicator:hover,
 QDialog#playerTraitDialog QTreeWidget#playerTraitList::indicator:hover {
-    border-color: #56d6b0;
+    border-color: {{accentHover}};
 }
 QDialog#playerTraitDialog QTreeWidget#playerTraitList {
-    background: #0c1926;
-    border: 1px solid #30465a;
+    background: {{surface}};
+    border: 1px solid {{borderStrong}};
     border-radius: 6px;
 }
 QDialog#playerTraitDialog QTreeWidget#playerTraitList::item { min-height: 26px; padding: 4px 6px; }
