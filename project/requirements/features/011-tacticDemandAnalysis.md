@@ -36,7 +36,7 @@ facts. No speculative football judgements are invented.
   of any squad or player.
 - Simultaneous slot requirements: canonical position, IP role, OOP role,
   evidence state, and IP→OOP transition class.
-- Aggregate attribute demand from explicit 1–5 or packaged-scale assessment
+- Aggregate attribute demand from explicit 0–10 packaged-scale assessment
   weights, overall and by phase, with coverage of how many phase-roles
   contributed.
 - Factual, count-based structural observations (repeated roles, flank

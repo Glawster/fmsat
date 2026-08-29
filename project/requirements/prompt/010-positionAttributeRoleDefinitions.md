@@ -108,11 +108,11 @@ Give every canonical role its own definition containing:
 - essential, important and useful attribute groups; and
 - optional hard minimums.
 
-Use a documented integer weight scale, initially `0`–`5`, rather than
-percentages. Allow explicit duty-specific overrides without modifying the base
-role at runtime. Every referenced attribute must exist in the master attribute
-list, and one attribute must not occupy multiple importance groups for the same
-role and duty.
+Use a documented integer weight scale of `0`–`10`, rather than percentages.
+Legacy `0`–`5` policy files are migrated to `0`–`10`. Allow explicit
+duty-specific overrides without modifying the base role at runtime. Every
+referenced attribute must exist in the master attribute list, and one attribute
+must not occupy multiple importance groups for the same role and duty.
 
 For example:
 

@@ -108,7 +108,7 @@ depth. It receives the editable squad model, selected football object-model tact
 canonical role vocabulary and role assessment policy. The UI consumes immutable display
 models and does not calculate scores or query SQLAlchemy.
 
-`config/roleAssessment.yaml` identifies the assessment policy and defines explicit 1–5
+`config/roleAssessment.yaml` identifies the assessment policy and defines explicit 0–10
 attribute weights for every canonical FM26 tactic role. A confirmed user role-requirement
 file overrides the packaged policy for that stable role identity. Missing weights or any
 missing weighted player attribute makes that player-role result `Unavailable`; the scorer

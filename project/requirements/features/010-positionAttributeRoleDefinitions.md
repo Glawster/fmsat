@@ -202,9 +202,10 @@ playerInstructions:
    split.
 2. Each profile must reference a known role and define attribute weights,
    importance groups and optional hard minimums.
-3. Attribute weights must use a documented integer scale, initially `0`–`5`,
+3. Attribute weights must use a documented integer scale of `0`–`10`,
    rather than percentages. A larger value means greater influence on Generic
-   Role Fit.
+   Role Fit. Legacy `0`–`5` policy files are migrated to `0`–`10`; they are not
+   a second runtime scale.
 4. Every weighted, grouped or minimum attribute must reference both the master
    attribute vocabulary and, unless explicitly justified, the role's
    screenshot-backed key attributes.
