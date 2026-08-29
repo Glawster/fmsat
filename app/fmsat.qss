@@ -139,7 +139,7 @@ QTableWidget#squadPlayersTable::item:selected, QTableWidget#roleAssessmentTable:
 QTableWidget#roleDepthAnalysisTable::item:selected, QTableWidget#playerRoleAnalysisTable::item:selected, QTableWidget#squadFindingsTable::item:selected,
 QTableWidget#tacticRoleRequirementsTable::item:selected, QTableWidget#tacticDemandTable::item:selected, QTableWidget#tacticObservationsTable::item:selected { background: {{successSurface}}; color: {{successText}}; }
 QHeaderView { background: {{surface}}; }
-QHeaderView::section { background: {{surface}}; color: {{textSecondary}}; border: 0; border-right: 1px solid {{borderStrong}}; padding: 6px; font-weight: 700; }
+QHeaderView::section { background: {{surface}}; color: {{textSecondary}}; border: 0; border-right: 1px solid {{borderStrong}}; border-bottom: 1px solid {{borderStrong}}; padding: 6px; font-weight: 700; }
 QTabWidget::pane { border: 0; background: transparent; }
 QTabBar::tab { color: {{inactiveText}}; padding: 11px 22px; border-bottom: 2px solid transparent; font-weight: 600; }
 QTabBar::tab:selected { color: {{accentStrong}}; border-bottom-color: {{accent}}; }

@@ -277,6 +277,8 @@ def testAnalysisReportsRepeatedRolesAndOmitsUniqueOnes() -> None:
     assert analysis is not None
     repeated = tuple(item for item in analysis.observations if item.code == "repeatedRole")
     assert len(repeated) == 1
+    assert repeated[0].phase == "IP"
+    assert repeated[0].title == "Inside Forward"
     assert "AML" in repeated[0].explanation and "AMR" in repeated[0].explanation
     assert all(
         item.code != "repeatedRole" or "Winger" not in item.title for item in analysis.observations
@@ -301,6 +303,8 @@ def testAnalysisReportsAsymmetricFlanksOnlyWhenBothSidesExist() -> None:
     assert analysis is not None and noPair is not None
     flanks = tuple(item for item in analysis.observations if item.code == "asymmetricFlank")
     assert len(flanks) == 1
+    assert flanks[0].phase == "IP"
+    assert flanks[0].title == "AML/AMR"
     assert "Inside Forward" in flanks[0].explanation
     assert "Winger" in flanks[0].explanation
     assert all(item.code != "asymmetricFlank" for item in noPair.observations)
@@ -321,6 +325,7 @@ def testAnalysisCountsTrackingRolesFromTheClosedPackagedSet() -> None:
 
     assert analysis is not None
     tracking = next(item for item in analysis.observations if item.code == "trackingRoleCount")
+    assert tracking.phase == ""
     assert tracking.explanation.startswith("1 tracking phase-roles")
     assert "trackingAttackingMidfielder" in tracking.explanation
     assert TRACKING_ROLE_CODES == {

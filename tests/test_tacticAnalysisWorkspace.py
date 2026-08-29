@@ -84,6 +84,8 @@ def testAnalysisDisplayMapsFamilyChangeAndUnavailablePhaseDemand() -> None:
 
     assert display.slots[0].position == "AML → ML"
     assert display.slots[0].transition.startswith("Family change")
+    family = next(item for item in display.observations if item.finding == "Family changes")
+    assert family.phase == "—"
     assert "Alpha" not in display.slots[0].ipRole
     finishing = next(row for row in display.demand if row.attribute == "Finishing")
     assert finishing.inPossession == "5"
@@ -138,9 +140,14 @@ def testAnalysisTabShowsDemandDashboardWithoutSquadContent(qtbot) -> None:  # ty
         requirements.horizontalHeaderItem(column).text()
         for column in range(requirements.columnCount())
     ]
+    observationHeaders = [
+        observations.horizontalHeaderItem(column).text()
+        for column in range(observations.columnCount())
+    ]
 
     assert requirements is not None and demand is not None and observations is not None
     assert tab.findChild(QPushButton, "reanalyseTacticButton") is None
+    assert observationHeaders == ["Phase", "Finding", "Evidence"]
     assert "Best XI" not in texts
     assert "Selected Player" not in headers
     assert "Primary" not in headers

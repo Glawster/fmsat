@@ -130,15 +130,17 @@ class AnalysisTab(QWidget):
             label.setObjectName("mutedText")
             label.setWordWrap(True)
             return self._card("Structural Observations", label)
-        table = self._table(("Finding", "Evidence"), "tacticObservationsTable")
+        table = self._table(("Phase", "Finding", "Evidence"), "tacticObservationsTable")
         table.setRowCount(len(display.observations))
         for row, item in enumerate(display.observations):
-            table.setItem(row, 0, QTableWidgetItem(item.finding))
-            table.setItem(row, 1, QTableWidgetItem(item.evidence))
+            table.setItem(row, 0, QTableWidgetItem(item.phase))
+            table.setItem(row, 1, QTableWidgetItem(item.finding))
+            table.setItem(row, 2, QTableWidgetItem(item.evidence))
             table.setRowHeight(row, 28)
         header = table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         return self._card("Structural Observations", table)
 
     @staticmethod

@@ -142,7 +142,7 @@ Observations are counts and identity lists. They are not advice.
 
 | Code | Fact | Omitted when |
 | --- | --- | --- |
-| `repeatedRole` | Same resolved `roleCode` in two or more slots of one phase | Unique roles; unresolved identities are not grouped |
+| `repeatedRole` | Same resolved `roleCode` in two or more slots of one phase; `phase` is IP or OOP | Unique roles; unresolved identities are not grouped |
 | `asymmetricFlank` | Both sides of an L/R pair exist in **that** phase and the resolved roles differ | The pair is absent in that phase (not Unavailable) |
 | `trackingRoleCount` | Count of phase-roles whose `roleCode` is in the packaged tracking set | Never; `0` is complete evidence |
 | `familyChangeCount` | `N of M` linked slots classifiable as `familyChange` | No classifiable slots |
@@ -167,7 +167,9 @@ object model exists. The Analysis tab maps that immutable result to strings in
 resolve roles.
 
 The dashboard shows a policy/coverage banner, Role Requirements, Attribute Demand and
-Structural Observations. **Reanalyse Tactic** sits with **Edit Model** and
+Structural Observations. Observation rows have a Phase column (IP, OOP, or — for
+tactic-wide findings) so phase is not mixed into the finding text. Table header rows
+use a bottom rule to separate labels from values. **Reanalyse Tactic** sits with **Edit Model** and
 **Regenerate Model** in the tactic footer. It rebuilds demand from the saved model and
 current policy, then confirms success in the status bar. The tooltip states that it does
 not regenerate screenshots.

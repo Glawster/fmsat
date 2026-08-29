@@ -43,6 +43,7 @@ class TacticDemandDisplay:
 class TacticObservationDisplay:
     """One structural observation row."""
 
+    phase: str
     finding: str
     evidence: str
 
@@ -146,7 +147,11 @@ def _demandDisplay(row: AttributeDemand) -> TacticDemandDisplay:
 
 
 def _observationDisplay(item: TacticObservation) -> TacticObservationDisplay:
-    return TacticObservationDisplay(finding=item.title, evidence=item.explanation)
+    return TacticObservationDisplay(
+        phase=item.phase or "—",
+        finding=item.title,
+        evidence=item.explanation,
+    )
 
 
 def _number(value: int | None) -> str:

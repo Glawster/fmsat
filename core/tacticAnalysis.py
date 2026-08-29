@@ -125,6 +125,7 @@ class TacticObservation:
     code: ObservationCode
     title: str
     explanation: str
+    phase: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -533,8 +534,9 @@ class TacticAnalysisService:
             observations.append(
                 TacticObservation(
                     "repeatedRole",
-                    f"{phase} {name}",
+                    name,
                     f"{name} is used in {len(positions)} {phase} slots: " + ", ".join(positions),
+                    phase,
                 )
             )
         return tuple(observations)
@@ -560,8 +562,9 @@ class TacticAnalysisService:
                     observations.append(
                         TacticObservation(
                             "asymmetricFlank",
-                            f"{phase} {leftCode}/{rightCode}",
-                            f"{phase} {leftCode}/{rightCode} role identity is unresolved",
+                            f"{leftCode}/{rightCode}",
+                            f"{leftCode}/{rightCode} role identity is unresolved",
+                            phase,
                         )
                     )
                     continue
@@ -570,8 +573,9 @@ class TacticAnalysisService:
                 observations.append(
                     TacticObservation(
                         "asymmetricFlank",
-                        f"{phase} {leftCode}/{rightCode}",
-                        f"{phase} {leftCode} {left.displayName} vs {rightCode} {right.displayName}",
+                        f"{leftCode}/{rightCode}",
+                        f"{leftCode} {left.displayName} vs {rightCode} {right.displayName}",
+                        phase,
                     )
                 )
         return tuple(observations)
