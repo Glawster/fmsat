@@ -2,7 +2,7 @@
 
 ## Status
 
-InProgress
+Completed
 
 ## Outcome
 
@@ -15,7 +15,8 @@ from an explicit demand model rather than from imported screenshots.
 
 Requirement 009 reserved the Tactic workspace Analysis tab and requires only a
 useful empty state that does not misrepresent generated conclusions as imported
-facts. That placeholder is still what the tab shows.
+facts. That empty shell remains when no football object model exists. Generated
+demand content is owned by this requirement.
 
 Squad Analysis, owned by requirement 007, answers a different question: how well
 does this squad satisfy this tactic? It already presents Best XI, Required Role
@@ -121,12 +122,24 @@ facts. No speculative football judgements are invented.
   `app/tacticAnalysisDisplay.py`, `app/tacticAnalysisWorkspace.py`,
   `MainWindow.tacticShow`
 - Tests: `tests/test_tacticSlots.py`, `tests/test_tacticAnalysis.py`,
-  `tests/test_tacticAnalysisWorkspace.py`; Role Depth and Best XI suites remain
-  green
-- Documentation: pending (`documentation/tacticAnalysis.md` after behaviour is
-  delivered)
-- Pull request: pending
-- Agent runs: None
+  `tests/test_tacticAnalysisWorkspace.py`, `tests/test_tacticDetailView.py`
+- Documentation: `documentation/tacticAnalysis.md`
+- Pull request: branch `feature/011-tactic-analysis` (GitHub pull request not
+  opened from this delivery)
+- Agent runs: implementation on `feature/011-tactic-analysis`
+
+Acceptance criteria:
+
+| Criterion | Evidence |
+| --- | --- |
+| 1 Demand dashboard from tactic and policy | `tests/test_tacticAnalysis.py`, `tests/test_tacticAnalysisWorkspace.py` |
+| 2 No object model keeps the 009 empty shell | `tests/test_tacticDetailView.py`, `testAnalysisTabEmptyShellOmitsPrototypeGenerateButton` |
+| 3 Unavailable, no invented zero/default/ordinal pair | `tests/test_tacticAnalysis.py`, `tests/test_tacticSlots.py` |
+| 4 Assigned footballer does not change the result | `testAnalysisIgnoresAnAssignedFootballer`, `testAnalysisTabShowsDemandDashboardWithoutSquadContent` |
+| 5 Deterministic rebuild | `testAnalysisIsDeterministicForTheSameTacticAndPolicy` |
+| 6 No Best XI, depth or recruitment on this tab | `testAnalysisTabShowsDemandDashboardWithoutSquadContent` |
+| 7 Reanalyse from saved model without OCR | `testMainWindowReanalyseReloadsSavedModelWithoutOcr` |
+| 8 Core without Qt; view does not calculate | `tests/test_tacticAnalysis.py`; `app/tacticAnalysisDisplay.py` |
 
 ## Change history
 
@@ -138,3 +151,4 @@ facts. No speculative football judgements are invented.
   Analysis tab still 009 empty shell.
 - 2026-08-28: PR 3 — present demand on the Tactic Analysis tab through
   `MainWindow.tacticShow`; Reanalyse uses the saved object model, not OCR.
+- 2026-08-28: PR 4 — living algorithm guide and requirement completion.

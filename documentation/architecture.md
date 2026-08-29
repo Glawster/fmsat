@@ -121,3 +121,12 @@ backup candidates, player best and alternative roles, and the first Analysis-tab
 Weak-role, duplication and unused-strength thresholds belong to the same versioned policy.
 These observations are not Tactical Fit, Overall Suitability, Best XI selection or
 recruitment recommendations; those remain separate later calculation stages.
+
+## Tactic analysis
+
+`TacticAnalysisService` is the Qt-independent boundary for squad-independent tactic
+demand. `MainWindow.tacticShow` constructs it when a football object model exists. The
+Analysis tab maps immutable results to strings and does not sum weights or classify
+transitions. Missing object models keep the requirement 009 empty shell. The algorithm
+is documented in `documentation/tacticAnalysis.md`. Squad Analysis remains how well a
+squad satisfies the tactic; see `documentation/bestXi.md` for unique-player assignment.

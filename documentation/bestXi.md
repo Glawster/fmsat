@@ -12,6 +12,8 @@ This boundary is intentional. A high Generic Role Fit outside a player's capture
 
 Required Role Depth asks which players are strongest for each tactic role/slot in isolation and which backups exist. Best XI asks which **set of unique players**, assigned across all simultaneous tactic slots, gives the strongest complete team from the available squad evidence.
 
+Tactic Analysis, on the tactic workspace, answers a third question: what does this tactic demand, regardless of who is in the squad? See [Tactic Analysis](tacticAnalysis.md).
+
 This distinction matters because the player with the highest score for one slot may be more valuable in another slot. A slot-by-slot greedy selection can therefore produce a weaker or incomplete XI even when a better complete assignment exists.
 
 Example:

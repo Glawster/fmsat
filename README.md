@@ -90,9 +90,10 @@ Each role YAML records separate `inPossession` and `outOfPossession` flags. Conf
 other phase updates the same role file and merges its factual evidence without duplicating
 the definition.
 
-An applied pairing is not yet an automatic suitability rating. A defensible calculated
-score requires formation positions, roles and team instructions to be extracted into typed
-data rather than inferred from screenshot presence alone.
+An applied pairing is not an automatic player-suitability rating. The Tactic workspace
+Analysis tab reports what a saved tactic demands, independently of any squad. Squad
+Analysis reports how well a squad satisfies that tactic. See
+`documentation/tacticAnalysis.md` and `documentation/bestXi.md`.
 
 ## Requirements and installation
 

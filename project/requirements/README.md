@@ -14,7 +14,7 @@ The next available requirement number is **012**.
 | 008 | [Welcome screen](features/008-welcomeScreen.md) | Completed | [Prompt](prompt/008-welcomeScreen.md) | — |
 | 009 | [Tactic detail management](features/009-tacticDetailManagement.md) | InProgress | [Prompt](prompt/009-tacticDetailManagement.md) | — |
 | 010 | [Position, attribute and role definitions](features/010-positionAttributeRoleDefinitions.md) | InProgress | [Prompt](prompt/010-positionAttributeRoleDefinitions.md) | — |
-| 011 | [Tactic demand analysis](features/011-tacticDemandAnalysis.md) | InProgress | [Prompt](prompt/011-tacticDemandAnalysis.md) | — |
+| 011 | [Tactic demand analysis](features/011-tacticDemandAnalysis.md) | Completed | [Prompt](prompt/011-tacticDemandAnalysis.md) | — |
 
 Requirement records are stable statements of intent. Update their status as work
 progresses; put changing implementation guidance in `../../documentation/`.
