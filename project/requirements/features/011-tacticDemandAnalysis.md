@@ -117,9 +117,12 @@ facts. No speculative football judgements are invented.
 
 ## Traceability
 
-- Implementation: `core/tacticSlots.py`, `core/tacticAnalysis.py`; UI pending
-- Tests: `tests/test_tacticSlots.py`, `tests/test_tacticAnalysis.py`; Role Depth
-  and Best XI suites remain green
+- Implementation: `core/tacticSlots.py`, `core/tacticAnalysis.py`,
+  `app/tacticAnalysisDisplay.py`, `app/tacticAnalysisWorkspace.py`,
+  `MainWindow.tacticShow`
+- Tests: `tests/test_tacticSlots.py`, `tests/test_tacticAnalysis.py`,
+  `tests/test_tacticAnalysisWorkspace.py`; Role Depth and Best XI suites remain
+  green
 - Documentation: pending (`documentation/tacticAnalysis.md` after behaviour is
   delivered)
 - Pull request: pending
@@ -133,3 +136,5 @@ facts. No speculative football judgements are invented.
   Role Depth resolution or Best XI.
 - 2026-08-28: PR 2 — add TacticAnalysisService and immutable demand results;
   Analysis tab still 009 empty shell.
+- 2026-08-28: PR 3 — present demand on the Tactic Analysis tab through
+  `MainWindow.tacticShow`; Reanalyse uses the saved object model, not OCR.

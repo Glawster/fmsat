@@ -17,9 +17,11 @@ from PySide6.QtWidgets import (
 )
 
 from fmsat.app.adminWidgets import AdminTextEditDialog
+from fmsat.app.tacticAnalysisWorkspace import AnalysisTab
 from fmsat.app.tacticDetailModel import DisplaySlot, TacticDetailModel
 from fmsat.app.tacticDetailPrototype import tacticDetailPrototype
-from fmsat.app.tacticDetailTabs import AnalysisTab, InstructionsTab, OverviewTab, ShapeTab
+from fmsat.app.tacticDetailTabs import InstructionsTab, OverviewTab, ShapeTab
+from fmsat.core.tacticAnalysis import TacticAnalysis
 from fmsat.app.tacticPitchWidget import PitchWidget
 from fmsat.app.tacticValidationWidget import BuildResult
 from fmsat.app.styles import styleSheetLoad
@@ -38,6 +40,7 @@ class TacticDetailView(QWidget):
     modelEditRequested = Signal(str)
     renameRequested = Signal(str, str)
     squadRequested = Signal(str)
+    reanalyseRequested = Signal()
 
     def __init__(
         self,
@@ -49,8 +52,10 @@ class TacticDetailView(QWidget):
         super().__init__(parent)
         self.model = model or tacticDetailPrototype()
         self.validation = validation
+        self.analysis: TacticAnalysis | None = None
         self.sourceLabel = "Prototype Data"
         self.tacticName = ""
+        self.selectedTabName = "Overview"
         self.setObjectName("tacticDetailView")
         self.setStyleSheet(self._styleLoad())
         self.rootLayout = QVBoxLayout(self)
@@ -65,6 +70,7 @@ class TacticDetailView(QWidget):
         *,
         sourceLabel: str | None = None,
         validation: BuildResult | None = None,
+        analysis: TacticAnalysis | None = None,
     ) -> None:
         """Refresh the workspace for the selected stored tactic identity."""
 
@@ -73,6 +79,7 @@ class TacticDetailView(QWidget):
         if sourceLabel is not None:
             self.sourceLabel = sourceLabel
         self.validation = validation
+        self.analysis = analysis
         self.tacticName = tacticName
         self._contentRefresh()
 
@@ -215,7 +222,18 @@ class TacticDetailView(QWidget):
         tabs.addTab(self.overviewTab, "Overview")
         tabs.addTab(ShapeTab(self.model), "Shape")
         tabs.addTab(InstructionsTab(self.model), "Instructions")
-        tabs.addTab(AnalysisTab(), "Analysis")
+        self.analysisTab = AnalysisTab(self.analysis)
+        self.analysisTab.reanalyseRequested.connect(self.reanalyseRequested.emit)
+        tabs.addTab(self.analysisTab, "Analysis")
+        self.tabs = tabs
+        targetIndex = next(
+            (index for index in range(tabs.count()) if tabs.tabText(index) == self.selectedTabName),
+            0,
+        )
+        tabs.setCurrentIndex(targetIndex)
+        tabs.currentChanged.connect(
+            lambda index: setattr(self, "selectedTabName", tabs.tabText(index))
+        )
         return tabs
 
     ## utilities

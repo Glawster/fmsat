@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
     QHBoxLayout,
     QLabel,
-    QPushButton,
     QScrollArea,
     QVBoxLayout,
     QWidget,
@@ -17,45 +15,6 @@ from PySide6.QtWidgets import (
 from fmsat.app.tacticDetailModel import DisplaySlot, TacticDetailModel
 from fmsat.app.tacticPitchWidget import PitchWidget
 from fmsat.app.tacticValidationWidget import BuildResult, TacticValidationWidget
-
-
-class AnalysisTab(QWidget):
-    """Explain the unavailable generated-analysis state."""
-
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        layout = QVBoxLayout(self)
-        layout.addStretch()
-        icon = QLabel("◇")
-        icon.setObjectName("emptyIcon")
-        icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(icon)
-        title = QLabel("Analysis Is Ready When You Are")
-        title.setObjectName("emptyTitle")
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(title)
-        copy = QLabel(
-            "Generated analysis will appear here, clearly separated from imported and "
-            "user-entered facts. No tactical conclusions have been generated yet."
-        )
-        copy.setObjectName("mutedText")
-        copy.setWordWrap(True)
-        copy.setMaximumWidth(560)
-        copy.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        copyRow = QHBoxLayout()
-        copyRow.addStretch()
-        copyRow.addWidget(copy)
-        copyRow.addStretch()
-        layout.addLayout(copyRow)
-        generate = QPushButton("Generate analysis")
-        generate.setEnabled(False)
-        generate.setToolTip("Analysis algorithms are outside this prototype")
-        buttonRow = QHBoxLayout()
-        buttonRow.addStretch()
-        buttonRow.addWidget(generate)
-        buttonRow.addStretch()
-        layout.addLayout(buttonRow)
-        layout.addStretch()
 
 
 class InstructionsTab(QScrollArea):

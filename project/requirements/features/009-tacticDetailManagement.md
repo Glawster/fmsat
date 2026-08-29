@@ -377,6 +377,9 @@ instructions:
 
 - 2026-08-16: recorded user-owned tactic renaming and derived `<name> IP` /
   `<name> OOP` phase formation identities.
+- 2026-08-28: Analysis tab empty shell remains 009 when no football object
+  model exists; generated demand content is owned by requirement 011. The
+  prototype Generate analysis button is removed.
 
 ## Delivery notes
 

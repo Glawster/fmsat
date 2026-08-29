@@ -64,6 +64,7 @@ from fmsat.core.requirements import ScreenshotRequirement, TacticScreenshotPlann
 from fmsat.core.roleKnowledge import RoleKnowledgeService
 from fmsat.core.screenshotStore import ScreenshotStore, ScreenshotStoreError
 from fmsat.core.squadAssessment import SquadAssessmentService
+from fmsat.core.tacticAnalysis import TacticAnalysisService
 from fmsat.core.squadModel import SquadModel, SquadModelService
 from fmsat.core.services import (
     ImportError,
@@ -123,6 +124,17 @@ class MainWindow(QMainWindow):
                 self.tacticModelLoader,
                 roleKnowledgeService,
                 tacticVocabulary,
+            )
+            if roleKnowledgeService is not None and tacticVocabulary is not None
+            else None
+        )
+        settings = getattr(roleKnowledgeService, "assessmentSettings", {}) or {}
+        self.tacticAnalysisService = (
+            TacticAnalysisService(
+                tacticVocabulary,
+                roleKnowledgeService,
+                attributes,
+                str(settings.get("identity", "Unavailable")),
             )
             if roleKnowledgeService is not None and tacticVocabulary is not None
             else None
@@ -1047,6 +1059,7 @@ class MainWindow(QMainWindow):
                 detailModel,
                 sourceLabel="Incomplete Data",
                 validation=validationResult,
+                analysis=None,
             )
             self.contentStack.setCurrentWidget(self.tacticDetailView)
             self.statusBar().showMessage(
@@ -1072,11 +1085,17 @@ class MainWindow(QMainWindow):
             if loadResult.stale
             else "Saved Tactic Model" if loadResult.source == "objectModel" else "Built Model"
         )
+        analysis = (
+            self.tacticAnalysisService.analysisBuild(loadResult.tactic)
+            if self.tacticAnalysisService is not None
+            else None
+        )
         self.tacticDetailView.tacticShow(
             loadResult.tactic.name,
             detailModel,
             sourceLabel=sourceLabel,
             validation=validationResult,
+            analysis=analysis,
         )
         self.contentStack.setCurrentWidget(self.tacticDetailView)
 
@@ -1106,6 +1125,15 @@ class MainWindow(QMainWindow):
             f"Saved {tacticName}; source screenshots marked as superseded.",
             12000,
         )
+        self.tacticShow(tacticName)
+
+    def _tacticAnalyse(self) -> None:
+        """Rebuild tactic demand from the saved object model without screenshot OCR."""
+
+        tacticName = self.tacticDetailView.tacticName
+        if not tacticName:
+            return
+        self.tacticDetailView.selectedTabName = "Analysis"
         self.tacticShow(tacticName)
 
     def _tacticDetailBack(self) -> None:
@@ -1433,6 +1461,7 @@ class MainWindow(QMainWindow):
         self.tacticDetailView.importToModelRequested.connect(self.tacticModelImport)
         self.tacticDetailView.modelEditRequested.connect(self._tacticModelEdit)
         self.tacticDetailView.squadRequested.connect(self.squadShow)
+        self.tacticDetailView.reanalyseRequested.connect(self._tacticAnalyse)
         self.contentStack.addWidget(self.tacticDetailView)
         self.squadDetailView = SquadDetailView(self, attributes=self.attributes)
         self.squadDetailView.backRequested.connect(self._tacticDetailBack)

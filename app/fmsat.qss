@@ -113,7 +113,8 @@ QTreeWidget#playerTraitList::item { padding: 7px; }
 QTreeWidget#playerTraitList::item:hover { background: {{surface}}; }
 QTreeWidget#playerTraitList::item:selected { background: {{successSurface}}; color: {{successText}}; }
 QTableWidget#squadPlayersTable, QTableWidget#roleAssessmentTable, QTableWidget#roleCandidateTable,
-QTableWidget#roleDepthAnalysisTable, QTableWidget#playerRoleAnalysisTable, QTableWidget#squadFindingsTable {
+QTableWidget#roleDepthAnalysisTable, QTableWidget#playerRoleAnalysisTable, QTableWidget#squadFindingsTable,
+QTableWidget#tacticRoleRequirementsTable, QTableWidget#tacticDemandTable, QTableWidget#tacticObservationsTable {
     background: {{surface}}; alternate-background-color: {{surface}}; color: {{textPrimary}};
     border: 1px solid {{borderStrong}}; gridline-color: {{border}}; selection-background-color: {{successSurface}};
     selection-color: {{successText}};
@@ -126,12 +127,16 @@ QTableWidget#roleAssessmentTable QWidget#qt_scrollarea_viewport,
 QTableWidget#roleCandidateTable QWidget#qt_scrollarea_viewport,
 QTableWidget#roleDepthAnalysisTable QWidget#qt_scrollarea_viewport,
 QTableWidget#playerRoleAnalysisTable QWidget#qt_scrollarea_viewport,
-QTableWidget#squadFindingsTable QWidget#qt_scrollarea_viewport { background: {{surface}}; }
+QTableWidget#squadFindingsTable QWidget#qt_scrollarea_viewport,
+QTableWidget#tacticRoleRequirementsTable QWidget#qt_scrollarea_viewport,
+QTableWidget#tacticDemandTable QWidget#qt_scrollarea_viewport,
+QTableWidget#tacticObservationsTable QWidget#qt_scrollarea_viewport { background: {{surface}}; }
 QTableCornerButton::section { background: {{surface}}; border: 0; border-right: 1px solid {{borderStrong}}; border-bottom: 1px solid {{borderStrong}}; }
 QTableWidget#squadPlayersTable::item, QTableWidget#roleAssessmentTable::item, QTableWidget#roleDepthAnalysisTable::item { padding: 5px; }
 QTableWidget#roleCandidateTable::item, QTableWidget#playerRoleAnalysisTable::item, QTableWidget#squadFindingsTable::item { padding: 2px 5px; }
 QTableWidget#squadPlayersTable::item:selected, QTableWidget#roleAssessmentTable::item:selected, QTableWidget#roleCandidateTable::item:selected,
-QTableWidget#roleDepthAnalysisTable::item:selected, QTableWidget#playerRoleAnalysisTable::item:selected, QTableWidget#squadFindingsTable::item:selected { background: {{successSurface}}; color: {{successText}}; }
+QTableWidget#roleDepthAnalysisTable::item:selected, QTableWidget#playerRoleAnalysisTable::item:selected, QTableWidget#squadFindingsTable::item:selected,
+QTableWidget#tacticRoleRequirementsTable::item:selected, QTableWidget#tacticDemandTable::item:selected, QTableWidget#tacticObservationsTable::item:selected { background: {{successSurface}}; color: {{successText}}; }
 QHeaderView { background: {{surface}}; }
 QHeaderView::section { background: {{surface}}; color: {{textSecondary}}; border: 0; border-right: 1px solid {{borderStrong}}; padding: 6px; font-weight: 700; }
 QTabWidget::pane { border: 0; background: transparent; }
