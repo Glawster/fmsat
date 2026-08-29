@@ -200,19 +200,31 @@ class TacticDetailView(QWidget):
         self.rootLayout.addLayout(self._footerCreate())
 
     def _footerCreate(self) -> QHBoxLayout:
-        """Create bottom-row actions for tactic maintenance workflows."""
+        """Create one aligned row of equal-width tactic maintenance actions."""
 
         footer = QHBoxLayout()
+        footer.setSpacing(10)
         footer.addStretch()
-        editButton = QPushButton("Edit Model")
-        editButton.setObjectName("secondaryButton")
-        editButton.clicked.connect(lambda: self.modelEditRequested.emit(self.tacticName))
-        footer.addWidget(editButton)
+        self.editModelButton = QPushButton("Edit Model")
+        self.editModelButton.setObjectName("secondaryButton")
+        self.editModelButton.clicked.connect(lambda: self.modelEditRequested.emit(self.tacticName))
         self.importToModelButton = QPushButton("Regenerate Model")
         self.importToModelButton.clicked.connect(
             lambda: self.importToModelRequested.emit(self.tacticName)
         )
-        footer.addWidget(self.importToModelButton)
+        self.reanalyseButton = QPushButton("Reanalyse Tactic")
+        self.reanalyseButton.setObjectName("reanalyseTacticButton")
+        self.reanalyseButton.setToolTip(
+            "Recalculate tactic demand from the saved football object model using the "
+            "current role-assessment policy. Does not regenerate screenshots."
+        )
+        self.reanalyseButton.setEnabled(self.analysis is not None)
+        self.reanalyseButton.clicked.connect(self.reanalyseRequested.emit)
+        buttons = (self.editModelButton, self.importToModelButton, self.reanalyseButton)
+        width = max(button.sizeHint().width() for button in buttons)
+        for button in buttons:
+            button.setFixedWidth(width)
+            footer.addWidget(button)
         return footer
 
     def _tabsCreate(self) -> QTabWidget:
@@ -223,7 +235,6 @@ class TacticDetailView(QWidget):
         tabs.addTab(ShapeTab(self.model), "Shape")
         tabs.addTab(InstructionsTab(self.model), "Instructions")
         self.analysisTab = AnalysisTab(self.analysis)
-        self.analysisTab.reanalyseRequested.connect(self.reanalyseRequested.emit)
         tabs.addTab(self.analysisTab, "Analysis")
         self.tabs = tabs
         targetIndex = next(

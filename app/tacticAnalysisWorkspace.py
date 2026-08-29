@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QFrame,
     QHBoxLayout,
     QHeaderView,
     QLabel,
-    QPushButton,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -22,8 +21,6 @@ from fmsat.core.tacticAnalysis import TacticAnalysis
 
 class AnalysisTab(QWidget):
     """Present tactic demand, or the 009 empty shell when no model exists."""
-
-    reanalyseRequested = Signal()
 
     def __init__(
         self,
@@ -75,17 +72,6 @@ class AnalysisTab(QWidget):
         lower.addWidget(self._demandCard(display), 1)
         lower.addWidget(self._observationsCard(display), 1)
         layout.addLayout(lower, 2)
-        actions = QHBoxLayout()
-        actions.addStretch()
-        self.reanalyseButton = QPushButton("Reanalyse Tactic")
-        self.reanalyseButton.setObjectName("reanalyseTacticButton")
-        self.reanalyseButton.setToolTip(
-            "Recalculate tactic demand from the saved football object model using the "
-            "current role-assessment policy. Does not regenerate screenshots."
-        )
-        self.reanalyseButton.clicked.connect(self.reanalyseRequested.emit)
-        actions.addWidget(self.reanalyseButton)
-        layout.addLayout(actions)
 
     def _requirementsCard(self, display: TacticAnalysisDisplay) -> QFrame:
         table = self._table(

@@ -123,6 +123,7 @@ def testAnalysisExplainsGeneratedEmptyState(qtbot) -> None:  # type: ignore[no-u
     assert "Analysis Is Ready When You Are" in labels
     assert any("No tactical conclusions have been generated yet" in text for text in labels)
     assert "Generate analysis" not in [button.text() for button in view.findChildren(QPushButton)]
+    assert view.reanalyseButton.isEnabled() is False
 
 
 def testTacticShowCanReplaceDisplayedModelData(qtbot) -> None:  # type: ignore[no-untyped-def]

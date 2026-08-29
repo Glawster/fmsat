@@ -140,8 +140,7 @@ def testAnalysisTabShowsDemandDashboardWithoutSquadContent(qtbot) -> None:  # ty
     ]
 
     assert requirements is not None and demand is not None and observations is not None
-    assert tab.reanalyseButton.toolTip().startswith("Recalculate tactic demand")
-    assert "Does not regenerate screenshots" in tab.reanalyseButton.toolTip()
+    assert tab.findChild(QPushButton, "reanalyseTacticButton") is None
     assert "Best XI" not in texts
     assert "Selected Player" not in headers
     assert "Primary" not in headers
@@ -171,13 +170,37 @@ def testReanalyseEmitsWithoutChangingCoreResult(qtbot) -> None:  # type: ignore[
         {"insideForward": {"dribbling": 4}},
         _tactic((_position("slot-one", "AML", "insideForward"),)),
     )
-    tab = AnalysisTab(analysis)
-    qtbot.addWidget(tab)
-    spy = QSignalSpy(tab.reanalyseRequested)
+    view = TacticDetailView()
+    qtbot.addWidget(view)
+    view.tacticShow("High Press", analysis=analysis)
+    spy = QSignalSpy(view.reanalyseRequested)
 
-    qtbot.mouseClick(tab.reanalyseButton, Qt.MouseButton.LeftButton)
+    qtbot.mouseClick(view.reanalyseButton, Qt.MouseButton.LeftButton)
 
     assert spy.count() == 1
+    assert view.reanalyseButton.isEnabled()
+    assert view.reanalyseButton.toolTip().startswith("Recalculate tactic demand")
+    assert "Does not regenerate screenshots" in view.reanalyseButton.toolTip()
+
+
+def testTacticFooterButtonsShareSizeAndRow(qtbot) -> None:  # type: ignore[no-untyped-def]
+    analysis = _analysis(
+        {"insideForward": {"dribbling": 4}},
+        _tactic((_position("slot-one", "AML", "insideForward"),)),
+    )
+    view = TacticDetailView()
+    qtbot.addWidget(view)
+    view.tacticShow("High Press", analysis=analysis)
+    view.show()
+    qtbot.waitExposed(view)
+
+    buttons = (view.editModelButton, view.importToModelButton, view.reanalyseButton)
+    widths = {button.width() for button in buttons}
+    tops = {button.mapTo(view, button.rect().topLeft()).y() for button in buttons}
+
+    assert len(widths) == 1
+    assert len(tops) == 1
+    assert view.reanalyseButton.text() == "Reanalyse Tactic"
 
 
 def testTacticDetailViewShowsAnalysisOnNamedTab(qtbot) -> None:  # type: ignore[no-untyped-def]
