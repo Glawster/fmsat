@@ -117,8 +117,9 @@ facts. No speculative football judgements are invented.
 
 ## Traceability
 
-- Implementation: `core/tacticSlots.py` (pairing only); analysis service pending
-- Tests: `tests/test_tacticSlots.py`; Role Depth and Best XI suites remain green
+- Implementation: `core/tacticSlots.py`, `core/tacticAnalysis.py`; UI pending
+- Tests: `tests/test_tacticSlots.py`, `tests/test_tacticAnalysis.py`; Role Depth
+  and Best XI suites remain green
 - Documentation: pending (`documentation/tacticAnalysis.md` after behaviour is
   delivered)
 - Pull request: pending
@@ -130,3 +131,5 @@ facts. No speculative football judgements are invented.
   before core/UI delivery; 009 keeps the empty shell.
 - 2026-08-28: PR 1 — extract shared IP/OOP position pairing without changing
   Role Depth resolution or Best XI.
+- 2026-08-28: PR 2 — add TacticAnalysisService and immutable demand results;
+  Analysis tab still 009 empty shell.

@@ -29,6 +29,7 @@ class RoleDefinition:
     aliases: tuple[str, ...]
     positions: tuple[str, ...]
     duties: tuple[str, ...]
+    assessmentRequired: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -300,6 +301,7 @@ class TacticVocabulary:
                     aliases=tuple(str(item) for item in values.get("aliases", [])),
                     positions=tuple(str(item) for item in values["positions"]),
                     duties=tuple(str(item) for item in values["duties"]),
+                    assessmentRequired=values.get("assessmentRequired", True) is not False,
                 )
             except (KeyError, TypeError) as exc:
                 raise ConfigurationError(f"roles.{code} is incomplete") from exc

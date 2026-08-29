@@ -153,6 +153,9 @@ def testRoleAbbreviationNormalizesToStableNamedIdentity() -> None:
     assert vocabulary.roleNormalize("CFD").value == "centreForward"
     assert vocabulary.roleNormalize("Complete Forward").value is None
     assert vocabulary.roles["centreForward"].roleID == 15
+    assert vocabulary.roles["centreForward"].assessmentRequired is True
+    assert vocabulary.roles["trackingWinger"].assessmentRequired is False
+    assert vocabulary.roles["trackingAttackingMidfielder"].assessmentRequired is False
 
 
 def testConfiguredRoleProfileAbbreviationsAreCanonicalTacticalRoles() -> None:
