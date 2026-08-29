@@ -197,9 +197,13 @@ def testTacticFooterButtonsShareSizeAndRow(qtbot) -> None:  # type: ignore[no-un
     buttons = (view.editModelButton, view.importToModelButton, view.reanalyseButton)
     widths = {button.width() for button in buttons}
     tops = {button.mapTo(view, button.rect().topLeft()).y() for button in buttons}
+    needed = max(button.fontMetrics().horizontalAdvance(button.text()) for button in buttons)
 
     assert len(widths) == 1
     assert len(tops) == 1
+    assert next(iter(widths)) >= needed + 40
+    assert view.editModelButton.text() == "Edit Model"
+    assert view.importToModelButton.text() == "Regenerate Model"
     assert view.reanalyseButton.text() == "Reanalyse Tactic"
 
 
@@ -247,6 +251,7 @@ def testMainWindowReanalyseReloadsSavedModelWithoutOcr(qtbot) -> None:  # type: 
     window._tacticAnalyse()
 
     window.tacticScreenshotExtractor.assert_not_called()
+    assert "Reanalysed High Press" in window.statusBar().currentMessage()
     window.tacticAnalysisService.analysisBuild.assert_called_with(tactic)
     assert (
         window.tacticDetailView.analysisTab.findChild(QTableWidget, "tacticRoleRequirementsTable")

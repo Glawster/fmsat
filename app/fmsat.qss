@@ -64,6 +64,7 @@ QLabel#incompleteBannerTitle { color: {{bannerTitle}}; font-size: 14px; font-wei
 QLabel#incompleteBannerText { color: {{bannerText}}; }
 QFrame#factCard { min-height: 58px; }
 QWidget#tacticDetailView QPushButton, QWidget#squadDetailView QPushButton, QToolButton#playerFilterButton { background: {{accent}}; color: {{onAccent}}; border: 1px solid {{accent}}; border-radius: 7px; padding: 9px 15px; font-weight: 700; }
+QWidget#tacticDetailView QPushButton#workspaceActionButton, QWidget#tacticDetailView QPushButton#reanalyseTacticButton { min-width: 172px; padding: 9px 20px; }
 QWidget#tacticDetailView QPushButton:hover, QWidget#squadDetailView QPushButton:hover, QToolButton#playerFilterButton:hover { background: {{accentHover}}; border-color: {{accentHover}}; color: {{onAccent}}; }
 QWidget#tacticDetailView QPushButton:disabled, QWidget#squadDetailView QPushButton:disabled, QToolButton#playerFilterButton:disabled { background: {{disabledSurface}}; border-color: {{disabledSurface}}; color: {{disabledText}}; }
 QPushButton#secondaryButton[copyState="copied"] { background: {{accentHover}}; color: {{onAccent}}; border-color: {{accentHover}}; }

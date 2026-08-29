@@ -1135,6 +1135,11 @@ class MainWindow(QMainWindow):
             return
         self.tacticDetailView.selectedTabName = "Analysis"
         self.tacticShow(tacticName)
+        self.statusBar().showMessage(
+            f"Reanalysed {tacticName} from the saved tactic model using the current "
+            "role-assessment policy.",
+            10000,
+        )
 
     def _tacticDetailBack(self) -> None:
         """Return from tactic detail to the refreshed workspace."""

@@ -167,8 +167,10 @@ object model exists. The Analysis tab maps that immutable result to strings in
 resolve roles.
 
 The dashboard shows a policy/coverage banner, Role Requirements, Attribute Demand and
-Structural Observations. **Reanalyse Tactic** rebuilds demand from the saved model and
-current policy. The tooltip states that it does not regenerate screenshots.
+Structural Observations. **Reanalyse Tactic** sits with **Edit Model** and
+**Regenerate Model** in the tactic footer. It rebuilds demand from the saved model and
+current policy, then confirms success in the status bar. The tooltip states that it does
+not regenerate screenshots.
 
 Best XI, role-depth primary/backup and player names do not appear on this tab.
 

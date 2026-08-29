@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QMenu,
     QMessageBox,
     QPushButton,
+    QSizePolicy,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -206,7 +207,6 @@ class TacticDetailView(QWidget):
         footer.setSpacing(10)
         footer.addStretch()
         self.editModelButton = QPushButton("Edit Model")
-        self.editModelButton.setObjectName("secondaryButton")
         self.editModelButton.clicked.connect(lambda: self.modelEditRequested.emit(self.tacticName))
         self.importToModelButton = QPushButton("Regenerate Model")
         self.importToModelButton.clicked.connect(
@@ -221,9 +221,16 @@ class TacticDetailView(QWidget):
         self.reanalyseButton.setEnabled(self.analysis is not None)
         self.reanalyseButton.clicked.connect(self.reanalyseRequested.emit)
         buttons = (self.editModelButton, self.importToModelButton, self.reanalyseButton)
-        width = max(button.sizeHint().width() for button in buttons)
+        # sizeHint() is taken before QSS padding applies, so a raw fixed width
+        # clips labels such as "Regenerate Model". Measure the text, then add
+        # the workspace button padding plus a little extra room.
+        self.ensurePolished()
+        textWidth = max(button.fontMetrics().horizontalAdvance(button.text()) for button in buttons)
+        width = textWidth + 56
         for button in buttons:
-            button.setFixedWidth(width)
+            button.setObjectName(button.objectName() or "workspaceActionButton")
+            button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+            button.setMinimumWidth(width)
             footer.addWidget(button)
         return footer
 
