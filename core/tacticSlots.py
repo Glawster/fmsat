@@ -10,10 +10,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import dist
 
-# Spatial recovery is a last resort when every phase is missing a complete
-# unique slotId intersection. Distances are in the normalised pitch coordinates
-# stored on the object model (0..1). The margin rejects two equally plausible
-# complete mappings rather than inventing an ordinal partner.
 _SPATIAL_MAX_DISTANCE = 0.38
 _SPATIAL_AMBIGUITY_MARGIN = 0.05
 
@@ -29,13 +25,7 @@ _LINKAGE_UNAVAILABLE_POSITION = (
 
 @dataclass(frozen=True, slots=True)
 class LinkedTacticSlot:
-    """One simultaneous tactic slot, or one unlinked phase position.
-
-    A successful link has ``unavailableReason is None``. A missing phase on a
-    successful one-phase tactic is represented as ``None`` on that side without
-    a linkage failure. Failed pairing never invents an IP/OOP partner: each
-    leftover position is its own unlinked slot.
-    """
+    """One simultaneous tactic slot, or one unlinked phase position."""
 
     slotId: str
     ipPosition: object | None
@@ -44,11 +34,7 @@ class LinkedTacticSlot:
 
 
 def slotsLink(tactic: object) -> tuple[LinkedTacticSlot, ...]:
-    """Pair IP/OOP positions by unique ``slotId``, else by unique spatial match.
-
-    Do not pair by list order. Do not consult an assigned footballer, duty,
-    or any squad model.
-    """
+    """Pair IP/OOP positions by durable id, correcting clear mirrored crossings."""
 
     phases = _phasePositions(tactic)
     if not phases:
@@ -59,8 +45,6 @@ def slotsLink(tactic: object) -> tuple[LinkedTacticSlot, ...]:
     if durableIds:
         return _durableSlotsBuild(phases, uniqueByPhase, idsByPhase, durableIds)
 
-    # No shared unique id exists in every populated phase. Spatial recovery is
-    # all-or-nothing: a single ambiguous pair makes the whole mapping Unavailable.
     spatial = _spatialPhaseLink(phases)
     if spatial is not None:
         return spatial
@@ -68,21 +52,12 @@ def slotsLink(tactic: object) -> tuple[LinkedTacticSlot, ...]:
 
 
 def slotSortKey(slot: LinkedTacticSlot) -> tuple[int, int, str, str]:
-    """Order slots from forwards back to goalkeeper using one canonical position.
-
-    The position is IP when present, otherwise OOP. Display strings such as
-    ``AML → ML`` are not a sort key. Codes that share a line and side, such as
-    ``AML`` and ``AMCL``, then sort by the compact code and ``slotId``.
-    """
-
     position = _canonicalPositionCode(slot)
     line, side = _positionLineSide(position)
     return line, side, position.casefold(), slot.slotId.casefold()
 
 
 def _phasePositions(tactic: object) -> tuple[tuple[str, tuple[object, ...]], ...]:
-    """Return populated phases in IP then OOP order."""
-
     populated: list[tuple[str, tuple[object, ...]]] = []
     for phase, attribute in (("IP", "inPossession"), ("OOP", "outOfPossession")):
         formation = getattr(tactic, attribute, None)
@@ -96,14 +71,41 @@ def _slotId(position: object) -> str:
     return str(getattr(position, "slotId", "") or "")
 
 
+def _positionCode(position: object | None) -> str:
+    if position is None:
+        return ""
+    canonical = getattr(position, "canonicalPosition", None)
+    if canonical:
+        return str(canonical)
+    identity = getattr(position, "identity", None)
+    value = getattr(identity, "value", None)
+    return str(value or "")
+
+
+def _positionGroup(position: object | None) -> str:
+    """Return a conservative positional line used only to repair mirrored crossings."""
+
+    code = _positionCode(position).upper().replace(" ", "")
+    if code.startswith("DM"):
+        return "DM"
+    if code.startswith("AM"):
+        return "AM"
+    if code.startswith("WB"):
+        return "WB"
+    if code.startswith("ST"):
+        return "ST"
+    if code.startswith("M"):
+        return "M"
+    if code.startswith("D"):
+        return "D"
+    if code == "GK":
+        return "GK"
+    return code
+
+
 def _uniqueSlotMaps(
     phases: tuple[tuple[str, tuple[object, ...]], ...],
 ) -> tuple[dict[str, dict[str, object]], dict[str, tuple[str, ...]]]:
-    """Keep a slotId only when it appears once in that phase.
-
-    Duplicate ids are evidence of a broken import, not a pairing key.
-    """
-
     uniqueByPhase: dict[str, dict[str, object]] = {}
     idsByPhase: dict[str, tuple[str, ...]] = {}
     for phase, positions in phases:
@@ -124,11 +126,10 @@ def _durableSlotsBuild(
     idsByPhase: dict[str, tuple[str, ...]],
     durableIds: set[str],
 ) -> tuple[LinkedTacticSlot, ...]:
-    """Emit complete durable pairs first, then each leftover as unlinked."""
-
     referencePhase, _positions = max(phases, key=lambda item: len(item[1]))
     referenceIds = tuple(slotId for slotId in idsByPhase[referencePhase] if slotId in durableIds)
     linked = tuple(_linkedFromUnique(slotId, uniqueByPhase) for slotId in referenceIds)
+    linked = _repairMirroredCanonicalCrossings(linked)
 
     leftovers: list[LinkedTacticSlot] = []
     for phase, positions in phases:
@@ -146,6 +147,57 @@ def _durableSlotsBuild(
     return linked + tuple(leftovers)
 
 
+def _repairMirroredCanonicalCrossings(
+    linked: tuple[LinkedTacticSlot, ...],
+) -> tuple[LinkedTacticSlot, ...]:
+    """Repair crossed L/R durable ids when canonical positions prove the pairing.
+
+    A regenerated model can preserve unique slotIds while accidentally swapping
+    two mirrored positions between phases. When a positional line has the same
+    unique canonical position set in IP and OOP, exact canonical identity is
+    stronger evidence than the crossed imported ids for that line only.
+    Genuine family changes such as AMR -> MR are untouched because the position
+    sets for that line do not match.
+    """
+
+    result = list(linked)
+    groups = sorted({_positionGroup(slot.ipPosition) for slot in linked if slot.ipPosition})
+    for group in groups:
+        indexes = [
+            index
+            for index, slot in enumerate(result)
+            if _positionGroup(slot.ipPosition) == group
+            and _positionGroup(slot.oopPosition) == group
+            and slot.ipPosition is not None
+            and slot.oopPosition is not None
+        ]
+        if len(indexes) < 2:
+            continue
+
+        ipCodes = [_positionCode(result[index].ipPosition) for index in indexes]
+        oopCodes = [_positionCode(result[index].oopPosition) for index in indexes]
+        if not all(ipCodes) or not all(oopCodes):
+            continue
+        if len(set(ipCodes)) != len(ipCodes) or len(set(oopCodes)) != len(oopCodes):
+            continue
+        if set(ipCodes) != set(oopCodes):
+            continue
+        if all(ip == oop for ip, oop in zip(ipCodes, oopCodes)):
+            continue
+
+        oopByCode = {_positionCode(result[index].oopPosition): result[index].oopPosition for index in indexes}
+        for index in indexes:
+            slot = result[index]
+            ipCode = _positionCode(slot.ipPosition)
+            result[index] = LinkedTacticSlot(
+                slotId=slot.slotId,
+                ipPosition=slot.ipPosition,
+                oopPosition=oopByCode[ipCode],
+                unavailableReason=slot.unavailableReason,
+            )
+    return tuple(result)
+
+
 def _linkedFromUnique(slotId: str, uniqueByPhase: dict[str, dict[str, object]]) -> LinkedTacticSlot:
     return LinkedTacticSlot(
         slotId=slotId,
@@ -159,8 +211,6 @@ def _unlinkedSlotsBuild(
     phases: tuple[tuple[str, tuple[object, ...]], ...],
     reason: str,
 ) -> tuple[LinkedTacticSlot, ...]:
-    """Retain every observed position without inventing a cross-phase partner."""
-
     slots: list[LinkedTacticSlot] = []
     for phase, positions in phases:
         for position in positions:
@@ -182,8 +232,6 @@ def _unlinkedSlot(*, index: int, phase: str, position: object, reason: str) -> L
 def _spatialPhaseLink(
     phases: tuple[tuple[str, tuple[object, ...]], ...],
 ) -> tuple[LinkedTacticSlot, ...] | None:
-    """Recover complete phase linkage only when the global spatial match is unique."""
-
     if len(phases) != 2:
         return None
     firstPhase, firstPositions = phases[0]
@@ -236,8 +284,6 @@ def _spatialPhaseLink(
     if secondCost is not None and secondCost - bestCost < _SPATIAL_AMBIGUITY_MARGIN:
         return None
 
-    # Label recovered links independently of either phase's stored slotId so a
-    # mismatched import identity cannot look like a durable match.
     slotIds = tuple(f"spatial:{index + 1:02d}" for index in range(count))
     slots: list[LinkedTacticSlot] = []
     for index, slotId in enumerate(slotIds):
@@ -256,19 +302,10 @@ def _spatialPhaseLink(
 
 def _canonicalPositionCode(slot: LinkedTacticSlot) -> str:
     position = slot.ipPosition if slot.ipPosition is not None else slot.oopPosition
-    if position is None:
-        return ""
-    canonical = getattr(position, "canonicalPosition", None)
-    if canonical:
-        return str(canonical)
-    identity = getattr(position, "identity", None)
-    value = getattr(identity, "value", None)
-    return str(value or "")
+    return _positionCode(position)
 
 
 def _positionLineSide(position: str) -> tuple[int, int]:
-    """Match ``app.presentation.positionSortKey`` without importing the UI."""
-
     compact = position.upper().replace(" ", "").replace("(", "").replace(")", "")
     if compact.startswith("ST"):
         line = 0
