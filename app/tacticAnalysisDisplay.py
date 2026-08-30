@@ -78,11 +78,16 @@ def tacticAnalysisDisplayBuild(analysis: TacticAnalysis) -> TacticAnalysisDispla
     banner = f"Policy: {analysis.scoringIdentity} · {coverage} phase-roles ready"
     if analysis.demandCoverageReason:
         banner = f"{banner}\n{analysis.demandCoverageReason}"
+    roleAbbreviations = _roleAbbreviations(analysis.slots)
+    positionAbbreviations = _positionRoleAbbreviations(analysis.slots)
     return TacticAnalysisDisplay(
         banner=banner,
         slots=tuple(_slotDisplay(slot) for slot in analysis.slots),
         demand=tuple(_demandDisplay(row) for row in analysis.overallDemand),
-        observations=tuple(_observationDisplay(item) for item in analysis.observations),
+        observations=tuple(
+            _observationDisplay(item, roleAbbreviations, positionAbbreviations)
+            for item in analysis.observations
+        ),
     )
 
 
@@ -250,13 +255,60 @@ def _demandExplanation(row: AttributeDemand) -> TacticExplanationDisplay:
     )
 
 
-def _observationDisplay(item: TacticObservation) -> TacticObservationDisplay:
+def _roleAbbreviations(slots: tuple[TacticSlotDemand, ...]) -> dict[str, str]:
+    """Map resolved roleCode identities to their user-facing abbreviations."""
+
+    result: dict[str, str] = {}
+    for slot in slots:
+        for role in (slot.ipRole, slot.oopRole):
+            if role.roleCode and role.abbreviation:
+                result[role.roleCode] = role.abbreviation
+    return result
+
+
+def _positionRoleAbbreviations(
+    slots: tuple[TacticSlotDemand, ...],
+) -> dict[tuple[str, str], str]:
+    """Map phase/position pairs to role abbreviations for flank findings."""
+
+    result: dict[tuple[str, str], str] = {}
+    for slot in slots:
+        for role in (slot.ipRole, slot.oopRole):
+            if role.canonicalPosition and role.abbreviation:
+                result[(role.phase, role.canonicalPosition)] = role.abbreviation
+    return result
+
+
+def _observationDisplay(
+    item: TacticObservation,
+    roleAbbreviations: dict[str, str],
+    positionAbbreviations: dict[tuple[str, str], str],
+) -> TacticObservationDisplay:
     return TacticObservationDisplay(
         phase=item.phase or "—",
-        finding=item.title,
+        finding=_observationFinding(item, roleAbbreviations, positionAbbreviations),
         evidence=_observationEvidence(item),
         explanation=_observationExplanation(item),
     )
+
+
+def _observationFinding(
+    item: TacticObservation,
+    roleAbbreviations: dict[str, str],
+    positionAbbreviations: dict[tuple[str, str], str],
+) -> str:
+    """Prefer role abbreviations to role names or position names in Findings."""
+
+    if item.code == "repeatedRole":
+        return roleAbbreviations.get(item.roleCode or "", "Unavailable")
+    if item.code == "asymmetricFlank":
+        abbreviations = tuple(
+            positionAbbreviations.get((item.phase, position), "") for position in item.positions
+        )
+        if abbreviations and all(abbreviations):
+            return "/".join(abbreviations)
+        return "Unavailable"
+    return item.title
 
 
 def _observationEvidence(item: TacticObservation) -> str:
