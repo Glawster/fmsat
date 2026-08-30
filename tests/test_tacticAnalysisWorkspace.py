@@ -159,11 +159,10 @@ def testAnalysisTabShowsDemandDashboardWithoutSquadContent(qtbot) -> None:  # ty
     )
     assert [
         demand.horizontalHeaderItem(column).text() for column in range(demand.columnCount())
-    ] == ["Attribute", "Overall", "IP", "OOP", "Roles"]
-    assert demand.item(workRate, 1).text() == "5"
-    assert demand.item(workRate, 2).text() == "0"
-    assert demand.item(workRate, 3).text() == "5"
-    assert demand.item(workRate, 4).text() == "1"
+    ] == ["Attribute", "IP", "OOP", "Roles"]
+    assert demand.item(workRate, 1).text() == "0"
+    assert demand.item(workRate, 2).text() == "5"
+    assert demand.item(workRate, 3).text() == "1"
     assert any(
         "combined role-assessment weights" in label.text() for label in tab.findChildren(QLabel)
     )
