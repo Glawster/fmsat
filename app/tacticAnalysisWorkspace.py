@@ -121,14 +121,13 @@ class AnalysisTab(QWidget):
                 "Higher numbers mean more role definitions place importance on that attribute. These are combined role-assessment weights, not percentages or player scores.",
             )
         table = self._table(
-            ("Attribute", "Overall", "IP", "OOP", "Roles"),
+            ("Attribute", "IP", "OOP", "Roles"),
             "tacticDemandTable",
         )
         table.setRowCount(len(display.demand))
         for row, item in enumerate(display.demand):
             values = (
                 item.attribute,
-                item.overall,
                 item.inPossession,
                 item.outOfPossession,
                 item.contributors,
@@ -142,7 +141,7 @@ class AnalysisTab(QWidget):
             table.setRowHeight(row, 28)
         header = table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        for column in range(1, 5):
+        for column in range(1, 4):
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
         table.cellClicked.connect(
             lambda row, _column: self._explanationShow(display.demand[row].explanation)

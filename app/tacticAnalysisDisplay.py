@@ -44,7 +44,6 @@ class TacticDemandDisplay:
     """One Attribute Demand row. None from core becomes Unavailable."""
 
     attribute: str
-    overall: str
     inPossession: str
     outOfPossession: str
     contributors: str
@@ -218,7 +217,6 @@ def _demandDisplay(row: AttributeDemand) -> TacticDemandDisplay:
     noun = "phase-role" if row.contributingPhaseRoles == 1 else "phase-roles"
     return TacticDemandDisplay(
         attribute=row.displayName,
-        overall=_number(row.overall),
         inPossession=_number(row.inPossession),
         outOfPossession=_number(row.outOfPossession),
         contributors=str(row.contributingPhaseRoles),
