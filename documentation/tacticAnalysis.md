@@ -88,11 +88,12 @@ that is not an integer, or is outside 0–10, fails the whole phase-role.
 
 Demand is a raw sum of usable policy weights across **weight-complete** phase-roles
 (`resolutionState == ready`). It is not Generic Role Fit and is not normalised to 0–100.
+The user-facing analysis keeps the two football phases separate; it does not present an
+IP+OOP Overall score because the tactic is in one phase or the other, not both at once.
 
 ```text
-demand_overall(attribute) = Σ weight(attribute, r) for ready phase-roles
-demand_ip(attribute)      = Σ weight(attribute, r) for ready IP phase-roles
-demand_oop(attribute)     = Σ weight(attribute, r) for ready OOP phase-roles
+demand_ip(attribute)  = Σ weight(attribute, r) for ready IP phase-roles
+demand_oop(attribute) = Σ weight(attribute, r) for ready OOP phase-roles
 ```
 
 A phase column is `Unavailable` only when that phase has no ready role. `0` in a phase
@@ -103,16 +104,14 @@ Locked one-slot example using current packaged weights:
 
 - IP Inside Forward omits `work_rate`.
 - OOP Tracking Attacking Midfielder has a positive `work_rate` weight.
-- Overall Work Rate equals that OOP weight, IP Work Rate is `0`, OOP Work Rate is the
-  packaged value. The Roles column shows how many ready phase-roles contributed that
-  attribute.
+- IP Work Rate is `0`, OOP Work Rate is the packaged value. The Roles column shows how
+  many ready phase-roles contributed that attribute.
 
-If no phase-role is ready, `overallDemand` is empty and the Attribute Demand card shows
-`Unavailable` rather than a table of zeros. Excluded roles (unresolved, recognition-only,
-missing weights, missing phase) contribute nothing, not zero.
+If no phase-role is ready, the Attribute Demand card shows `Unavailable` rather than a
+table of zeros. Excluded roles (unresolved, recognition-only, missing weights, missing
+phase) contribute nothing, not zero.
 
-Rows are attributes that appear in at least one ready mapping, ordered by overall demand
-descending then attribute identity. Coverage is
+Rows are attributes that appear in at least one ready mapping. Coverage is
 `weightCompletePhaseRoles / weightExpectedPhaseRoles`.
 
 Changing role-assessment policy and choosing **Reanalyse Tactic** recalculates from the
@@ -148,7 +147,7 @@ Observations are counts and identity lists. They are not advice.
 | `asymmetricFlank` | Both sides of an L/R pair exist in **that** phase and the resolved roles differ | The pair is absent in that phase (not Unavailable) |
 | `trackingRoleCount` | Count of phase-roles whose `roleCode` is in the packaged tracking set | Never; `0` is complete evidence |
 | `familyChangeCount` | `N of M` linked slots classifiable as `familyChange` | No classifiable slots |
-| `demandConcentration` | Top three overall attributes by demand | `overallDemand` is empty |
+| `demandConcentration` | Top three attributes by the service demand ordering | no usable attribute demand exists |
 
 Tracking membership is the closed set `trackingCentreForward`,
 `trackingAttackingMidfielder`, `trackingWideMidfielder`, `trackingWinger`. Do not infer
@@ -169,15 +168,15 @@ object model exists. The Analysis tab maps that immutable result to strings in
 resolve roles.
 
 The dashboard shows a policy/coverage banner, Role Requirements, Attribute Demand and
-Structural Observations. Attribute Demand includes a Roles column for
-`contributingPhaseRoles`. A one-phase slot with usable weights is Evidence `Partial`,
-not `Ready`. Observation rows have a Phase column (IP, OOP, or — for tactic-wide
-findings) so phase is not mixed into the finding text. Table header rows use a bottom
-rule to separate labels from values. **Reanalyse Tactic** appears only on the Analysis
-tab. **Edit Model** appears only on Overview. **Regenerate Model** remains in the footer
-on every tab. Reanalyse rebuilds demand from the saved model and current policy, then
-confirms success in the status bar. The tooltip states that it does not regenerate
-screenshots.
+Structural Observations. Attribute Demand presents **Attribute, IP, OOP, Roles** only;
+there is no Overall column. The Roles column shows `contributingPhaseRoles`. A one-phase
+slot with usable weights is Evidence `Partial`, not `Ready`. Observation rows have a Phase
+column (IP, OOP, or — for tactic-wide findings) so phase is not mixed into the finding
+text. Table header rows use a bottom rule to separate labels from values. **Reanalyse
+Tactic** appears only on the Analysis tab. **Edit Model** appears only on Overview.
+**Regenerate Model** remains in the footer on every tab. Reanalyse rebuilds demand from
+the saved model and current policy, then confirms success in the status bar. The tooltip
+states that it does not regenerate screenshots.
 
 Best XI, role-depth primary/backup and player names do not appear on this tab.
 
