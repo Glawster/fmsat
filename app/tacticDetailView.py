@@ -199,6 +199,7 @@ class TacticDetailView(QWidget):
         self.rootLayout.addLayout(self._factsCreate())
         self.rootLayout.addWidget(self._tabsCreate(), 1)
         self.rootLayout.addLayout(self._footerCreate())
+        self._footerActionsShow()
 
     def _footerCreate(self) -> QHBoxLayout:
         """Create one aligned row of equal-width tactic maintenance actions."""
@@ -230,7 +231,7 @@ class TacticDetailView(QWidget):
         for button in buttons:
             button.setObjectName(button.objectName() or "workspaceActionButton")
             button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-            button.setMinimumWidth(width)
+            button.setFixedWidth(width)
             footer.addWidget(button)
         return footer
 
@@ -249,10 +250,19 @@ class TacticDetailView(QWidget):
             0,
         )
         tabs.setCurrentIndex(targetIndex)
-        tabs.currentChanged.connect(
-            lambda index: setattr(self, "selectedTabName", tabs.tabText(index))
-        )
+        tabs.currentChanged.connect(self._tabChanged)
         return tabs
+
+    def _tabChanged(self, index: int) -> None:
+        self.selectedTabName = self.tabs.tabText(index)
+        self._footerActionsShow()
+
+    def _footerActionsShow(self) -> None:
+        """Keep model editing on Overview and reanalyse on Analysis."""
+
+        tab = self.selectedTabName
+        self.editModelButton.setVisible(tab == "Overview")
+        self.reanalyseButton.setVisible(tab == "Analysis")
 
     ## utilities
 

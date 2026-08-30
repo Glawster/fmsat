@@ -185,6 +185,10 @@ def testReanalyseEmitsWithoutChangingCoreResult(qtbot) -> None:  # type: ignore[
     view = TacticDetailView()
     qtbot.addWidget(view)
     view.tacticShow("High Press", analysis=analysis)
+    analysisIndex = next(
+        index for index in range(view.tabs.count()) if view.tabs.tabText(index) == "Analysis"
+    )
+    view.tabs.setCurrentIndex(analysisIndex)
     spy = QSignalSpy(view.reanalyseRequested)
 
     qtbot.mouseClick(view.reanalyseButton, Qt.MouseButton.LeftButton)
@@ -206,16 +210,24 @@ def testTacticFooterButtonsShareSizeAndRow(qtbot) -> None:  # type: ignore[no-un
     view.show()
     qtbot.waitExposed(view)
 
-    buttons = (view.editModelButton, view.importToModelButton, view.reanalyseButton)
-    widths = {button.width() for button in buttons}
-    tops = {button.mapTo(view, button.rect().topLeft()).y() for button in buttons}
-    needed = max(button.fontMetrics().horizontalAdvance(button.text()) for button in buttons)
+    analysisIndex = next(
+        index for index in range(view.tabs.count()) if view.tabs.tabText(index) == "Analysis"
+    )
 
-    assert len(widths) == 1
-    assert len(tops) == 1
-    assert next(iter(widths)) >= needed + 40
-    assert view.editModelButton.text() == "Edit Model"
-    assert view.importToModelButton.text() == "Regenerate Model"
+    assert view.tabs.tabText(view.tabs.currentIndex()) == "Overview"
+    assert view.editModelButton.isVisible()
+    assert view.importToModelButton.isVisible()
+    assert not view.reanalyseButton.isVisible()
+    assert view.editModelButton.width() == view.importToModelButton.width()
+    assert view.editModelButton.width() >= view.editModelButton.fontMetrics().horizontalAdvance(
+        "Regenerate Model"
+    )
+
+    view.tabs.setCurrentIndex(analysisIndex)
+    assert not view.editModelButton.isVisible()
+    assert view.importToModelButton.isVisible()
+    assert view.reanalyseButton.isVisible()
+    assert view.importToModelButton.width() == view.reanalyseButton.width()
     assert view.reanalyseButton.text() == "Reanalyse Tactic"
 
 

@@ -173,10 +173,11 @@ Structural Observations. Attribute Demand includes a Roles column for
 `contributingPhaseRoles`. A one-phase slot with usable weights is Evidence `Partial`,
 not `Ready`. Observation rows have a Phase column (IP, OOP, or — for tactic-wide
 findings) so phase is not mixed into the finding text. Table header rows use a bottom
-rule to separate labels from values. **Reanalyse Tactic** sits with **Edit Model** and
-**Regenerate Model** in the tactic footer. It rebuilds demand from the saved model and
-current policy, then confirms success in the status bar. The tooltip states that it does
-not regenerate screenshots.
+rule to separate labels from values. **Reanalyse Tactic** appears only on the Analysis
+tab. **Edit Model** appears only on Overview. **Regenerate Model** remains in the footer
+on every tab. Reanalyse rebuilds demand from the saved model and current policy, then
+confirms success in the status bar. The tooltip states that it does not regenerate
+screenshots.
 
 Best XI, role-depth primary/backup and player names do not appear on this tab.
 
