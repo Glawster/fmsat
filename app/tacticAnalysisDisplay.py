@@ -36,6 +36,7 @@ class TacticDemandDisplay:
     overall: str
     inPossession: str
     outOfPossession: str
+    contributors: str
     toolTip: str
 
 
@@ -114,6 +115,8 @@ def _evidenceLabel(slot: TacticSlotDemand) -> str:
         return "Recognition only"
     if "missingWeights" in states:
         return "Missing weights"
+    if "ready" in states and "missingPhase" in states:
+        return "Partial"
     if "ready" in states:
         return "Ready"
     return "Unavailable"
@@ -139,6 +142,7 @@ def _demandDisplay(row: AttributeDemand) -> TacticDemandDisplay:
         overall=_number(row.overall),
         inPossession=_number(row.inPossession),
         outOfPossession=_number(row.outOfPossession),
+        contributors=str(row.contributingPhaseRoles),
         toolTip=(
             f"{row.contributingPhaseRoles} contributing {noun}. "
             "Excluded roles do not contribute 0."

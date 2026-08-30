@@ -66,9 +66,10 @@ simultaneous slot. That adapter is squad assessment, not Tactic Analysis.
 
 ## Role resolution
 
-Each present position is resolved with the Squad Assessment vocabulary path:
-`TacticVocabulary.roleNormalize` on `canonicalRole` or the observed profile abbreviation,
-then a unique confirmed-definition match. Role Depth's catalogue matcher is not used here.
+Each present position is resolved with `TacticVocabulary.roleNormalize` on
+`canonicalRole` or the observed profile abbreviation, then a unique confirmed-definition
+match. An unrecognised `canonicalRole` is not accepted as a `roleCode`; it remains
+`unresolved`. Role Depth's catalogue matcher is not used here.
 
 Evidence state is first-match:
 
@@ -103,7 +104,8 @@ Locked one-slot example using current packaged weights:
 - IP Inside Forward omits `work_rate`.
 - OOP Tracking Attacking Midfielder has a positive `work_rate` weight.
 - Overall Work Rate equals that OOP weight, IP Work Rate is `0`, OOP Work Rate is the
-  packaged value, and one phase-role contributed.
+  packaged value. The Roles column shows how many ready phase-roles contributed that
+  attribute.
 
 If no phase-role is ready, `overallDemand` is empty and the Attribute Demand card shows
 `Unavailable` rather than a table of zeros. Excluded roles (unresolved, recognition-only,
@@ -167,9 +169,11 @@ object model exists. The Analysis tab maps that immutable result to strings in
 resolve roles.
 
 The dashboard shows a policy/coverage banner, Role Requirements, Attribute Demand and
-Structural Observations. Observation rows have a Phase column (IP, OOP, or — for
-tactic-wide findings) so phase is not mixed into the finding text. Table header rows
-use a bottom rule to separate labels from values. **Reanalyse Tactic** sits with **Edit Model** and
+Structural Observations. Attribute Demand includes a Roles column for
+`contributingPhaseRoles`. A one-phase slot with usable weights is Evidence `Partial`,
+not `Ready`. Observation rows have a Phase column (IP, OOP, or — for tactic-wide
+findings) so phase is not mixed into the finding text. Table header rows use a bottom
+rule to separate labels from values. **Reanalyse Tactic** sits with **Edit Model** and
 **Regenerate Model** in the tactic footer. It rebuilds demand from the saved model and
 current policy, then confirms success in the status bar. The tooltip states that it does
 not regenerate screenshots.

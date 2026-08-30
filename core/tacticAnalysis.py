@@ -272,28 +272,34 @@ class TacticAnalysisService:
         )
 
     def _roleCodeResolve(self, position: object) -> str | None:
-        """Use the Squad Assessment vocabulary path, not Role Depth's catalogue matcher."""
+        """Return only a vocabulary or unique confirmed-definition identity.
 
-        canonical = str(getattr(position, "canonicalRole", "") or "").strip()
-        if canonical:
-            normalized = self.vocabulary.roleNormalize(canonical)
+        An unrecognised ``canonicalRole`` is not a roleCode. Treating it as
+        identity would make unknown text look like missing weights instead of
+        an unresolved role.
+        """
+
+        for text in (
+            str(getattr(position, "canonicalRole", "") or "").strip(),
+            self._observedRoleAbbreviation(position),
+        ):
+            if not text:
+                continue
+            normalized = self.vocabulary.roleNormalize(text)
             if normalized.resolved:
                 return str(normalized.value)
-            exactPosition = self._positionCode(position)
-            if canonical.casefold() != exactPosition.casefold():
-                return canonical
+            match = self._uniqueDefinitionMatch(text)
+            if match is not None:
+                return match
+        return None
 
-        observed = self._observedRoleAbbreviation(position)
-        if not observed:
-            return None
-        normalized = self.vocabulary.roleNormalize(observed)
-        if normalized.resolved:
-            return str(normalized.value)
-        folded = observed.casefold()
+    def _uniqueDefinitionMatch(self, text: str) -> str | None:
+        folded = text.casefold()
         matches = [
             definition.roleCode
             for definition in self.roleKnowledge.definitionsList()
-            if definition.displayName.casefold() == folded
+            if definition.roleCode.casefold() == folded
+            or definition.displayName.casefold() == folded
             or any(abbreviation.casefold() == folded for abbreviation in definition.abbreviations)
         ]
         return matches[0] if len(matches) == 1 else None

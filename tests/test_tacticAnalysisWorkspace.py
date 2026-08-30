@@ -90,6 +90,7 @@ def testAnalysisDisplayMapsFamilyChangeAndUnavailablePhaseDemand() -> None:
     finishing = next(row for row in display.demand if row.attribute == "Finishing")
     assert finishing.inPossession == "5"
     assert finishing.outOfPossession == "Unavailable"
+    assert finishing.contributors == "1"
 
 
 def testAnalysisTabEmptyShellOmitsPrototypeGenerateButton(qtbot) -> None:  # type: ignore[no-untyped-def]
@@ -156,9 +157,13 @@ def testAnalysisTabShowsDemandDashboardWithoutSquadContent(qtbot) -> None:  # ty
     workRate = next(
         row for row in range(demand.rowCount()) if demand.item(row, 0).text() == "Work Rate"
     )
+    assert [
+        demand.horizontalHeaderItem(column).text() for column in range(demand.columnCount())
+    ] == ["Attribute", "Overall", "IP", "OOP", "Roles"]
     assert demand.item(workRate, 1).text() == "5"
     assert demand.item(workRate, 2).text() == "0"
     assert demand.item(workRate, 3).text() == "5"
+    assert demand.item(workRate, 4).text() == "1"
 
 
 def testAnalysisTabShowsUnavailableWhenNoCompleteWeights(qtbot) -> None:  # type: ignore[no-untyped-def]

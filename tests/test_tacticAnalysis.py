@@ -5,6 +5,8 @@ from pathlib import Path
 import fmsat.core.tacticAnalysis as tacticAnalysisModule
 from fmsat.core.config import Configuration
 from fmsat.core.parser import TacticVocabulary
+from fmsat.app.tacticAnalysisDisplay import tacticAnalysisDisplayBuild
+from fmsat.core.roleKnowledge import StoredRoleDefinition
 from fmsat.core.tacticAnalysis import TacticAnalysisService, TRACKING_ROLE_CODES
 from fmsat.football.role import Role
 from fmsat.football.roleIdentity import RoleIdentity
@@ -104,6 +106,7 @@ def testAnalysisSumsPackagedScaleWeightsByPhase() -> None:
     assert analysis.slots[0].ipRole.resolutionState == "ready"
     assert analysis.slots[0].oopRole.resolutionState == "ready"
     assert analysis.slots[0].transition.classification == "roleChangeSameFamily"
+    assert tacticAnalysisDisplayBuild(analysis).slots[0].evidence == "Ready"
 
 
 def testAnalysisTreatsTrackingWingerWithoutWeightsAsRecognitionOnly() -> None:
@@ -156,6 +159,7 @@ def testAnalysisOnePhaseMarksTheMissingPhaseWithoutInventingAPartner() -> None:
     assert analysis.slots[0].transition.classification == "unavailable"
     assert analysis.slots[0].linkageUnavailableReason is None
     assert analysis.weightCompletePhaseRoles == 1
+    assert tacticAnalysisDisplayBuild(analysis).slots[0].evidence == "Partial"
 
 
 def testAnalysisUnlinkedElevenPlusElevenExpectsTwentyTwoPhaseRoles() -> None:
@@ -232,6 +236,41 @@ def testAnalysisIgnoresAnAssignedFootballer() -> None:
     ):
         assert "Alpha" not in text
         assert "Charlie" not in text
+
+
+def testAnalysisLeavesUnknownCanonicalRoleUnresolved() -> None:
+    """Unrecognised canonicalRole is not a role identity and must not look like missing weights."""
+
+    analysis = _service({"insideForward": {"dribbling": 4}}).analysisBuild(
+        _tactic((_position("slot-one", "AML", "someUnknownFutureRole"),))
+    )
+
+    assert analysis is not None
+    assert analysis.slots[0].ipRole.roleCode is None
+    assert analysis.slots[0].ipRole.resolutionState == "unresolved"
+    assert analysis.slots[0].ipRole.abbreviation == "Unknown"
+    assert analysis.overallDemand == ()
+
+
+def testAnalysisResolvesAUniqueConfirmedDefinition() -> None:
+    definition = StoredRoleDefinition(
+        roleCode="customChannelRunner",
+        displayName="Channel Runner",
+        abbreviations=("CRN",),
+        positions=("AML",),
+        duties=(),
+        behaviours=(),
+    )
+    analysis = TacticAnalysisService(
+        TacticVocabulary(),
+        _Knowledge({"customChannelRunner": {"pace": 4}}, (definition,)),  # type: ignore[arg-type]
+        Configuration().activeAttributes,
+        "test-policy",
+    ).analysisBuild(_tactic((_position("slot-one", "AML", "CRN"),)))
+
+    assert analysis is not None
+    assert analysis.slots[0].ipRole.roleCode == "customChannelRunner"
+    assert analysis.slots[0].ipRole.resolutionState == "ready"
 
 
 def testAnalysisKeepsObservedAbbreviationWhenRoleIsUnresolved() -> None:
