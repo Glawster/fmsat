@@ -51,6 +51,10 @@ facts. No speculative football judgements are invented.
   empty-shell copy remains requirement 009 when no model exists.
 - Reanalyse from the saved object model and current role-assessment policy
   without regenerating screenshots.
+- Plain-English section guidance and click-accessible explanations for role
+  requirements, attribute demand and structural observations.
+- Explicit per-attribute contributor evidence and factual explanation of role
+  transitions, evidence states and observation calculations.
 
 ## Out of scope
 
@@ -93,6 +97,12 @@ facts. No speculative football judgements are invented.
    demand is recalculated from the saved object model without screenshot OCR.
 8. Core analysis is testable without a Qt event loop. The view does not sum
    weights, classify transitions or resolve roles.
+9. Given a role requirement, attribute demand or structural observation row,
+   when the user clicks it, then a deterministic explanation distinguishes its
+   plain-English meaning, football meaning and calculation evidence.
+10. Given an Attribute Demand explanation, then its contributing phase-roles
+    and weights are shown, and the copy states that demand is not a player
+    rating, percentage or 0–100 score.
 
 ## Dependencies and decisions
 
@@ -140,6 +150,8 @@ Acceptance criteria:
 | 6 No Best XI, depth or recruitment on this tab | `testAnalysisTabShowsDemandDashboardWithoutSquadContent` |
 | 7 Reanalyse from saved model without OCR | `testMainWindowReanalyseReloadsSavedModelWithoutOcr` |
 | 8 Core without Qt; view does not calculate | `tests/test_tacticAnalysis.py`; `app/tacticAnalysisDisplay.py` |
+| 9 Click-accessible structured explanations | `testAnalysisRowsOpenStructuredPlainEnglishExplanation` |
+| 10 Attribute contributor evidence and scale caveat | `tests/test_tacticAnalysis.py`, `testAnalysisRowsOpenStructuredPlainEnglishExplanation` |
 
 ## Change history
 
@@ -152,3 +164,5 @@ Acceptance criteria:
 - 2026-08-28: PR 3 — present demand on the Tactic Analysis tab through
   `MainWindow.tacticShow`; Reanalyse uses the saved object model, not OCR.
 - 2026-08-28: PR 4 — living algorithm guide and requirement completion.
+- 2026-08-30: follow-up — require plain-English guidance, click-accessible
+  deterministic explanations and explicit contributor evidence.

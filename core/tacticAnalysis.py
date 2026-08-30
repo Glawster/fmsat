@@ -115,7 +115,19 @@ class AttributeDemand:
     inPossession: int | None
     outOfPossession: int | None
     contributingPhaseRoles: int
+    contributors: tuple["AttributeDemandContributor", ...]
     unavailableReason: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class AttributeDemandContributor:
+    """One explicit phase-role weight included in an attribute total."""
+
+    phase: PhaseName
+    roleCode: str
+    displayName: str
+    canonicalPosition: str
+    weight: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,6 +138,12 @@ class TacticObservation:
     title: str
     explanation: str
     phase: str = ""
+    roleCode: str | None = None
+    roleDisplayName: str = ""
+    positions: tuple[str, ...] = ()
+    count: int | None = None
+    total: int | None = None
+    attributes: tuple[tuple[str, int], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -442,6 +460,17 @@ class TacticAnalysisService:
                 else None
             )
             contributing = sum(1 for role in completeRoles if attribute in (role.weights or {}))
+            contributors = tuple(
+                AttributeDemandContributor(
+                    phase=role.phase,
+                    roleCode=role.roleCode or "",
+                    displayName=role.displayName,
+                    canonicalPosition=role.canonicalPosition,
+                    weight=(role.weights or {})[attribute],
+                )
+                for role in completeRoles
+                if attribute in (role.weights or {})
+            )
             rows.append(
                 AttributeDemand(
                     attribute=attribute,
@@ -455,6 +484,7 @@ class TacticAnalysisService:
                     inPossession=ipTotal,
                     outOfPossession=oopTotal,
                     contributingPhaseRoles=contributing,
+                    contributors=contributors,
                     unavailableReason=None,
                 )
             )
@@ -543,6 +573,10 @@ class TacticAnalysisService:
                     name,
                     f"{name} is used in {len(positions)} {phase} slots: " + ", ".join(positions),
                     phase,
+                    roleCode=roleCode,
+                    roleDisplayName=name,
+                    positions=tuple(positions),
+                    count=len(positions),
                 )
             )
         return tuple(observations)
@@ -571,6 +605,7 @@ class TacticAnalysisService:
                             f"{leftCode}/{rightCode}",
                             f"{leftCode}/{rightCode} role identity is unresolved",
                             phase,
+                            positions=(leftCode, rightCode),
                         )
                     )
                     continue
@@ -582,23 +617,35 @@ class TacticAnalysisService:
                         f"{leftCode}/{rightCode}",
                         f"{leftCode} {left.displayName} vs {rightCode} {right.displayName}",
                         phase,
+                        positions=(leftCode, rightCode),
                     )
                 )
         return tuple(observations)
 
     @staticmethod
     def _trackingCount(slots: tuple[TacticSlotDemand, ...]) -> TacticObservation:
-        codes = tuple(
-            role.roleCode
+        roles = tuple(
+            role
             for slot in slots
             for role in (slot.ipRole, slot.oopRole)
             if role.roleCode in TRACKING_ROLE_CODES
         )
-        if not codes:
+        if not roles:
             explanation = "0 tracking phase-roles"
         else:
-            explanation = f"{len(codes)} tracking phase-roles ({', '.join(codes)})"
-        return TacticObservation("trackingRoleCount", "Tracking roles", explanation)
+            explanation = (
+                f"{len(roles)} tracking phase-roles "
+                f"({', '.join(role.roleCode or '' for role in roles)})"
+            )
+        return TacticObservation(
+            "trackingRoleCount",
+            "Tracking roles",
+            explanation,
+            positions=tuple(
+                f"{role.phase} {role.canonicalPosition} — {role.displayName}" for role in roles
+            ),
+            count=len(roles),
+        )
 
     @staticmethod
     def _familyChangeCount(slots: tuple[TacticSlotDemand, ...]) -> TacticObservation | None:
@@ -614,6 +661,8 @@ class TacticAnalysisService:
             "familyChangeCount",
             "Family changes",
             f"{changed} of {len(classifiable)} slots classifiable",
+            count=changed,
+            total=len(classifiable),
         )
 
     @staticmethod
@@ -624,7 +673,14 @@ class TacticAnalysisService:
         explanation = ", ".join(
             f"{row.displayName} {row.overall}" for row in top if row.overall is not None
         )
-        return TacticObservation("demandConcentration", "Demand concentration", explanation)
+        return TacticObservation(
+            "demandConcentration",
+            "Highest combined attribute demands",
+            explanation,
+            attributes=tuple(
+                (row.displayName, row.overall) for row in top if row.overall is not None
+            ),
+        )
 
     ## evidence helpers
 

@@ -179,6 +179,19 @@ on every tab. Reanalyse rebuilds demand from the saved model and current policy,
 confirms success in the status bar. The tooltip states that it does not regenerate
 screenshots.
 
+Each section includes a short description of what its values represent. Selecting any
+table row opens **Explain this**, which separates:
+
+- what the result means in plain English;
+- its factual football meaning; and
+- how FMSAT calculated it from structured evidence.
+
+Attribute explanations list every contributing phase-role, canonical position and
+weight. Role Requirement explanations describe the linked IP/OOP positions, roles,
+transition class and evidence state. Structural Observation explanations use explicit
+role, position, count and top-demand evidence retained by the core result. These strings
+are deterministic display mappings; no LLM or squad information is consulted.
+
 Best XI, role-depth primary/backup and player names do not appear on this tab.
 
 ## Boundaries

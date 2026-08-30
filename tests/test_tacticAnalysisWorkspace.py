@@ -4,7 +4,7 @@ from unittest.mock import Mock
 
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QSignalSpy
-from PySide6.QtWidgets import QLabel, QPushButton, QTableWidget
+from PySide6.QtWidgets import QDialog, QLabel, QPushButton, QTableWidget
 
 from fmsat.app.tacticAnalysisDisplay import tacticAnalysisDisplayBuild
 from fmsat.app.tacticAnalysisWorkspace import AnalysisTab
@@ -164,6 +164,31 @@ def testAnalysisTabShowsDemandDashboardWithoutSquadContent(qtbot) -> None:  # ty
     assert demand.item(workRate, 2).text() == "0"
     assert demand.item(workRate, 3).text() == "5"
     assert demand.item(workRate, 4).text() == "1"
+    assert any(
+        "combined role-assessment weights" in label.text() for label in tab.findChildren(QLabel)
+    )
+
+
+def testAnalysisRowsOpenStructuredPlainEnglishExplanation(qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    analysis = _analysis(
+        {"insideForward": {"decisions": 7}},
+        _tactic((_position("slot-one", "AML", "insideForward"),)),
+    )
+    tab = AnalysisTab(analysis)
+    qtbot.addWidget(tab)
+    opened: list[QDialog] = []
+    monkeypatch.setattr(QDialog, "exec", lambda dialog: opened.append(dialog))
+
+    demand = tab.findChild(QTableWidget, "tacticDemandTable")
+    demand.cellClicked.emit(0, 1)
+
+    assert len(opened) == 1
+    labels = [label.text() for label in opened[0].findChildren(QLabel)]
+    assert "What this means" in labels
+    assert "Football meaning" in labels
+    assert "How FMSAT calculated it" in labels
+    assert any("not a player rating" in label for label in labels)
+    assert any("IP AML — Inside Forward: weight 7" in label for label in labels)
 
 
 def testAnalysisTabShowsUnavailableWhenNoCompleteWeights(qtbot) -> None:  # type: ignore[no-untyped-def]

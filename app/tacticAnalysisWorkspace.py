@@ -15,7 +15,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from fmsat.app.tacticAnalysisDisplay import TacticAnalysisDisplay, tacticAnalysisDisplayBuild
+from fmsat.app.tacticAnalysisDisplay import (
+    TacticAnalysisDisplay,
+    TacticExplanationDisplay,
+    tacticAnalysisDisplayBuild,
+)
+from fmsat.app.tacticAnalysisExplanationDialog import TacticAnalysisExplanationDialog
 from fmsat.core.tacticAnalysis import TacticAnalysis
 
 
@@ -97,13 +102,24 @@ class AnalysisTab(QWidget):
         for column in range(4):
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
-        return self._card("Role Requirements", table)
+        table.cellClicked.connect(
+            lambda row, _column: self._explanationShow(display.slots[row].explanation)
+        )
+        return self._card(
+            "Role Requirements",
+            table,
+            "What each tactical position is expected to do with and without the ball. Click a row to explain it.",
+        )
 
     def _demandCard(self, display: TacticAnalysisDisplay) -> QFrame:
         if not display.demand:
             label = QLabel("Unavailable")
             label.setObjectName("mutedText")
-            return self._card("Attribute Demand", label)
+            return self._card(
+                "Attribute Demand",
+                label,
+                "Higher numbers mean more role definitions place importance on that attribute. These are combined role-assessment weights, not percentages or player scores.",
+            )
         table = self._table(
             ("Attribute", "Overall", "IP", "OOP", "Roles"),
             "tacticDemandTable",
@@ -128,7 +144,14 @@ class AnalysisTab(QWidget):
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         for column in range(1, 5):
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
-        return self._card("Attribute Demand", table)
+        table.cellClicked.connect(
+            lambda row, _column: self._explanationShow(display.demand[row].explanation)
+        )
+        return self._card(
+            "Attribute Demand",
+            table,
+            "Higher numbers mean more role definitions place importance on that attribute. These are combined role-assessment weights, not percentages or player scores. Click a row to explain it.",
+        )
 
     def _observationsCard(self, display: TacticAnalysisDisplay) -> QFrame:
         if not display.observations:
@@ -138,7 +161,11 @@ class AnalysisTab(QWidget):
             )
             label.setObjectName("mutedText")
             label.setWordWrap(True)
-            return self._card("Structural Observations", label)
+            return self._card(
+                "Structural Observations",
+                label,
+                "Notable factual patterns in how the tactic is structured and changes between possession phases.",
+            )
         table = self._table(("Phase", "Finding", "Evidence"), "tacticObservationsTable")
         table.setRowCount(len(display.observations))
         for row, item in enumerate(display.observations):
@@ -150,24 +177,45 @@ class AnalysisTab(QWidget):
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        return self._card("Structural Observations", table)
+        table.cellClicked.connect(
+            lambda row, _column: self._explanationShow(display.observations[row].explanation)
+        )
+        return self._card(
+            "Structural Observations",
+            table,
+            "Notable factual patterns in how the tactic is structured and changes between possession phases. Click a row to explain it.",
+        )
 
     @staticmethod
-    def _card(title: str, widget: QWidget) -> QFrame:
+    def _card(title: str, widget: QWidget, guidance: str = "") -> QFrame:
         panel = QFrame()
         panel.setObjectName("overviewPanel")
         layout = QVBoxLayout(panel)
         heading = QLabel(title)
         heading.setObjectName("cardTitle")
         layout.addWidget(heading)
+        if guidance:
+            copy = QLabel(guidance)
+            copy.setObjectName("mutedText")
+            copy.setWordWrap(True)
+            layout.addWidget(copy)
         layout.addWidget(widget)
         return panel
+
+    def _explanationShow(self, explanation: TacticExplanationDisplay) -> None:
+        """Open the reusable click-accessible explanation for one selected row."""
+
+        dialog = TacticAnalysisExplanationDialog(explanation, self)
+        dialog.exec()
 
     def _table(self, headers: tuple[str, ...], objectName: str) -> QTableWidget:
         table = QTableWidget(0, len(headers), self)
         table.setObjectName(objectName)
         table.setAlternatingRowColors(True)
         table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        table.setToolTip("Select a row to explain it")
         table.setHorizontalHeaderLabels(headers)
         table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
         table.verticalHeader().setDefaultSectionSize(28)

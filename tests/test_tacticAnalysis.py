@@ -101,6 +101,15 @@ def testAnalysisSumsPackagedScaleWeightsByPhase() -> None:
     workRate = next(row for row in analysis.overallDemand if row.attribute == "work_rate")
     assert (workRate.overall, workRate.inPossession, workRate.outOfPossession) == (5, 0, 5)
     assert workRate.contributingPhaseRoles == 1
+    assert tuple(
+        (
+            contributor.phase,
+            contributor.canonicalPosition,
+            contributor.roleCode,
+            contributor.weight,
+        )
+        for contributor in workRate.contributors
+    ) == (("OOP", "AMC", "trackingAttackingMidfielder", 5),)
     finishing = next(row for row in analysis.overallDemand if row.attribute == "finishing")
     assert (finishing.overall, finishing.inPossession, finishing.outOfPossession) == (5, 5, 0)
     assert analysis.slots[0].ipRole.resolutionState == "ready"
