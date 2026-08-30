@@ -105,14 +105,13 @@ class AnalysisTab(QWidget):
             label.setObjectName("mutedText")
             return self._card("Attribute Demand", label)
         table = self._table(
-            ("Attribute", "Overall", "IP", "OOP", "Roles"),
+            ("Attribute", "IP", "OOP", "Roles"),
             "tacticDemandTable",
         )
         table.setRowCount(len(display.demand))
         for row, item in enumerate(display.demand):
             values = (
                 item.attribute,
-                item.overall,
                 item.inPossession,
                 item.outOfPossession,
                 item.contributors,
@@ -126,7 +125,7 @@ class AnalysisTab(QWidget):
             table.setRowHeight(row, 28)
         header = table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        for column in range(1, 5):
+        for column in range(1, 4):
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
         return self._card("Attribute Demand", table)
 
