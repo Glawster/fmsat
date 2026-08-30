@@ -72,7 +72,7 @@ class TacticAnalysisDisplay:
 
 
 def tacticAnalysisDisplayBuild(analysis: TacticAnalysis) -> TacticAnalysisDisplay:
-    """Adapt core demand results into table strings without recalculating them."""
+    """Adapt core demand results into table strings without recalculating weights."""
 
     coverage = f"{analysis.weightCompletePhaseRoles}/{analysis.weightExpectedPhaseRoles}"
     banner = f"Policy: {analysis.scoringIdentity} · {coverage} phase-roles ready"
@@ -84,9 +84,10 @@ def tacticAnalysisDisplayBuild(analysis: TacticAnalysis) -> TacticAnalysisDispla
         banner=banner,
         slots=tuple(_slotDisplay(slot) for slot in analysis.slots),
         demand=tuple(_demandDisplay(row) for row in analysis.overallDemand),
-        observations=tuple(
-            _observationDisplay(item, roleAbbreviations, positionAbbreviations)
-            for item in analysis.observations
+        observations=_observationDisplays(
+            analysis,
+            roleAbbreviations,
+            positionAbbreviations,
         ),
     )
 
@@ -239,18 +240,21 @@ def _demandExplanation(row: AttributeDemand) -> TacticExplanationDisplay:
         for item in row.contributors
     )
     calculation = (
-        f"Overall is the sum of the {row.displayName} assessment weights for the ready "
-        "role definitions used by the tactic. "
-        f"In Possession contributes {_number(row.inPossession)} and Out Of Possession "
-        f"contributes {_number(row.outOfPossession)}.\n\nContributing phase-roles:\n{contributors}"
+        f"In Possession demand is {_number(row.inPossession)} and Out Of Possession demand "
+        f"is {_number(row.outOfPossession)}. Each phase is the sum of the {row.displayName} "
+        "assessment weights for ready role definitions used in that phase.\n\n"
+        f"Contributing phase-roles:\n{contributors}"
     )
     return TacticExplanationDisplay(
-        title=f"{row.displayName} — Overall demand: {_number(row.overall)}",
+        title=f"{row.displayName} — phase demand",
         meaning=(
             f"{row.contributingPhaseRoles} assessed phase-role"
-            f"{'s' if row.contributingPhaseRoles != 1 else ''} contribute to this combined demand."
+            f"{'s' if row.contributingPhaseRoles != 1 else ''} contribute to this attribute."
         ),
-        footballMeaning=f"This tactic places a combined role-definition demand on {row.displayName}.",
+        footballMeaning=(
+            f"This tactic has separate In Possession and Out Of Possession demand for "
+            f"{row.displayName}; the phases are not combined into an overall score."
+        ),
         calculation=calculation + "\n\nThis is not a player rating, percentage, or 0–100 score.",
     )
 
@@ -277,6 +281,68 @@ def _positionRoleAbbreviations(
             if role.canonicalPosition and role.abbreviation:
                 result[(role.phase, role.canonicalPosition)] = role.abbreviation
     return result
+
+
+def _observationDisplays(
+    analysis: TacticAnalysis,
+    roleAbbreviations: dict[str, str],
+    positionAbbreviations: dict[tuple[str, str], str],
+) -> tuple[TacticObservationDisplay, ...]:
+    """Map observations and replace obsolete combined demand with phase-specific rows."""
+
+    rows = [
+        _observationDisplay(item, roleAbbreviations, positionAbbreviations)
+        for item in analysis.observations
+        if item.code != "demandConcentration"
+    ]
+    for phase in ("IP", "OOP"):
+        phaseRow = _phaseDemandObservationDisplay(phase, analysis.overallDemand)
+        if phaseRow is not None:
+            rows.append(phaseRow)
+    return tuple(rows)
+
+
+def _phaseDemandObservationDisplay(
+    phase: str,
+    demand: tuple[AttributeDemand, ...],
+) -> TacticObservationDisplay | None:
+    """Show the three highest already-calculated demands for one possession phase."""
+
+    if phase == "IP":
+        values = tuple(
+            (row.displayName, row.inPossession)
+            for row in demand
+            if row.inPossession is not None
+        )
+    else:
+        values = tuple(
+            (row.displayName, row.outOfPossession)
+            for row in demand
+            if row.outOfPossession is not None
+        )
+    ranked = tuple(sorted(values, key=lambda item: (-int(item[1] or 0), item[0])))[:3]
+    if not ranked:
+        return None
+    evidence = ", ".join(f"{name} {value}" for name, value in ranked)
+    phaseName = "In Possession" if phase == "IP" else "Out Of Possession"
+    explanation = TacticExplanationDisplay(
+        title=f"Highest {phase} attribute demands",
+        meaning=f"These are the three highest attribute-demand totals in the {phaseName} phase: {evidence}.",
+        footballMeaning=(
+            "This is a phase-specific demand pattern. It does not combine demands from "
+            "the other possession phase."
+        ),
+        calculation=(
+            f"FMSAT ordered the already-calculated {phaseName} Attribute Demand totals "
+            "and selected the first three."
+        ),
+    )
+    return TacticObservationDisplay(
+        phase=phase,
+        finding="Highest attribute demands",
+        evidence=evidence,
+        explanation=explanation,
+    )
 
 
 def _observationDisplay(
@@ -344,11 +410,9 @@ def _observationExplanation(item: TacticObservation) -> TacticExplanationDisplay
         calculation = "FMSAT counted linked slots whose IP and OOP canonical position families both resolve, then counted those whose families differ."
     else:
         values = ", ".join(f"{name} {value}" for name, value in item.attributes)
-        meaning = f"These are the highest combined attribute demands across the tactic: {values}."
-        football = "This does not mean these attributes are automatically the most important for every individual player."
-        calculation = (
-            "FMSAT ordered the raw combined Attribute Demand totals and selected the first three."
-        )
+        meaning = f"Legacy combined demand observation: {values}."
+        football = "This combined observation is retained in core compatibility data but is not shown in the Analysis table."
+        calculation = "The UI replaces this legacy combined observation with separate IP and OOP demand observations."
     return TacticExplanationDisplay(item.title, meaning, football, calculation)
 
 
