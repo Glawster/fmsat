@@ -1,6 +1,6 @@
 # FMSAT requirements
 
-The next available requirement number is **012**.
+The next available requirement number is **013**.
 
 | ID | Requirement | Status | Source prompt | ADR |
 | --- | --- | --- | --- | --- |
@@ -15,6 +15,7 @@ The next available requirement number is **012**.
 | 009 | [Tactic detail management](features/009-tacticDetailManagement.md) | InProgress | [Prompt](prompt/009-tacticDetailManagement.md) | — |
 | 010 | [Position, attribute and role definitions](features/010-positionAttributeRoleDefinitions.md) | InProgress | [Prompt](prompt/010-positionAttributeRoleDefinitions.md) | — |
 | 011 | [Tactic demand analysis](features/011-tacticDemandAnalysis.md) | Completed | [Prompt](prompt/011-tacticDemandAnalysis.md) | — |
+| 012 | [FM27 tactical model compatibility](features/012-fm27TacticalModelCompatibility.md) | ToDo | [Prompt](prompt/012-fm27TacticalModelCompatibility.md) | — |
 
 Requirement records are stable statements of intent. Update their status as work
 progresses; put changing implementation guidance in `../../documentation/`.
